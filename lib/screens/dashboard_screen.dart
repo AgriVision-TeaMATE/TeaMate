@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme.dart';
+import 'fields_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -137,9 +138,14 @@ class DashboardScreen extends StatelessWidget {
                 const SizedBox(width: 16),
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: () {},
-                    icon: const Icon(Icons.camera_alt_outlined, size: 20),
-                    label: const Text('Upload Image', style: TextStyle(fontWeight: FontWeight.bold)),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const FieldsScreen()),
+                      );
+                    },
+                    icon: const Icon(Icons.list_alt_outlined, size: 20),
+                    label: const Text('Go to Fields Screen', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                   ),
                 ),
               ],
