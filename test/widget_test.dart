@@ -11,20 +11,28 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:teamate_mobile/main.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
+  testWidgets('TeaMate dashboard and navigation smoke test', (
+    WidgetTester tester,
+  ) async {
     await tester.pumpWidget(const TeaMateApp());
+    await tester.pumpAndSettle();
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    expect(find.text('TeaMate'), findsOneWidget);
+    expect(find.text('Yield Optimization Command Center'), findsOneWidget);
+    expect(find.text('Home'), findsOneWidget);
+    expect(find.text('Yield'), findsOneWidget);
+    expect(find.text('Alerts'), findsOneWidget);
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+    await tester.tap(find.text('Yield'));
+    await tester.pumpAndSettle();
+    expect(find.text('Yield Optimization'), findsOneWidget);
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    await tester.tap(find.text('Alerts'));
+    await tester.pumpAndSettle();
+    expect(find.text('Notifications'), findsOneWidget);
+
+    await tester.tap(find.text('Home'));
+    await tester.pumpAndSettle();
+    expect(find.text('Field Routing Priority'), findsOneWidget);
   });
 }

@@ -69,10 +69,8 @@ class _FieldsScreenState extends State<FieldsScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => FieldAnalysisScreen(
-          fieldId: field.id,
-          measurementId: draft.id,
-        ),
+        builder: (context) =>
+            FieldAnalysisScreen(fieldId: field.id, measurementId: draft.id),
       ),
     );
   }
@@ -197,10 +195,7 @@ class _EmptyFieldState extends StatelessWidget {
             const Text(
               'Start by creating a field. Each field can hold multiple bud-analysis history records.',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                color: AppTheme.textSecondary,
-                height: 1.5,
-              ),
+              style: TextStyle(color: AppTheme.textSecondary, height: 1.5),
             ),
             const SizedBox(height: 20),
             ElevatedButton(
@@ -359,6 +354,15 @@ class _FieldCardState extends State<_FieldCard> {
                               ),
                             ),
                             const SizedBox(height: 10),
+                            Text(
+                              '${field.region} • ${field.areaHectares.toStringAsFixed(1)} ha',
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: AppTheme.textSecondary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
                             Row(
                               children: [
                                 Container(
@@ -377,7 +381,8 @@ class _FieldCardState extends State<_FieldCard> {
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       const Text(
                                         'Latest record',
@@ -391,7 +396,7 @@ class _FieldCardState extends State<_FieldCard> {
                                       Text(
                                         latest == null
                                             ? 'No records yet'
-                                            : formatDateTime(latest.date),
+                                            : '${formatDateTime(latest.date)} • ${latest.laborPriorityLabel}',
                                         style: const TextStyle(
                                           fontSize: 13,
                                           color: Color(0xFF4C5E57),
@@ -459,12 +464,16 @@ class _FieldCardState extends State<_FieldCard> {
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: const Color(0xFF0B4F3F),
                                       foregroundColor: Colors.white,
-                                      padding: const EdgeInsets.symmetric(vertical: 14),
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 14,
+                                      ),
                                       shape: RoundedRectangleBorder(
                                         borderRadius: BorderRadius.circular(12),
                                       ),
                                     ),
-                                    icon: const Icon(Icons.auto_awesome_motion_outlined),
+                                    icon: const Icon(
+                                      Icons.auto_awesome_motion_outlined,
+                                    ),
                                     label: const Text('New Field Analysis'),
                                   ),
                                 ),
@@ -490,7 +499,9 @@ class _FieldCardState extends State<_FieldCard> {
                                     ),
                                     child: const Text(
                                       'No history records yet. Start the first analysis from the button above.',
-                                      style: TextStyle(color: AppTheme.textSecondary),
+                                      style: TextStyle(
+                                        color: AppTheme.textSecondary,
+                                      ),
                                     ),
                                   )
                                 else
@@ -498,7 +509,8 @@ class _FieldCardState extends State<_FieldCard> {
                                     (measurement) => _HistoryTile(
                                       fieldId: field.id,
                                       measurement: measurement,
-                                      onTap: () => widget.onHistoryTap(measurement),
+                                      onTap: () =>
+                                          widget.onHistoryTap(measurement),
                                     ),
                                   ),
                               ],
@@ -544,7 +556,10 @@ class _FieldCardState extends State<_FieldCard> {
                         child: const Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.delete_outline_rounded, color: Colors.white),
+                            Icon(
+                              Icons.delete_outline_rounded,
+                              color: Colors.white,
+                            ),
                             SizedBox(height: 6),
                             Text(
                               'Delete',
@@ -581,10 +596,7 @@ class _MetricTile extends StatelessWidget {
   final String title;
   final String value;
 
-  const _MetricTile({
-    required this.title,
-    required this.value,
-  });
+  const _MetricTile({required this.title, required this.value});
 
   @override
   Widget build(BuildContext context) {
@@ -753,7 +765,11 @@ class _HistoryTileState extends State<_HistoryTile> {
                 child: const Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.delete_outline_rounded, color: Colors.white, size: 20),
+                    Icon(
+                      Icons.delete_outline_rounded,
+                      color: Colors.white,
+                      size: 20,
+                    ),
                     SizedBox(height: 4),
                     Text(
                       'Delete',
@@ -803,37 +819,6 @@ class _HistoryTileState extends State<_HistoryTile> {
   }
 }
 
-class _PillLabel extends StatelessWidget {
-  final String label;
-  final Color backgroundColor;
-  final Color textColor;
-
-  const _PillLabel({
-    required this.label,
-    required this.backgroundColor,
-    required this.textColor,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: textColor,
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-    );
-  }
-}
-
 String formatDateTime(DateTime value) {
   const months = [
     'Jan',
@@ -852,8 +837,8 @@ String formatDateTime(DateTime value) {
   final hour = value.hour == 0
       ? 12
       : value.hour > 12
-          ? value.hour - 12
-          : value.hour;
+      ? value.hour - 12
+      : value.hour;
   final minute = value.minute.toString().padLeft(2, '0');
   final period = value.hour >= 12 ? 'PM' : 'AM';
   return '${value.day.toString().padLeft(2, '0')} ${months[value.month - 1]} ${value.year} | ${hour.toString().padLeft(2, '0')}:$minute $period';

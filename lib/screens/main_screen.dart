@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dashboard_screen.dart';
-import 'harvesting_analysis_screen.dart';
+import 'fields_screen.dart';
+import 'notifications_screen.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -14,8 +15,8 @@ class _MainScreenState extends State<MainScreen> {
 
   final List<Widget> _screens = [
     const DashboardScreen(),
-    const HarvestingAnalysisScreen(),
-    const Center(child: Text('Insights')),
+    const FieldsScreen(),
+    const NotificationsScreen(),
     const Center(child: Text('Settings')),
   ];
 
@@ -47,14 +48,14 @@ class _MainScreenState extends State<MainScreen> {
               label: 'Home',
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.grid_view_outlined),
-              activeIcon: Icon(Icons.grid_view),
-              label: 'Modules',
+              icon: Icon(Icons.agriculture_outlined),
+              activeIcon: Icon(Icons.agriculture),
+              label: 'Yield',
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.insights_outlined),
-              activeIcon: Icon(Icons.insights),
-              label: 'Insights',
+              icon: Icon(Icons.notifications_none_rounded),
+              activeIcon: Icon(Icons.notifications),
+              label: 'Alerts',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.settings_outlined),

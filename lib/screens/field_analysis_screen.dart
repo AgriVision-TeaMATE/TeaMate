@@ -44,6 +44,11 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
     _measurement = _field.measurements.firstWhere(
       (measurement) => measurement.id == widget.measurementId,
     );
+    _measurement = manager.hydrateMeasurementSupportData(
+      widget.fieldId,
+      _measurement,
+    );
+    manager.saveMeasurement(widget.fieldId, _measurement);
   }
 
   @override
@@ -53,7 +58,10 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
   }
 
   Future<void> _pickImage(ImageSource source) async {
-    final pickedFile = await _picker.pickImage(source: source, imageQuality: 85);
+    final pickedFile = await _picker.pickImage(
+      source: source,
+      imageQuality: 85,
+    );
     if (pickedFile == null) {
       return;
     }
@@ -91,23 +99,32 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
       _analysisStatus = null;
     });
 
-    final analyzedImages = List<AnalysisImageResult>.from(_measurement.analyzedImages);
+    final analyzedImages = List<AnalysisImageResult>.from(
+      _measurement.analyzedImages,
+    );
     final pendingCopy = List<_PendingImage>.from(_pendingImages);
 
     for (var index = 0; index < pendingCopy.length; index++) {
       setState(() {
-        _analysisStatus = 'Analyzing image ${index + 1} of ${pendingCopy.length}';
+        _analysisStatus =
+            'Analyzing image ${index + 1} of ${pendingCopy.length}';
       });
       await Future<void>.delayed(const Duration(milliseconds: 450));
-      analyzedImages.add(_mockAnalyzeImage(pendingCopy[index], index + analyzedImages.length));
+      analyzedImages.add(
+        _mockAnalyzeImage(pendingCopy[index], index + analyzedImages.length),
+      );
     }
 
-    _measurement = _measurement.copyWith(
-      analyzedImages: analyzedImages,
-      date: DateTime.now(),
-      clearPrediction: true,
+    final manager = FieldManager();
+    _measurement = manager.hydrateMeasurementSupportData(
+      widget.fieldId,
+      _measurement.copyWith(
+        analyzedImages: analyzedImages,
+        date: DateTime.now(),
+        clearPrediction: true,
+      ),
     );
-    FieldManager().saveMeasurement(widget.fieldId, _measurement);
+    manager.saveMeasurement(widget.fieldId, _measurement);
 
     setState(() {
       _pendingImages.clear();
@@ -119,7 +136,9 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
 
   Future<void> _showPredictYieldSheet() async {
     final controller = TextEditingController(
-      text: _measurement.fieldArea?.toStringAsFixed(1) ?? '',
+      text:
+          _measurement.fieldArea?.toStringAsFixed(1) ??
+          _field.areaHectares.toStringAsFixed(1),
     );
 
     final result = await showModalBottomSheet<double>(
@@ -153,18 +172,17 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
                 ),
                 const SizedBox(height: 8),
                 const Text(
-                  'Enter the full field area. This UI uses a mock calculation for now.',
-                  style: TextStyle(
-                    color: AppTheme.textSecondary,
-                    height: 1.5,
-                  ),
+                  'Use analyzed bud counts and full field area to estimate harvest output for planning.',
+                  style: TextStyle(color: AppTheme.textSecondary, height: 1.5),
                 ),
                 const SizedBox(height: 18),
                 TextField(
                   controller: controller,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
                   decoration: InputDecoration(
-                    labelText: 'Field area',
+                    labelText: 'Field area (hectares)',
                     hintText: 'Ex: 2.5',
                     filled: true,
                     fillColor: const Color(0xFFF5F7F6),
@@ -200,18 +218,111 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
     }
 
     final predictedYield = _calculatePredictedYield(result);
+    final manager = FieldManager();
     setState(() {
-      _measurement = _measurement.copyWith(
-        fieldArea: result,
-        predictedYieldKg: predictedYield,
+      _measurement = manager.hydrateMeasurementSupportData(
+        widget.fieldId,
+        _measurement.copyWith(
+          fieldArea: result,
+          predictedYieldKg: predictedYield,
+        ),
       );
     });
-    FieldManager().saveMeasurement(widget.fieldId, _measurement);
+    manager.saveMeasurement(widget.fieldId, _measurement);
+  }
+
+  Future<void> _showActualYieldSheet() async {
+    final controller = TextEditingController(
+      text: _measurement.actualYieldKg?.toStringAsFixed(1) ?? '',
+    );
+
+    final result = await showModalBottomSheet<double>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return Padding(
+          padding: EdgeInsets.only(
+            left: 20,
+            right: 20,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+          ),
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Log actual yield',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.5,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Enter the actual scale weight after plucking to compare with the prediction and detect over-plucking.',
+                  style: TextStyle(color: AppTheme.textSecondary, height: 1.5),
+                ),
+                const SizedBox(height: 18),
+                TextField(
+                  controller: controller,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  decoration: InputDecoration(
+                    labelText: 'Actual yield (kg)',
+                    hintText: 'Ex: 195.0',
+                    filled: true,
+                    fillColor: const Color(0xFFF5F7F6),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      final actual = double.tryParse(controller.text.trim());
+                      if (actual == null || actual <= 0) {
+                        return;
+                      }
+                      Navigator.pop(context, actual);
+                    },
+                    child: const Text('Save Actual Yield'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (result == null) {
+      return;
+    }
+
+    final manager = FieldManager();
+    setState(() {
+      _measurement = _measurement.copyWith(actualYieldKg: result);
+    });
+    manager.saveMeasurement(widget.fieldId, _measurement);
   }
 
   double _calculatePredictedYield(double fieldArea) {
     final summary = _measurement;
-    final budStrength = (summary.totalPluckableCount * 0.42) +
+    final budStrength =
+        (summary.totalPluckableCount * 0.42) +
         (summary.totalArimbuCount * 0.18);
     final maturityFactor = 0.92 + (summary.averagePluckableRatio * 0.35);
     return budStrength * fieldArea * maturityFactor;
@@ -251,9 +362,9 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
   }
 
   List<_GalleryItem> get _galleryItems => [
-        ..._measurement.analyzedImages.map(_GalleryItem.analyzed),
-        ..._pendingImages.map(_GalleryItem.pending),
-      ];
+    ..._measurement.analyzedImages.map(_GalleryItem.analyzed),
+    ..._pendingImages.map(_GalleryItem.pending),
+  ];
 
   _GalleryItem? get _selectedItem {
     if (_galleryItems.isEmpty) {
@@ -271,6 +382,11 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
   @override
   Widget build(BuildContext context) {
     final selected = _selectedItem;
+    final alerts = FieldManager().buildInsightsForMeasurement(
+      _field,
+      _measurement,
+    );
+
     return PopScope(
       canPop: true,
       onPopInvokedWithResult: (didPop, __) {
@@ -301,7 +417,7 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
                 ),
               ),
               Text(
-                'Field bud analysis',
+                '${_field.region} • ${_field.areaHectares.toStringAsFixed(1)} ha',
                 style: TextStyle(
                   color: Colors.grey.shade600,
                   fontSize: 12,
@@ -316,6 +432,12 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              _buildDecisionHero(),
+              const SizedBox(height: 18),
+              _buildAlertsSection(alerts),
+              const SizedBox(height: 18),
+              _buildPlanningCards(),
+              const SizedBox(height: 18),
               _buildCapturePanel(),
               const SizedBox(height: 18),
               _buildAnalyzeSection(),
@@ -333,23 +455,187 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
               ],
               if (_measurement.analyzedImages.length >= _minimumImages) ...[
                 const SizedBox(height: 18),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: _showPredictYieldSheet,
-                    icon: const Icon(Icons.insights_outlined),
-                    label: Text(
-                      _measurement.predictedYieldKg == null
-                          ? 'Predict Yield'
-                          : 'Update Yield Prediction',
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: _showPredictYieldSheet,
+                        icon: const Icon(Icons.insights_outlined),
+                        label: Text(
+                          _measurement.predictedYieldKg == null
+                              ? 'Predict Yield'
+                              : 'Update Prediction',
+                        ),
+                      ),
                     ),
-                  ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _measurement.predictedYieldKg == null
+                            ? null
+                            : _showActualYieldSheet,
+                        icon: const Icon(Icons.scale_outlined),
+                        label: Text(
+                          _measurement.actualYieldKg == null
+                              ? 'Log Actual Yield'
+                              : 'Update Actual Yield',
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
+                const SizedBox(height: 18),
+                _buildComparisonCard(),
               ],
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildDecisionHero() {
+    final weather = _measurement.weather;
+    final predicted = _measurement.predictedYieldKg;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: const Color(0xFF10231F),
+        borderRadius: BorderRadius.circular(28),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              _ReadinessTag(isReady: _measurement.isReadyToPluck),
+              const Spacer(),
+              if (_measurement.hasOverPluckingRisk)
+                const _RiskTag(
+                  label: 'Over-plucking risk',
+                  background: Color(0xFFFBE6E6),
+                  foreground: Color(0xFFC04B4B),
+                ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          const Text(
+            'Pre-plucking decision status',
+            style: TextStyle(
+              color: Colors.white70,
+              fontSize: 12,
+              letterSpacing: 0.8,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            _measurement.readinessLabel,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 28,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.8,
+            ),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            weather == null
+                ? 'Weather-based timing will appear after support data is prepared.'
+                : '${weather.summary} • ${weather.temperatureC.toStringAsFixed(1)}°C • ${weather.rainChance}% rain chance',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.78),
+              height: 1.45,
+            ),
+          ),
+          const SizedBox(height: 18),
+          Row(
+            children: [
+              Expanded(
+                child: _HeroMetricTile(
+                  label: 'Predicted yield',
+                  value: predicted == null
+                      ? '--'
+                      : '${predicted.toStringAsFixed(1)} kg',
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _HeroMetricTile(
+                  label: 'Pluckable ratio',
+                  value: _measurement.analyzedImages.isEmpty
+                      ? '--'
+                      : '${(_measurement.averagePluckableRatio * 100).toStringAsFixed(1)}%',
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAlertsSection(List<InsightAlert> alerts) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Key Insights',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -0.3,
+          ),
+        ),
+        const SizedBox(height: 12),
+        ...alerts.map((alert) => _InsightTile(alert: alert)),
+      ],
+    );
+  }
+
+  Widget _buildPlanningCards() {
+    final weather = _measurement.weather;
+    final labor = _measurement.laborPlan;
+
+    return Row(
+      children: [
+        Expanded(
+          child: _PlanningCard(
+            icon: Icons.cloud_outlined,
+            title: 'Weather Window',
+            lines: [
+              weather == null ? 'No forecast' : weather.summary,
+              weather == null
+                  ? ''
+                  : '${weather.temperatureC.toStringAsFixed(1)}°C • ${weather.humidity}% humidity',
+              weather == null
+                  ? ''
+                  : weather.stormRisk
+                  ? 'Move harvest earlier'
+                  : 'Conditions acceptable for planned round',
+            ],
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _PlanningCard(
+            icon: Icons.groups_2_outlined,
+            title: 'Labor Allocation',
+            lines: [
+              labor == null
+                  ? 'No crew plan'
+                  : '${labor.availableWorkers}/${labor.recommendedWorkers} workers available',
+              labor == null ? '' : 'Round starts ${labor.shiftStart}',
+              labor == null
+                  ? ''
+                  : labor.smsScheduled
+                  ? 'Auto-SMS ready for labor lead'
+                  : 'Send labor reminder needed',
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -381,18 +667,17 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Capture or upload field images one by one from different positions across the field.',
-            style: TextStyle(
-              color: AppTheme.textSecondary,
-              height: 1.5,
-            ),
+            'Capture or upload top-view images from multiple representative spots across the field.',
+            style: TextStyle(color: AppTheme.textSecondary, height: 1.5),
           ),
           const SizedBox(height: 18),
           Row(
             children: [
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: _isAnalyzing ? null : () => _pickImage(ImageSource.camera),
+                  onPressed: _isAnalyzing
+                      ? null
+                      : () => _pickImage(ImageSource.camera),
                   icon: const Icon(Icons.photo_camera_outlined),
                   label: const Text('Camera'),
                 ),
@@ -400,7 +685,9 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
               const SizedBox(width: 12),
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: _isAnalyzing ? null : () => _pickImage(ImageSource.gallery),
+                  onPressed: _isAnalyzing
+                      ? null
+                      : () => _pickImage(ImageSource.gallery),
                   icon: const Icon(Icons.upload_file_outlined),
                   label: const Text('Upload Image'),
                 ),
@@ -456,7 +743,7 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
           const SizedBox(height: 14),
           Text(
             totalImages >= _minimumImages
-                ? 'Ready to analyze. New uploads will be sent one by one to the analysis flow.'
+                ? 'Ready to analyze. Results will feed yield prediction, labor planning, and plucking alerts.'
                 : 'Add at least $_minimumImages images before analysis. Current count: $totalImages',
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.76),
@@ -472,7 +759,7 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
               borderRadius: BorderRadius.circular(16),
             ),
             child: Text(
-              'Special notice: take more than 3 images from different areas of the field for the most accurate result.',
+              'Sampling note: use more than 3 images from separate rows or corners to stabilize the average maturity result.',
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.84),
                 fontSize: 13,
@@ -542,7 +829,9 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
                           height: 18,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: const Color(0xFF00B66D).withValues(alpha: 0.18),
+                            color: const Color(
+                              0xFF00B66D,
+                            ).withValues(alpha: 0.18),
                             border: Border.all(
                               color: const Color(0xFF00B66D),
                               width: 1.4,
@@ -555,13 +844,18 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
                     left: 16,
                     top: 16,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.black.withValues(alpha: 0.5),
                         borderRadius: BorderRadius.circular(999),
                       ),
                       child: Text(
-                        item.analysis == null ? 'Pending' : item.analysis!.sourceLabel,
+                        item.analysis == null
+                            ? 'Pending'
+                            : item.analysis!.sourceLabel,
                         style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.w700,
@@ -593,10 +887,7 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
     return Container(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
-          colors: [
-            Color(0xFF789B79),
-            Color(0xFF264535),
-          ],
+          colors: [Color(0xFF789B79), Color(0xFF264535)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -688,10 +979,7 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
             children: [
               const Text(
                 'Selected image counts',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                ),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
               ),
               Text(
                 '${_currentIndex + 1}/${_galleryItems.length}',
@@ -787,12 +1075,104 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
                     : '${measurement.totalCapturedArea.toStringAsFixed(1)} sq.m',
               ),
               _SummaryStat(
+                label: 'Labor priority',
+                value: measurement.laborPriorityLabel,
+              ),
+              _SummaryStat(
                 label: 'Predicted yield',
                 value: measurement.predictedYieldKg == null
                     ? 'Not predicted yet'
                     : '${measurement.predictedYieldKg!.toStringAsFixed(1)} kg',
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildComparisonCard() {
+    final varianceKg = _measurement.yieldVarianceKg;
+    final variancePercent = _measurement.yieldVariancePercent;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Pre and post plucking comparison',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.4,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Compare predicted yield with actual harvested weight to detect quota dilution and over-plucking.',
+            style: TextStyle(color: AppTheme.textSecondary, height: 1.45),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: _ComparisonMetric(
+                  label: 'Predicted',
+                  value: _measurement.predictedYieldKg == null
+                      ? '--'
+                      : '${_measurement.predictedYieldKg!.toStringAsFixed(1)} kg',
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _ComparisonMetric(
+                  label: 'Actual',
+                  value: _measurement.actualYieldKg == null
+                      ? '--'
+                      : '${_measurement.actualYieldKg!.toStringAsFixed(1)} kg',
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _ComparisonMetric(
+                  label: 'Variance',
+                  value: varianceKg == null
+                      ? '--'
+                      : '${varianceKg.toStringAsFixed(1)} kg',
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: _measurement.hasOverPluckingRisk
+                  ? const Color(0xFFFCEAEA)
+                  : const Color(0xFFF4F7F5),
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: Text(
+              variancePercent == null
+                  ? 'Log the actual post-plucking weight to unlock over-plucking alerts and prediction accuracy review.'
+                  : _measurement.hasOverPluckingRisk
+                  ? 'Alert: actual yield is ${variancePercent.toStringAsFixed(1)}% above the prediction. Review coarse leaf mixing and picking discipline.'
+                  : 'Variance is ${variancePercent.toStringAsFixed(1)}%. Harvest outcome is within an acceptable range.',
+              style: TextStyle(
+                color: _measurement.hasOverPluckingRisk
+                    ? const Color(0xFFC04B4B)
+                    : const Color(0xFF2E7655),
+                fontWeight: FontWeight.w700,
+                height: 1.45,
+              ),
+            ),
           ),
         ],
       ),
@@ -828,19 +1208,13 @@ class _EmptyGalleryState extends StatelessWidget {
           const SizedBox(height: 16),
           const Text(
             'No images added yet',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-            ),
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 8),
           Text(
-            'Add at least $minimumImages images to unlock bud analysis and summary results.',
+            'Add at least $minimumImages images to unlock bud analysis, yield planning, and post-plucking verification.',
             textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: AppTheme.textSecondary,
-              height: 1.5,
-            ),
+            style: const TextStyle(color: AppTheme.textSecondary, height: 1.5),
           ),
         ],
       ),
@@ -852,10 +1226,7 @@ class _CountBox extends StatelessWidget {
   final String title;
   final String value;
 
-  const _CountBox({
-    required this.title,
-    required this.value,
-  });
+  const _CountBox({required this.title, required this.value});
 
   @override
   Widget build(BuildContext context) {
@@ -895,10 +1266,7 @@ class _SummaryStat extends StatelessWidget {
   final String label;
   final String value;
 
-  const _SummaryStat({
-    required this.label,
-    required this.value,
-  });
+  const _SummaryStat({required this.label, required this.value});
 
   @override
   Widget build(BuildContext context) {
@@ -944,7 +1312,9 @@ class _ReadinessTag extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final background = isReady ? AppTheme.accentGreen : const Color(0xFFFBE7D9);
-    final foreground = isReady ? AppTheme.accentGreenText : const Color(0xFFB0601B);
+    final foreground = isReady
+        ? AppTheme.accentGreenText
+        : const Color(0xFFB0601B);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -959,6 +1329,229 @@ class _ReadinessTag extends StatelessWidget {
           fontWeight: FontWeight.w800,
           fontSize: 12,
         ),
+      ),
+    );
+  }
+}
+
+class _RiskTag extends StatelessWidget {
+  final String label;
+  final Color background;
+  final Color foreground;
+
+  const _RiskTag({
+    required this.label,
+    required this.background,
+    required this.foreground,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: foreground,
+          fontWeight: FontWeight.w800,
+          fontSize: 12,
+        ),
+      ),
+    );
+  }
+}
+
+class _HeroMetricTile extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _HeroMetricTile({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.68),
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w800,
+              fontSize: 20,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InsightTile extends StatelessWidget {
+  final InsightAlert alert;
+
+  const _InsightTile({required this.alert});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = switch (alert.severity) {
+      AlertSeverity.critical => const Color(0xFFC04B4B),
+      AlertSeverity.warning => const Color(0xFFB97922),
+      AlertSeverity.info => const Color(0xFF2E7655),
+    };
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(Icons.tips_and_updates_outlined, color: color),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  alert.title,
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  alert.message,
+                  style: const TextStyle(
+                    color: AppTheme.textSecondary,
+                    height: 1.45,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PlanningCard extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final List<String> lines;
+
+  const _PlanningCard({
+    required this.icon,
+    required this.title,
+    required this.lines,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: const BoxDecoration(
+              color: Color(0xFFE8EFEB),
+              borderRadius: BorderRadius.all(Radius.circular(14)),
+            ),
+            child: Icon(icon, color: AppTheme.primaryDark),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            title,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 8),
+          ...lines
+              .where((line) => line.isNotEmpty)
+              .map(
+                (line) => Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Text(
+                    line,
+                    style: const TextStyle(
+                      color: AppTheme.textSecondary,
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+              ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ComparisonMetric extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _ComparisonMetric({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF5F7F6),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              color: AppTheme.textSecondary,
+              fontWeight: FontWeight.w700,
+              fontSize: 12,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+          ),
+        ],
       ),
     );
   }
@@ -982,10 +1575,7 @@ class _GalleryItem {
   final AnalysisImageResult? analysis;
   final _PendingImage? pending;
 
-  const _GalleryItem._({
-    this.analysis,
-    this.pending,
-  });
+  const _GalleryItem._({this.analysis, this.pending});
 
   factory _GalleryItem.analyzed(AnalysisImageResult analysis) =>
       _GalleryItem._(analysis: analysis);
