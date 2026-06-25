@@ -1,5 +1,5 @@
 import 'dart:ui' show Offset;
-import 'dart:math';
+import 'dart:math' show max;
 
 import 'package:flutter/foundation.dart';
 
@@ -289,32 +289,7 @@ class FieldManager extends ChangeNotifier {
             smsScheduled: true,
             focusZones: ['North row', 'Center lane'],
           ),
-          analyzedImages: [
-            _mockImageResult(
-              id: 'img-1',
-              sourceLabel: 'North row',
-              arimbuCount: 24,
-              pluckableCount: 39,
-              capturedArea: 8.2,
-              seed: 1,
-            ),
-            _mockImageResult(
-              id: 'img-2',
-              sourceLabel: 'Center aisle',
-              arimbuCount: 22,
-              pluckableCount: 37,
-              capturedArea: 7.8,
-              seed: 2,
-            ),
-            _mockImageResult(
-              id: 'img-3',
-              sourceLabel: 'South edge',
-              arimbuCount: 20,
-              pluckableCount: 34,
-              capturedArea: 8.5,
-              seed: 3,
-            ),
-          ],
+          analyzedImages: const [],
         ),
       ],
     ),
@@ -345,32 +320,102 @@ class FieldManager extends ChangeNotifier {
             smsScheduled: false,
             focusZones: ['Lower terrace', 'River edge'],
           ),
-          analyzedImages: [
-            _mockImageResult(
-              id: 'img-4',
-              sourceLabel: 'Terrace A',
-              arimbuCount: 28,
-              pluckableCount: 25,
-              capturedArea: 7.3,
-              seed: 4,
-            ),
-            _mockImageResult(
-              id: 'img-5',
-              sourceLabel: 'Terrace B',
-              arimbuCount: 31,
-              pluckableCount: 26,
-              capturedArea: 7.9,
-              seed: 5,
-            ),
-            _mockImageResult(
-              id: 'img-6',
-              sourceLabel: 'River edge',
-              arimbuCount: 25,
-              pluckableCount: 24,
-              capturedArea: 8.0,
-              seed: 6,
-            ),
-          ],
+          analyzedImages: const [],
+        ),
+      ],
+    ),
+    Field(
+      id: '3',
+      name: 'Summit East Terrace',
+      region: 'Bogawantalawa Division',
+      areaHectares: 3.1,
+      createdAt: DateTime.now().subtract(const Duration(days: 18, hours: 5)),
+      measurements: [
+        FieldMeasurement(
+          id: 'm-1003',
+          date: DateTime.now().subtract(const Duration(days: 4, hours: 2)),
+          fieldArea: 3.1,
+          predictedYieldKg: 205.4,
+          actualYieldKg: 198.2,
+          weather: WeatherSnapshot(
+            date: DateTime.now().subtract(const Duration(days: 4, hours: 2)),
+            summary: 'Bright intervals',
+            rainChance: 28,
+            humidity: 73,
+            temperatureC: 23.1,
+            stormRisk: false,
+          ),
+          laborPlan: LaborPlan(
+            availableWorkers: 9,
+            recommendedWorkers: 9,
+            shiftStart: '06:15 AM',
+            smsScheduled: true,
+            focusZones: ['Upper terrace', 'East bend'],
+          ),
+          analyzedImages: const [],
+        ),
+      ],
+    ),
+    Field(
+      id: '4',
+      name: 'Riverbank South Plot',
+      region: 'Maskeliya Division',
+      areaHectares: 2.0,
+      createdAt: DateTime.now().subtract(const Duration(days: 7, hours: 1)),
+      measurements: [
+        FieldMeasurement(
+          id: 'm-1004',
+          date: DateTime.now().subtract(const Duration(days: 2, hours: 7)),
+          fieldArea: 2.0,
+          predictedYieldKg: 142.6,
+          weather: WeatherSnapshot(
+            date: DateTime.now().subtract(const Duration(days: 2, hours: 7)),
+            summary: 'Humid morning',
+            rainChance: 41,
+            humidity: 82,
+            temperatureC: 21.8,
+            stormRisk: false,
+          ),
+          laborPlan: LaborPlan(
+            availableWorkers: 6,
+            recommendedWorkers: 8,
+            shiftStart: '06:40 AM',
+            smsScheduled: false,
+            focusZones: ['South edge', 'Drain line'],
+          ),
+          analyzedImages: const [],
+        ),
+      ],
+    ),
+    Field(
+      id: '5',
+      name: 'Cedar Upper Lane',
+      region: 'Nanu Oya Division',
+      areaHectares: 1.6,
+      createdAt: DateTime.now().subtract(const Duration(days: 21, hours: 3)),
+      measurements: [
+        FieldMeasurement(
+          id: 'm-1005',
+          date: DateTime.now().subtract(const Duration(days: 6, hours: 9)),
+          fieldArea: 1.6,
+          predictedYieldKg: 118.3,
+          actualYieldKg: 121.9,
+          weather: WeatherSnapshot(
+            date: DateTime.now().subtract(const Duration(days: 6, hours: 9)),
+            summary: 'Cool breeze',
+            rainChance: 22,
+            humidity: 69,
+            temperatureC: 20.9,
+            stormRisk: false,
+          ),
+          laborPlan: LaborPlan(
+            availableWorkers: 4,
+            recommendedWorkers: 5,
+            shiftStart: '07:00 AM',
+            smsScheduled: true,
+            focusZones: ['Upper lane', 'Rock border'],
+          ),
+          analyzedImages: const [],
         ),
       ],
     ),
@@ -665,38 +710,6 @@ class FieldManager extends ChangeNotifier {
           .take(2)
           .map((item) => item.sourceLabel)
           .toList(growable: false),
-    );
-  }
-
-  static AnalysisImageResult _mockImageResult({
-    required String id,
-    required String sourceLabel,
-    required int arimbuCount,
-    required int pluckableCount,
-    required double capturedArea,
-    required int seed,
-  }) {
-    return AnalysisImageResult(
-      id: id,
-      imagePath: null,
-      sourceLabel: sourceLabel,
-      capturedAt: DateTime.now().subtract(Duration(days: seed * 2)),
-      arimbuCount: arimbuCount,
-      pluckableCount: pluckableCount,
-      capturedArea: capturedArea,
-      budMarkers: _generateMarkers(seed, arimbuCount + pluckableCount),
-    );
-  }
-
-  static List<Offset> _generateMarkers(int seed, int count) {
-    final random = Random(seed);
-    final markerCount = min(count, 14);
-    return List.generate(
-      markerCount,
-      (_) => Offset(
-        0.15 + (random.nextDouble() * 0.70),
-        0.18 + (random.nextDouble() * 0.62),
-      ),
     );
   }
 }

@@ -1,9 +1,10 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../models/field_model.dart';
 import '../theme.dart';
 import 'fields_screen.dart';
-import 'notifications_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -14,21 +15,7 @@ class DashboardScreen extends StatelessWidget {
       listenable: FieldManager(),
       builder: (context, _) {
         final manager = FieldManager();
-        final topFields = manager.prioritizedFields
-            .take(3)
-            .toList(growable: false);
-        final notifications = manager.notifications
-            .take(3)
-            .toList(growable: false);
-        final readyFields = manager.fields
-            .where((field) => field.latestMeasurement?.isReadyToPluck == true)
-            .length;
-        final shortageFields = manager.fields
-            .where(
-              (field) =>
-                  field.latestMeasurement?.laborPlan?.hasShortage == true,
-            )
-            .length;
+        final chartPoints = _buildChartPoints(manager.fields);
 
         return Scaffold(
           appBar: AppBar(
@@ -36,10 +23,10 @@ class DashboardScreen extends StatelessWidget {
               children: [
                 CircleAvatar(
                   radius: 16,
-                  backgroundColor: Color(0xFFDBE8DD),
+                  backgroundColor: Color(0xFFE8ECEF),
                   child: Icon(
                     Icons.spa_outlined,
-                    color: AppTheme.primaryDark,
+                    color: AppTheme.textPrimary,
                     size: 18,
                   ),
                 ),
@@ -47,64 +34,16 @@ class DashboardScreen extends StatelessWidget {
                 Text('TeaMate'),
               ],
             ),
-            actions: [
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  IconButton(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const NotificationsScreen(),
-                        ),
-                      );
-                    },
-                    icon: const Icon(Icons.notifications_none_rounded),
-                  ),
-                  if (manager.unreadNotificationCount > 0)
-                    Positioned(
-                      right: 10,
-                      top: 10,
-                      child: Container(
-                        width: 10,
-                        height: 10,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFD95C5C),
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-              const Padding(
-                padding: EdgeInsets.only(right: 16),
-                child: CircleAvatar(
-                  radius: 18,
-                  backgroundColor: AppTheme.primaryDark,
-                  child: Icon(
-                    Icons.person_outline_rounded,
-                    size: 18,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-            ],
           ),
           body: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 30),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _HeroSummaryCard(
-                  predictedYieldTotalKg: manager.predictedYieldTotalKg,
-                  actualYieldTotalKg: manager.actualYieldTotalKg,
-                  readyFields: readyFields,
-                  shortageFields: shortageFields,
-                ),
+                _ActualYieldChartCard(points: chartPoints),
                 const SizedBox(height: 24),
                 const Text(
-                  'Priority Today',
+                  'Modules',
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.w800,
@@ -112,143 +51,54 @@ class DashboardScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _QuickActionCard(
-                        title: 'Yield Module',
-                        subtitle: 'Analyze buds and update yield',
-                        icon: Icons.auto_graph_rounded,
-                        accent: const Color(0xFFE5F1E4),
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const FieldsScreen(),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _QuickActionCard(
-                        title: 'Notifications',
-                        subtitle: 'Weather, labor, and alerts',
-                        icon: Icons.campaign_outlined,
-                        accent: const Color(0xFFF7E6D9),
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const NotificationsScreen(),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 26),
-                const Text(
-                  'Operational Snapshot',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.3,
-                  ),
-                ),
-                const SizedBox(height: 14),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _SnapshotTile(
-                        label: 'Predicted Yield',
-                        value:
-                            '${manager.predictedYieldTotalKg.toStringAsFixed(0)} kg',
-                        note: 'Across latest field records',
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _SnapshotTile(
-                        label: 'Actual Yield',
-                        value: manager.actualYieldTotalKg == 0
-                            ? '--'
-                            : '${manager.actualYieldTotalKg.toStringAsFixed(0)} kg',
-                        note: 'Logged after plucking',
-                      ),
-                    ),
-                  ],
+                _ModuleButton(
+                  title: 'Yield Optimization',
+                  subtitle:
+                      'Manage plucking readiness, analysis, and actual yield.',
+                  icon: Icons.auto_graph_rounded,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const FieldsScreen()),
+                    );
+                  },
                 ),
                 const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _SnapshotTile(
-                        label: 'Ready Fields',
-                        value: readyFields.toString().padLeft(2, '0'),
-                        note: 'Optimal plucking window',
+                _ModuleButton(
+                  title: 'Disease Detection',
+                  subtitle: 'Review pest and leaf-damage screening workflows.',
+                  icon: Icons.health_and_safety_outlined,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const _ModulePlaceholderScreen(
+                          title: 'Disease Detection',
+                          description:
+                              'Disease detection workflows can be added here.',
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _SnapshotTile(
-                        label: 'Shortage Alerts',
-                        value: shortageFields.toString().padLeft(2, '0'),
-                        note: 'Need labor balancing',
+                    );
+                  },
+                ),
+                const SizedBox(height: 12),
+                _ModuleButton(
+                  title: 'Quality Prediction',
+                  subtitle: 'Track quality signals and post-plucking outcomes.',
+                  icon: Icons.verified_outlined,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const _ModulePlaceholderScreen(
+                          title: 'Quality Prediction',
+                          description:
+                              'Quality prediction workflows can be added here.',
+                        ),
                       ),
-                    ),
-                  ],
+                    );
+                  },
                 ),
-                const SizedBox(height: 26),
-                const Text(
-                  'Field Routing Priority',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.3,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                const Text(
-                  'Use maturity, yield potential, labor shortage, and weather risk to dispatch crews first.',
-                  style: TextStyle(color: AppTheme.textSecondary, height: 1.45),
-                ),
-                const SizedBox(height: 14),
-                ...topFields.map((field) => _PriorityFieldTile(field: field)),
-                const SizedBox(height: 26),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Recent Alerts',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.3,
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const NotificationsScreen(),
-                          ),
-                        );
-                      },
-                      child: const Text('View all'),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                if (notifications.isEmpty)
-                  const _EmptyAlertsCard()
-                else
-                  ...notifications.map(
-                    (item) => _NotificationPreviewTile(item: item),
-                  ),
               ],
             ),
           ),
@@ -258,403 +108,64 @@ class DashboardScreen extends StatelessWidget {
   }
 }
 
-class _HeroSummaryCard extends StatelessWidget {
-  final double predictedYieldTotalKg;
-  final double actualYieldTotalKg;
-  final int readyFields;
-  final int shortageFields;
+List<_YieldChartPoint> _buildChartPoints(List<Field> fields) {
+  final grouped = <DateTime, List<FieldMeasurement>>{};
 
-  const _HeroSummaryCard({
-    required this.predictedYieldTotalKg,
-    required this.actualYieldTotalKg,
-    required this.readyFields,
-    required this.shortageFields,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(30),
-        gradient: const LinearGradient(
-          colors: [Color(0xFF173730), Color(0xFF0C1D1A)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.10),
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: const Text(
-              'Yield Optimization Command Center',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w700,
-                fontSize: 12,
-              ),
-            ),
-          ),
-          const SizedBox(height: 18),
-          const Text(
-            'Show supervisors what to pluck, when to pluck, and where labor must move next.',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 28,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -1,
-              height: 1.2,
-            ),
-          ),
-          const SizedBox(height: 14),
-          Text(
-            'Predicted yield ${predictedYieldTotalKg.toStringAsFixed(0)} kg with $readyFields ready field${readyFields == 1 ? '' : 's'} today.',
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.78),
-              height: 1.55,
-            ),
-          ),
-          const SizedBox(height: 18),
-          Row(
-            children: [
-              Expanded(
-                child: _HeroMetric(
-                  label: 'Actual vs Predicted',
-                  value: actualYieldTotalKg == 0
-                      ? 'Pending'
-                      : '${(actualYieldTotalKg - predictedYieldTotalKg).toStringAsFixed(0)} kg',
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _HeroMetric(
-                  label: 'Labor shortages',
-                  value: shortageFields.toString().padLeft(2, '0'),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _HeroMetric extends StatelessWidget {
-  final String label;
-  final String value;
-
-  const _HeroMetric({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.70),
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 20,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _QuickActionCard extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  final IconData icon;
-  final Color accent;
-  final VoidCallback onTap;
-
-  const _QuickActionCard({
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-    required this.accent,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(24),
-      child: Ink(
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
-              blurRadius: 18,
-              offset: const Offset(0, 8),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 52,
-              height: 52,
-              decoration: BoxDecoration(
-                color: accent,
-                borderRadius: BorderRadius.circular(18),
-              ),
-              child: Icon(icon, color: AppTheme.primaryDark),
-            ),
-            const SizedBox(height: 14),
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -0.3,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              subtitle,
-              style: const TextStyle(
-                color: AppTheme.textSecondary,
-                height: 1.4,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SnapshotTile extends StatelessWidget {
-  final String label;
-  final String value;
-  final String note;
-
-  const _SnapshotTile({
-    required this.label,
-    required this.value,
-    required this.note,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              color: AppTheme.textSecondary,
-              fontWeight: FontWeight.w700,
-              fontSize: 12,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.8,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(note, style: const TextStyle(color: AppTheme.textSecondary)),
-        ],
-      ),
-    );
-  }
-}
-
-class _PriorityFieldTile extends StatelessWidget {
-  final Field field;
-
-  const _PriorityFieldTile({required this.field});
-
-  @override
-  Widget build(BuildContext context) {
-    final measurement = field.latestMeasurement;
-    if (measurement == null) {
-      return const SizedBox.shrink();
-    }
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 54,
-            height: 54,
-            decoration: const BoxDecoration(
-              color: Color(0xFFE8EFEB),
-              borderRadius: BorderRadius.all(Radius.circular(18)),
-            ),
-            child: const Icon(
-              Icons.landscape_rounded,
-              color: AppTheme.primaryDark,
-            ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  field.name,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '${field.region}  •  ${measurement.laborPriorityLabel}',
-                  style: const TextStyle(
-                    color: AppTheme.textSecondary,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                '${measurement.laborPriorityScore}',
-                style: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.5,
-                ),
-              ),
-              const Text(
-                'priority',
-                style: TextStyle(
-                  color: AppTheme.textSecondary,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _NotificationPreviewTile extends StatelessWidget {
-  final AppNotificationItem item;
-
-  const _NotificationPreviewTile({required this.item});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              color: _severityColor(item.severity).withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Icon(
-              Icons.notifications_active_outlined,
-              color: _severityColor(item.severity),
-            ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  item.title,
-                  style: const TextStyle(fontWeight: FontWeight.w800),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '${item.fieldName}  •  ${item.message}',
-                  style: const TextStyle(
-                    color: AppTheme.textSecondary,
-                    height: 1.45,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Color _severityColor(AlertSeverity severity) {
-    switch (severity) {
-      case AlertSeverity.critical:
-        return const Color(0xFFD95C5C);
-      case AlertSeverity.warning:
-        return const Color(0xFFB97922);
-      case AlertSeverity.info:
-        return const Color(0xFF2E7655);
+  for (final field in fields) {
+    for (final measurement in field.measurements) {
+      if (!measurement.hasActualYield) {
+        continue;
+      }
+      final dayKey = DateTime(
+        measurement.date.year,
+        measurement.date.month,
+        measurement.date.day,
+      );
+      grouped.putIfAbsent(dayKey, () => []).add(measurement);
     }
   }
+
+  final points = grouped.entries.map((entry) {
+    final actualYield = entry.value.fold<double>(
+      0,
+      (sum, measurement) => sum + (measurement.actualYieldKg ?? 0),
+    );
+    return _YieldChartPoint(date: entry.key, actualYieldKg: actualYield);
+  }).toList();
+
+  points.sort((a, b) => a.date.compareTo(b.date));
+  return points;
 }
 
-class _EmptyAlertsCard extends StatelessWidget {
-  const _EmptyAlertsCard();
+class _YieldChartPoint {
+  final DateTime date;
+  final double actualYieldKg;
+
+  const _YieldChartPoint({required this.date, required this.actualYieldKg});
+
+  String get dateLabel {
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    return '${months[date.month - 1]} ${date.day}';
+  }
+}
+
+class _ActualYieldChartCard extends StatelessWidget {
+  final List<_YieldChartPoint> points;
+
+  const _ActualYieldChartCard({required this.points});
 
   @override
   Widget build(BuildContext context) {
@@ -663,12 +174,292 @@ class _EmptyAlertsCard extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: const Color(0xFFE4E7EB)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 18,
+            offset: const Offset(0, 10),
+          ),
+        ],
       ),
-      child: const Text(
-        'No critical alerts right now. Notifications will appear here for labor shortage, weather pressure, reminders, and over-plucking risk.',
-        style: TextStyle(color: AppTheme.textSecondary, height: 1.5),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Actual Yield',
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.5,
+            ),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Actual yield trend across completed plucking rounds.',
+            style: TextStyle(color: AppTheme.textSecondary, height: 1.5),
+          ),
+          const SizedBox(height: 18),
+          if (points.isEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF6F7F8),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: const Text(
+                'No completed rounds yet. Actual yield entries will appear here after rounds are completed.',
+                style: TextStyle(color: AppTheme.textSecondary, height: 1.5),
+              ),
+            )
+          else
+            SizedBox(
+              height: 240,
+              child: CustomPaint(
+                painter: _ActualYieldChartPainter(points: points),
+                size: Size.infinite,
+              ),
+            ),
+        ],
       ),
     );
+  }
+}
+
+class _ModuleButton extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _ModuleButton({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(24),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(24),
+        child: Ink(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: const Color(0xFFE4E7EB)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.03),
+                blurRadius: 16,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF3F4F6),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Icon(icon, color: AppTheme.textPrimary),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.3,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        color: AppTheme.textSecondary,
+                        height: 1.45,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Icon(
+                Icons.arrow_forward_ios_rounded,
+                size: 16,
+                color: Color(0xFF7B8794),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ModulePlaceholderScreen extends StatelessWidget {
+  final String title;
+  final String description;
+
+  const _ModulePlaceholderScreen({
+    required this.title,
+    required this.description,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text(title)),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(28),
+          child: Text(
+            description,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: AppTheme.textSecondary,
+              height: 1.5,
+              fontSize: 16,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ActualYieldChartPainter extends CustomPainter {
+  final List<_YieldChartPoint> points;
+
+  const _ActualYieldChartPainter({required this.points});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final leftPad = 36.0;
+    final rightPad = 14.0;
+    final topPad = 10.0;
+    final bottomPad = 42.0;
+    final chartWidth = size.width - leftPad - rightPad;
+    final chartHeight = size.height - topPad - bottomPad;
+    final maxYield = points
+        .map((point) => point.actualYieldKg)
+        .reduce(math.max);
+    final yieldScaleMax = math.max(1.0, maxYield * 1.15);
+
+    final gridPaint = Paint()
+      ..color = const Color(0xFFE9EDF1)
+      ..strokeWidth = 1;
+    final linePaint = Paint()
+      ..color = AppTheme.textPrimary
+      ..strokeWidth = 2.25
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    final pointOuterPaint = Paint()..color = AppTheme.textPrimary;
+    final pointInnerPaint = Paint()..color = Colors.white;
+    const axisTextStyle = TextStyle(
+      color: AppTheme.textSecondary,
+      fontSize: 11,
+      fontWeight: FontWeight.w600,
+    );
+
+    for (var i = 0; i < 5; i++) {
+      final ratio = i / 4;
+      final y = topPad + (chartHeight / 4) * i;
+      canvas.drawLine(
+        Offset(leftPad, y),
+        Offset(size.width - rightPad, y),
+        gridPaint,
+      );
+
+      final yValuePainter = TextPainter(
+        text: TextSpan(
+          text: (yieldScaleMax * (1 - ratio)).toStringAsFixed(0),
+          style: axisTextStyle,
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      yValuePainter.paint(
+        canvas,
+        Offset(
+          leftPad - yValuePainter.width - 8,
+          y - (yValuePainter.height / 2),
+        ),
+      );
+    }
+
+    final chartPoints = <Offset>[];
+    final slotWidth = points.length == 1
+        ? 0.0
+        : chartWidth / (points.length - 1);
+
+    for (var i = 0; i < points.length; i++) {
+      final point = points[i];
+      final dx = points.length == 1
+          ? leftPad + (chartWidth / 2)
+          : leftPad + (slotWidth * i);
+      final dy =
+          topPad +
+          chartHeight -
+          ((point.actualYieldKg / yieldScaleMax) * chartHeight);
+      chartPoints.add(Offset(dx, dy));
+
+      final valuePainter = TextPainter(
+        text: TextSpan(
+          text: '${point.actualYieldKg.toStringAsFixed(0)} kg',
+          style: axisTextStyle,
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      valuePainter.paint(
+        canvas,
+        Offset(dx - (valuePainter.width / 2), dy - 20),
+      );
+    }
+
+    final path = Path();
+    for (var i = 0; i < chartPoints.length; i++) {
+      final point = chartPoints[i];
+      if (i == 0) {
+        path.moveTo(point.dx, point.dy);
+      } else {
+        path.lineTo(point.dx, point.dy);
+      }
+    }
+    canvas.drawPath(path, linePaint);
+
+    for (var i = 0; i < chartPoints.length; i++) {
+      final point = chartPoints[i];
+      canvas.drawCircle(point, 5, pointOuterPaint);
+      canvas.drawCircle(point, 2.4, pointInnerPaint);
+
+      final labelPainter = TextPainter(
+        text: TextSpan(text: points[i].dateLabel, style: axisTextStyle),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      labelPainter.paint(
+        canvas,
+        Offset(point.dx - (labelPainter.width / 2), size.height - 22),
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _ActualYieldChartPainter oldDelegate) {
+    return oldDelegate.points != points;
   }
 }
