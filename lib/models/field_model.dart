@@ -5,6 +5,12 @@ import 'package:flutter/foundation.dart';
 
 enum AlertSeverity { info, warning, critical }
 
+enum WorkerStatus { available, assigned, onLeave }
+
+enum SkillLevel { junior, experienced, senior }
+
+enum ScheduleStatus { scheduled, inProgress, completed, cancelled }
+
 class WeatherSnapshot {
   final DateTime date;
   final String summary;
@@ -20,6 +26,177 @@ class WeatherSnapshot {
     required this.humidity,
     required this.temperatureC,
     required this.stormRisk,
+  });
+}
+
+class WeatherHourly {
+  final DateTime time;
+  final double temperatureC;
+  final int rainChance;
+  final int humidity;
+  final double windSpeedKmh;
+  final int weatherCode;
+  final String description;
+
+  const WeatherHourly({
+    required this.time,
+    required this.temperatureC,
+    required this.rainChance,
+    required this.humidity,
+    required this.windSpeedKmh,
+    required this.weatherCode,
+    required this.description,
+  });
+}
+
+class WeatherDaily {
+  final DateTime date;
+  final double tempMax;
+  final double tempMin;
+  final int rainChance;
+  final int weatherCode;
+  final String description;
+  final double precipitationMm;
+
+  const WeatherDaily({
+    required this.date,
+    required this.tempMax,
+    required this.tempMin,
+    required this.rainChance,
+    required this.weatherCode,
+    required this.description,
+    required this.precipitationMm,
+  });
+}
+
+class WeatherForecast {
+  final DateTime fetchedAt;
+  final double currentTemp;
+  final int currentHumidity;
+  final double currentWindSpeed;
+  final int currentWeatherCode;
+  final String currentDescription;
+  final double feelsLike;
+  final List<WeatherHourly> hourly;
+  final List<WeatherDaily> daily;
+
+  const WeatherForecast({
+    required this.fetchedAt,
+    required this.currentTemp,
+    required this.currentHumidity,
+    required this.currentWindSpeed,
+    required this.currentWeatherCode,
+    required this.currentDescription,
+    required this.feelsLike,
+    required this.hourly,
+    required this.daily,
+  });
+
+  int get currentRainChance {
+    if (hourly.isEmpty) return 0;
+    final now = DateTime.now();
+    final closest = hourly.reduce((a, b) =>
+        (a.time.difference(now).abs() < b.time.difference(now).abs()) ? a : b);
+    return closest.rainChance;
+  }
+
+  bool get hasStormRisk =>
+      hourly.take(6).any((h) => h.rainChance > 70 || h.windSpeedKmh > 40);
+
+  String? get pluckingWindowRecommendation {
+    final now = DateTime.now();
+    final upcoming = hourly.where((h) => h.time.isAfter(now)).toList();
+    if (upcoming.isEmpty) return null;
+
+    // Look for 4-hour dry windows
+    for (int i = 0; i < upcoming.length - 3; i++) {
+      final window = upcoming.sublist(i, i + 4);
+      final allDry = window.every((h) => h.rainChance < 30);
+      final goodTemp =
+          window.every((h) => h.temperatureC > 18 && h.temperatureC < 30);
+      if (allDry && goodTemp) {
+        final start = window.first.time;
+        final end = window.last.time;
+        final startHour =
+            '${start.hour.toString().padLeft(2, '0')}:${start.minute.toString().padLeft(2, '0')}';
+        final endHour =
+            '${end.hour.toString().padLeft(2, '0')}:${end.minute.toString().padLeft(2, '0')}';
+        final isToday = start.day == now.day;
+        final dayLabel = isToday ? 'Today' : 'Tomorrow';
+        return '$dayLabel $startHour – $endHour';
+      }
+    }
+    return null;
+  }
+}
+
+class Worker {
+  final String id;
+  String name;
+  String phone;
+  WorkerStatus status;
+  SkillLevel skillLevel;
+  String? assignedFieldId;
+  final DateTime createdAt;
+
+  Worker({
+    required this.id,
+    required this.name,
+    required this.phone,
+    this.status = WorkerStatus.available,
+    this.skillLevel = SkillLevel.experienced,
+    this.assignedFieldId,
+    DateTime? createdAt,
+  }) : createdAt = createdAt ?? DateTime.now();
+
+  String get initials {
+    final parts = name.trim().split(' ');
+    if (parts.length >= 2) {
+      return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+    }
+    return name.isNotEmpty ? name[0].toUpperCase() : '?';
+  }
+
+  String get statusLabel {
+    switch (status) {
+      case WorkerStatus.available:
+        return 'Available';
+      case WorkerStatus.assigned:
+        return 'Assigned';
+      case WorkerStatus.onLeave:
+        return 'On Leave';
+    }
+  }
+
+  String get skillLabel {
+    switch (skillLevel) {
+      case SkillLevel.junior:
+        return 'Junior';
+      case SkillLevel.experienced:
+        return 'Experienced';
+      case SkillLevel.senior:
+        return 'Senior';
+    }
+  }
+}
+
+class PluckingSchedule {
+  final String id;
+  final String fieldId;
+  final DateTime scheduledDate;
+  final String shiftStart;
+  final String shiftEnd;
+  final List<String> assignedWorkerIds;
+  ScheduleStatus status;
+
+  PluckingSchedule({
+    required this.id,
+    required this.fieldId,
+    required this.scheduledDate,
+    required this.shiftStart,
+    required this.shiftEnd,
+    required this.assignedWorkerIds,
+    this.status = ScheduleStatus.scheduled,
   });
 }
 
@@ -237,17 +414,26 @@ class Field {
   final DateTime? _createdAt;
   final String region;
   final double areaHectares;
+  final double latitude;
+  final double longitude;
+  final double elevationMeters;
   List<FieldMeasurement> measurements;
+  List<String> assignedWorkerIds;
 
   Field({
     required this.id,
     required this.name,
     required this.region,
     required this.areaHectares,
+    this.latitude = 6.9271,
+    this.longitude = 80.6005,
+    this.elevationMeters = 1200,
     DateTime? createdAt,
     List<FieldMeasurement>? measurements,
-  }) : _createdAt = createdAt,
-       measurements = measurements ?? [];
+    List<String>? assignedWorkerIds,
+  })  : _createdAt = createdAt,
+        measurements = measurements ?? [],
+        assignedWorkerIds = assignedWorkerIds ?? [];
 
   DateTime get createdAt => _createdAt ?? DateTime.now();
 
@@ -260,12 +446,200 @@ class FieldManager extends ChangeNotifier {
   factory FieldManager() => _instance;
   FieldManager._internal();
 
+  // ── Workers ───────────────────────────────────────────────
+  final List<Worker> _workers = [
+    Worker(
+      id: 'w1',
+      name: 'Kamal Perera',
+      phone: '+94 77 123 4567',
+      status: WorkerStatus.assigned,
+      skillLevel: SkillLevel.senior,
+      assignedFieldId: '1',
+      createdAt: DateTime.now().subtract(const Duration(days: 120)),
+    ),
+    Worker(
+      id: 'w2',
+      name: 'Nimal Silva',
+      phone: '+94 76 234 5678',
+      status: WorkerStatus.assigned,
+      skillLevel: SkillLevel.experienced,
+      assignedFieldId: '1',
+      createdAt: DateTime.now().subtract(const Duration(days: 90)),
+    ),
+    Worker(
+      id: 'w3',
+      name: 'Saman Jayawardena',
+      phone: '+94 71 345 6789',
+      status: WorkerStatus.assigned,
+      skillLevel: SkillLevel.experienced,
+      assignedFieldId: '2',
+      createdAt: DateTime.now().subtract(const Duration(days: 200)),
+    ),
+    Worker(
+      id: 'w4',
+      name: 'Ruwan Fernando',
+      phone: '+94 78 456 7890',
+      status: WorkerStatus.available,
+      skillLevel: SkillLevel.junior,
+      createdAt: DateTime.now().subtract(const Duration(days: 45)),
+    ),
+    Worker(
+      id: 'w5',
+      name: 'Dilshan Kumara',
+      phone: '+94 75 567 8901',
+      status: WorkerStatus.assigned,
+      skillLevel: SkillLevel.senior,
+      assignedFieldId: '3',
+      createdAt: DateTime.now().subtract(const Duration(days: 300)),
+    ),
+    Worker(
+      id: 'w6',
+      name: 'Priyantha Bandara',
+      phone: '+94 77 678 9012',
+      status: WorkerStatus.onLeave,
+      skillLevel: SkillLevel.experienced,
+      createdAt: DateTime.now().subtract(const Duration(days: 150)),
+    ),
+    Worker(
+      id: 'w7',
+      name: 'Chaminda Wijesinghe',
+      phone: '+94 76 789 0123',
+      status: WorkerStatus.assigned,
+      skillLevel: SkillLevel.experienced,
+      assignedFieldId: '4',
+      createdAt: DateTime.now().subtract(const Duration(days: 80)),
+    ),
+    Worker(
+      id: 'w8',
+      name: 'Lakmal Rathnayake',
+      phone: '+94 71 890 1234',
+      status: WorkerStatus.available,
+      skillLevel: SkillLevel.junior,
+      createdAt: DateTime.now().subtract(const Duration(days: 30)),
+    ),
+    Worker(
+      id: 'w9',
+      name: 'Ashan de Mel',
+      phone: '+94 78 901 2345',
+      status: WorkerStatus.assigned,
+      skillLevel: SkillLevel.senior,
+      assignedFieldId: '5',
+      createdAt: DateTime.now().subtract(const Duration(days: 250)),
+    ),
+    Worker(
+      id: 'w10',
+      name: 'Tharuka Gamage',
+      phone: '+94 75 012 3456',
+      status: WorkerStatus.available,
+      skillLevel: SkillLevel.experienced,
+      createdAt: DateTime.now().subtract(const Duration(days: 60)),
+    ),
+  ];
+
+  List<Worker> get workers => _workers;
+
+  List<Worker> get availableWorkers =>
+      _workers.where((w) => w.status == WorkerStatus.available).toList();
+
+  List<Worker> get assignedWorkers =>
+      _workers.where((w) => w.status == WorkerStatus.assigned).toList();
+
+  List<Worker> get onLeaveWorkers =>
+      _workers.where((w) => w.status == WorkerStatus.onLeave).toList();
+
+  List<Worker> workersForField(String fieldId) =>
+      _workers.where((w) => w.assignedFieldId == fieldId).toList();
+
+  void addWorker({
+    required String name,
+    required String phone,
+    SkillLevel skillLevel = SkillLevel.experienced,
+  }) {
+    _workers.add(Worker(
+      id: 'w${DateTime.now().millisecondsSinceEpoch}',
+      name: name,
+      phone: phone,
+      skillLevel: skillLevel,
+      status: WorkerStatus.available,
+    ));
+    notifyListeners();
+  }
+
+  void updateWorker(String workerId, {String? name, String? phone, SkillLevel? skillLevel}) {
+    final worker = _workers.firstWhere((w) => w.id == workerId);
+    if (name != null) worker.name = name;
+    if (phone != null) worker.phone = phone;
+    if (skillLevel != null) worker.skillLevel = skillLevel;
+    notifyListeners();
+  }
+
+  void deleteWorker(String workerId) {
+    _workers.removeWhere((w) => w.id == workerId);
+    notifyListeners();
+  }
+
+  void assignWorkerToField(String workerId, String fieldId) {
+    final worker = _workers.firstWhere((w) => w.id == workerId);
+    worker.assignedFieldId = fieldId;
+    worker.status = WorkerStatus.assigned;
+    final field = _findField(fieldId);
+    if (!field.assignedWorkerIds.contains(workerId)) {
+      field.assignedWorkerIds.add(workerId);
+    }
+    notifyListeners();
+  }
+
+  void unassignWorker(String workerId) {
+    final worker = _workers.firstWhere((w) => w.id == workerId);
+    if (worker.assignedFieldId != null) {
+      try {
+        final field = _findField(worker.assignedFieldId!);
+        field.assignedWorkerIds.remove(workerId);
+      } catch (_) {}
+    }
+    worker.assignedFieldId = null;
+    worker.status = WorkerStatus.available;
+    notifyListeners();
+  }
+
+  void setWorkerStatus(String workerId, WorkerStatus status) {
+    final worker = _workers.firstWhere((w) => w.id == workerId);
+    if (status == WorkerStatus.onLeave && worker.assignedFieldId != null) {
+      unassignWorker(workerId);
+    }
+    worker.status = status;
+    notifyListeners();
+  }
+
+  // ── Schedules ─────────────────────────────────────────────
+  final List<PluckingSchedule> _schedules = [];
+
+  List<PluckingSchedule> get schedules => _schedules;
+
+  List<PluckingSchedule> schedulesForField(String fieldId) =>
+      _schedules.where((s) => s.fieldId == fieldId).toList();
+
+  // ── Weather cache ─────────────────────────────────────────
+  WeatherForecast? _cachedForecast;
+
+  WeatherForecast? get cachedForecast => _cachedForecast;
+
+  void updateForecast(WeatherForecast forecast) {
+    _cachedForecast = forecast;
+    notifyListeners();
+  }
+
+  // ── Fields ────────────────────────────────────────────────
   final List<Field> _fields = [
     Field(
       id: '1',
       name: 'Highland North Block',
       region: 'Hatton Division',
       areaHectares: 2.4,
+      latitude: 6.8985,
+      longitude: 80.5853,
+      elevationMeters: 1250,
+      assignedWorkerIds: ['w1', 'w2'],
       createdAt: DateTime.now().subtract(const Duration(days: 12, hours: 4)),
       measurements: [
         FieldMeasurement(
@@ -298,6 +672,10 @@ class FieldManager extends ChangeNotifier {
       name: 'Lower Valley Section B',
       region: 'Dickoya Division',
       areaHectares: 1.8,
+      latitude: 6.8823,
+      longitude: 80.6112,
+      elevationMeters: 1100,
+      assignedWorkerIds: ['w3'],
       createdAt: DateTime.now().subtract(const Duration(days: 3, hours: 2)),
       measurements: [
         FieldMeasurement(
@@ -329,6 +707,10 @@ class FieldManager extends ChangeNotifier {
       name: 'Summit East Terrace',
       region: 'Bogawantalawa Division',
       areaHectares: 3.1,
+      latitude: 6.8142,
+      longitude: 80.6655,
+      elevationMeters: 1450,
+      assignedWorkerIds: ['w5'],
       createdAt: DateTime.now().subtract(const Duration(days: 18, hours: 5)),
       measurements: [
         FieldMeasurement(
@@ -361,6 +743,10 @@ class FieldManager extends ChangeNotifier {
       name: 'Riverbank South Plot',
       region: 'Maskeliya Division',
       areaHectares: 2.0,
+      latitude: 6.8401,
+      longitude: 80.5432,
+      elevationMeters: 1180,
+      assignedWorkerIds: ['w7'],
       createdAt: DateTime.now().subtract(const Duration(days: 7, hours: 1)),
       measurements: [
         FieldMeasurement(
@@ -392,6 +778,10 @@ class FieldManager extends ChangeNotifier {
       name: 'Cedar Upper Lane',
       region: 'Nanu Oya Division',
       areaHectares: 1.6,
+      latitude: 6.9501,
+      longitude: 80.5788,
+      elevationMeters: 1320,
+      assignedWorkerIds: ['w9'],
       createdAt: DateTime.now().subtract(const Duration(days: 21, hours: 3)),
       measurements: [
         FieldMeasurement(
@@ -437,6 +827,13 @@ class FieldManager extends ChangeNotifier {
   }
 
   void deleteField(String fieldId) {
+    // Unassign workers from deleted field
+    for (final worker in _workers) {
+      if (worker.assignedFieldId == fieldId) {
+        worker.assignedFieldId = null;
+        worker.status = WorkerStatus.available;
+      }
+    }
     _fields.removeWhere((field) => field.id == fieldId);
     notifyListeners();
   }
@@ -506,6 +903,7 @@ class FieldManager extends ChangeNotifier {
     );
   }
 
+  // ── Notifications ─────────────────────────────────────────
   List<AppNotificationItem> get notifications {
     final items = <AppNotificationItem>[];
     for (final field in _fields) {
@@ -575,6 +973,41 @@ class FieldManager extends ChangeNotifier {
           ),
         );
       }
+
+      // Labour assignment notifications
+      final assignedCount = workersForField(field.id).length;
+      final recommended = measurement.laborPlan?.recommendedWorkers ?? 0;
+      if (recommended > 0 && assignedCount < recommended) {
+        items.add(
+          AppNotificationItem(
+            id: '${field.id}-assign',
+            fieldName: field.name,
+            title: 'Workers needed',
+            message:
+                '$assignedCount of $recommended workers assigned. Assign ${recommended - assignedCount} more workers for optimal coverage.',
+            category: 'Labor',
+            createdAt: DateTime.now().subtract(const Duration(hours: 4)),
+            severity: AlertSeverity.warning,
+          ),
+        );
+      }
+
+      // Schedule reminders
+      if (measurement.isReadyToPluck && assignedCount > 0) {
+        items.add(
+          AppNotificationItem(
+            id: '${field.id}-schedule',
+            fieldName: field.name,
+            title: 'Plucking round scheduled',
+            message:
+                '$assignedCount workers assigned for tomorrow\'s round starting at ${measurement.laborPlan?.shiftStart ?? '06:00 AM'}.',
+            category: 'Schedule',
+            createdAt: DateTime.now().subtract(const Duration(hours: 6)),
+            severity: AlertSeverity.info,
+            isUnread: false,
+          ),
+        );
+      }
     }
 
     items.sort((a, b) => b.createdAt.compareTo(a.createdAt));
@@ -585,14 +1018,17 @@ class FieldManager extends ChangeNotifier {
       notifications.where((item) => item.isUnread).length;
 
   double get predictedYieldTotalKg => _fields.fold(
-    0,
-    (sum, field) => sum + (field.latestMeasurement?.predictedYieldKg ?? 0),
-  );
+        0,
+        (sum, field) => sum + (field.latestMeasurement?.predictedYieldKg ?? 0),
+      );
 
   double get actualYieldTotalKg => _fields.fold(
-    0,
-    (sum, field) => sum + (field.latestMeasurement?.actualYieldKg ?? 0),
-  );
+        0,
+        (sum, field) => sum + (field.latestMeasurement?.actualYieldKg ?? 0),
+      );
+
+  int get fieldsReadyToPluck =>
+      _fields.where((f) => f.latestMeasurement?.isReadyToPluck == true).length;
 
   List<Field> get prioritizedFields {
     final sorted = List<Field>.from(_fields);
