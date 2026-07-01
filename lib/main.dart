@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'theme.dart';
-import 'screens/main_screen.dart';
+import 'screens/splash_screen.dart';
 
 void main() {
   runApp(const TeaMateApp());
@@ -12,10 +12,10 @@ class TeaMateApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'AgriVision',
+      title: 'TeaMate',
       theme: AppTheme.lightTheme,
       debugShowCheckedModeBanner: false,
-      home: const MainScreen(),
+      home: const SplashScreen(),
     );
   }
 }
