@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
@@ -5,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../models/field_model.dart';
+import '../services/api_service.dart';
 import '../theme.dart';
 
 class FieldAnalysisScreen extends StatefulWidget {
@@ -209,20 +211,29 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
       _analysisStatus = null;
     });
 
+    final pendingCopy = List<_PendingImage>.from(_pendingImages);
+    final api = ApiService();
+
     final analyzedImages = List<AnalysisImageResult>.from(
       _measurement.analyzedImages,
     );
-    final pendingCopy = List<_PendingImage>.from(_pendingImages);
 
     for (var index = 0; index < pendingCopy.length; index++) {
       setState(() {
         _analysisStatus =
-            'Analyzing image ${index + 1} of ${pendingCopy.length}';
+            'Analyzing image ${index + 1} of ${pendingCopy.length} with AI Model...';
       });
-      await Future<void>.delayed(const Duration(milliseconds: 450));
-      analyzedImages.add(
-        _mockAnalyzeImage(pendingCopy[index], index + analyzedImages.length),
+      final result = await api.analyzeImageDirectly(
+        imagePath: pendingCopy[index].imagePath,
+        sourceLabel: pendingCopy[index].sourceLabel,
       );
+      if (result != null) {
+        analyzedImages.add(result);
+      } else {
+        analyzedImages.add(
+          _mockAnalyzeImage(pendingCopy[index], index + analyzedImages.length),
+        );
+      }
     }
 
     final manager = FieldManager();
@@ -234,6 +245,7 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
         clearPrediction: true,
       ),
     );
+
     manager.saveMeasurement(widget.fieldId, _measurement);
 
     setState(() {
@@ -920,27 +932,6 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
                 fit: StackFit.expand,
                 children: [
                   _buildImageSurface(item),
-                  if (item.analysis != null)
-                    ...item.analysis!.budMarkers.map(
-                      (marker) => Positioned(
-                        left: marker.dx * 260,
-                        top: marker.dy * 240,
-                        child: Container(
-                          width: 18,
-                          height: 18,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: const Color(
-                              0xFF00B66D,
-                            ).withValues(alpha: 0.18),
-                            border: Border.all(
-                              color: const Color(0xFF00B66D),
-                              width: 1.4,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
                   Positioned(
                     left: 16,
                     top: 16,
@@ -975,6 +966,15 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
 
   Widget _buildImageSurface(_GalleryItem item) {
     if (item.imagePath != null) {
+      if (item.imagePath!.startsWith('data:image')) {
+        try {
+          final base64Data = item.imagePath!.split(',').last;
+          return Image.memory(base64Decode(base64Data), fit: BoxFit.cover);
+        } catch (_) {}
+      }
+      if (item.imagePath!.startsWith('http')) {
+        return Image.network(item.imagePath!, fit: BoxFit.cover);
+      }
       return Image.file(
         File(item.imagePath!),
         fit: BoxFit.cover,

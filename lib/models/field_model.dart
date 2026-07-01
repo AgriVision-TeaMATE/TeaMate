@@ -3,6 +3,8 @@ import 'dart:math' show max;
 
 import 'package:flutter/foundation.dart';
 
+import '../services/api_service.dart';
+
 enum AlertSeverity { info, warning, critical }
 
 enum WorkerStatus { available, assigned, onLeave }
@@ -444,7 +446,28 @@ class Field {
 class FieldManager extends ChangeNotifier {
   static final FieldManager _instance = FieldManager._internal();
   factory FieldManager() => _instance;
-  FieldManager._internal();
+
+  final ApiService _api = ApiService();
+
+  FieldManager._internal() {
+    syncFromServer();
+  }
+
+  Future<void> syncFromServer() async {
+    try {
+      final fields = await _api.fetchFields();
+      final workers = await _api.fetchWorkers();
+      if (fields.isNotEmpty) {
+        _fields.clear();
+        _fields.addAll(fields);
+      }
+      if (workers.isNotEmpty) {
+        _workers.clear();
+        _workers.addAll(workers);
+      }
+      notifyListeners();
+    } catch (_) {}
+  }
 
   // ── Workers ───────────────────────────────────────────────
   final List<Worker> _workers = [
@@ -555,14 +578,18 @@ class FieldManager extends ChangeNotifier {
     required String phone,
     SkillLevel skillLevel = SkillLevel.experienced,
   }) {
+    final tempId = 'w${DateTime.now().millisecondsSinceEpoch}';
     _workers.add(Worker(
-      id: 'w${DateTime.now().millisecondsSinceEpoch}',
+      id: tempId,
       name: name,
       phone: phone,
       skillLevel: skillLevel,
       status: WorkerStatus.available,
     ));
     notifyListeners();
+    _api.addWorker(name: name, phone: phone, skillLevel: skillLevel).then((w) {
+      if (w != null) syncFromServer();
+    });
   }
 
   void updateWorker(String workerId, {String? name, String? phone, SkillLevel? skillLevel}) {
@@ -576,6 +603,7 @@ class FieldManager extends ChangeNotifier {
   void deleteWorker(String workerId) {
     _workers.removeWhere((w) => w.id == workerId);
     notifyListeners();
+    _api.deleteWorker(workerId);
   }
 
   void assignWorkerToField(String workerId, String fieldId) {
@@ -587,6 +615,7 @@ class FieldManager extends ChangeNotifier {
       field.assignedWorkerIds.add(workerId);
     }
     notifyListeners();
+    _api.assignWorkerToField(workerId, fieldId);
   }
 
   void unassignWorker(String workerId) {
@@ -600,6 +629,7 @@ class FieldManager extends ChangeNotifier {
     worker.assignedFieldId = null;
     worker.status = WorkerStatus.available;
     notifyListeners();
+    _api.unassignWorker(workerId);
   }
 
   void setWorkerStatus(String workerId, WorkerStatus status) {
@@ -609,6 +639,7 @@ class FieldManager extends ChangeNotifier {
     }
     worker.status = status;
     notifyListeners();
+    _api.updateWorkerStatus(workerId, status);
   }
 
   // ── Schedules ─────────────────────────────────────────────
@@ -838,10 +869,17 @@ class FieldManager extends ChangeNotifier {
     notifyListeners();
   }
 
-  FieldMeasurement createDraftMeasurement(String fieldId) {
+  Future<FieldMeasurement> createDraftMeasurement(String fieldId) async {
     final field = _findField(fieldId);
+    final serverRound = await _api.createDraftRound(fieldId);
+    if (serverRound != null) {
+      field.measurements.add(serverRound);
+      notifyListeners();
+      return serverRound;
+    }
+    final tempId = DateTime.now().microsecondsSinceEpoch.toString();
     final measurement = FieldMeasurement(
-      id: DateTime.now().microsecondsSinceEpoch.toString(),
+      id: tempId,
       date: DateTime.now(),
       analyzedImages: const [],
       fieldArea: field.areaHectares,
@@ -890,6 +928,7 @@ class FieldManager extends ChangeNotifier {
       actualYieldKg: actualYieldKg,
     );
     notifyListeners();
+    _api.saveActualYield(measurementId, actualYieldKg);
   }
 
   FieldMeasurement hydrateMeasurementSupportData(

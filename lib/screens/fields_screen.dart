@@ -64,8 +64,9 @@ class _FieldsScreenState extends State<FieldsScreen> {
     );
   }
 
-  void _openNewAnalysis(Field field) {
-    final draft = FieldManager().createDraftMeasurement(field.id);
+  void _openNewAnalysis(Field field) async {
+    final draft = await FieldManager().createDraftMeasurement(field.id);
+    if (!mounted) return;
     Navigator.push(
       context,
       MaterialPageRoute(
