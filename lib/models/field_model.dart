@@ -301,6 +301,9 @@ class AnalysisImageResult {
   final int pluckableCount;
   final double capturedArea;
   final List<Offset> budMarkers;
+  // 4 corner points (image-space pixels) of the AR-measured sampling quadrilateral, for
+  // traceability/audit. Null for images whose area was entered manually (Upload Image flow).
+  final List<Offset>? capturedAreaCorners;
 
   const AnalysisImageResult({
     required this.id,
@@ -311,6 +314,7 @@ class AnalysisImageResult {
     required this.pluckableCount,
     required this.capturedArea,
     required this.budMarkers,
+    this.capturedAreaCorners,
   });
 
   int get totalBuds => arimbuCount + pluckableCount;

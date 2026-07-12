@@ -3,10 +3,13 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../models/ar_area_capture_result.dart';
 import '../models/field_model.dart';
 import '../services/api_service.dart';
 import '../services/app_settings_service.dart';
+import '../services/ar_capture_service.dart';
 import '../theme.dart';
+import 'ar_area_capture_screen.dart';
 
 class FieldAnalysisScreen extends StatefulWidget {
   final String fieldId;
@@ -80,19 +83,81 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
       return;
     }
 
-    setState(() {
-      _pendingImages.add(
-        _PendingImage(
-          id: DateTime.now().microsecondsSinceEpoch.toString(),
-          imagePath: pickedFile.path,
-          sourceLabel: source == ImageSource.camera ? 'Camera' : 'Upload',
-          capturedAt: DateTime.now(),
-          capturedArea: capturedArea,
+    _appendPendingImage(
+      _PendingImage(
+        id: DateTime.now().microsecondsSinceEpoch.toString(),
+        imagePath: pickedFile.path,
+        sourceLabel: source == ImageSource.camera ? 'Camera' : 'Upload',
+        capturedAt: DateTime.now(),
+        capturedArea: capturedArea,
+      ),
+    );
+  }
+
+  /// Camera-capture entry point: measures area via AR (see ArAreaCaptureScreen) instead of the
+  /// manual dialog used by [_pickImage]'s Upload Image path. Falls back to the manual dialog
+  /// only when the device has no ARCore support at all, so the Camera button stays usable.
+  Future<void> _captureWithAr() async {
+    if (_measurement.isCompleted) {
+      return;
+    }
+
+    final availability = await ArCaptureService.checkAvailability();
+
+    if (availability == ArAvailability.unsupported) {
+      await _pickImage(ImageSource.camera);
+      return;
+    }
+
+    if (availability == ArAvailability.supportedNotInstalled ||
+        availability == ArAvailability.supportedApkTooOld) {
+      final installResult = await ArCaptureService.requestInstall();
+      if (installResult != 'INSTALLED') {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Install/update ARCore from the Play Store, then tap Camera again.',
+            ),
+          ),
+        );
+        return;
+      }
+    } else if (availability == ArAvailability.unknownChecking) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Still checking AR support - try again in a moment.'),
         ),
       );
+      return;
+    }
+
+    if (!mounted) return;
+    final result = await Navigator.of(context).push<ArAreaCaptureResult?>(
+      MaterialPageRoute(builder: (_) => const ArAreaCaptureScreen()),
+    );
+    if (result == null) {
+      return;
+    }
+
+    _appendPendingImage(
+      _PendingImage(
+        id: DateTime.now().microsecondsSinceEpoch.toString(),
+        imagePath: result.imagePath,
+        sourceLabel: 'Camera',
+        capturedAt: DateTime.now(),
+        capturedArea: result.areaSqm,
+        corners: result.cornersImagePx,
+      ),
+    );
+  }
+
+  void _appendPendingImage(_PendingImage image) {
+    setState(() {
+      _pendingImages.add(image);
       _currentIndex = _galleryItems.length - 1;
     });
-
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_pageController.hasClients) {
         _pageController.animateToPage(
@@ -1051,7 +1116,7 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
                 child: OutlinedButton.icon(
                   onPressed: _isAnalyzing || _measurement.isCompleted
                       ? null
-                      : () => _pickImage(ImageSource.camera),
+                      : _captureWithAr,
                   icon: const Icon(Icons.photo_camera_outlined),
                   label: const Text('Camera'),
                 ),
@@ -1875,6 +1940,9 @@ class _PendingImage {
   final String sourceLabel;
   final DateTime capturedAt;
   final double capturedArea;
+  // 4 corner points (image-space pixels) of the AR-measured quad. Null for gallery uploads,
+  // which still use manual area entry - see AnalysisImageResult.capturedAreaCorners.
+  final List<Offset>? corners;
 
   const _PendingImage({
     required this.id,
@@ -1882,6 +1950,7 @@ class _PendingImage {
     required this.sourceLabel,
     required this.capturedAt,
     required this.capturedArea,
+    this.corners,
   });
 }
 

@@ -1,8 +1,14 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.CAMERA"/>
+    <!-- Not required: app remains usable (manual area entry) on devices without ARCore support. -->
+    <uses-feature android:name="android.hardware.camera.ar" android:required="false"/>
+
     <application
         android:label="teamate_mobile"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+        <!-- "optional": lets the app install/appear on Play Store for non-ARCore devices too. -->
+        <meta-data android:name="com.google.ar.core" android:value="optional"/>
         <activity
             android:name=".MainActivity"
             android:exported="true"
