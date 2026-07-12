@@ -1,5 +1,5 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
+
 import 'login_screen.dart';
 import 'signup_screen.dart';
 
@@ -8,245 +8,405 @@ class WelcomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Stack(
+    return const Scaffold(
+      backgroundColor: Color(0xFFF9F9FC),
+      body: SafeArea(child: _WelcomeLayout()),
+    );
+  }
+}
+
+class _WelcomeLayout extends StatelessWidget {
+  const _WelcomeLayout();
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final height = constraints.maxHeight;
+        final landscape = width > height;
+        final compact = height < 780;
+
+        if (landscape) {
+          return _LandscapeLayout(compact: compact);
+        }
+
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(20, 14, 20, 14),
+          child: Column(
+            children: [
+              Expanded(
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    const Positioned.fill(bottom: 72, child: _HeroSection()),
+                    Positioned(
+                      left: 18,
+                      right: 18,
+                      bottom: 0,
+                      child: _ActionCard(compact: compact),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+              const Text(
+                '© 2024 TeaNexus Systems • Tech for Terroir',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontStyle: FontStyle.italic,
+                  color: Color(0xFF707A6F),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _LandscapeLayout extends StatelessWidget {
+  const _LandscapeLayout({required this.compact});
+
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(18),
+      child: Row(
+        children: [
+          const Expanded(flex: 6, child: _HeroSection()),
+          const SizedBox(width: 18),
+          Expanded(
+            flex: 4,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _ActionCard(compact: compact),
+                const SizedBox(height: 18),
+                const Text(
+                  '© 2024 TeaNexus Systems • Tech for Terroir',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontStyle: FontStyle.italic,
+                    color: Color(0xFF707A6F),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HeroSection extends StatelessWidget {
+  const _HeroSection();
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: const BorderRadius.only(
+        bottomLeft: Radius.circular(12),
+        bottomRight: Radius.circular(12),
+      ),
+      child: Stack(
         fit: StackFit.expand,
         children: [
-          // Background tea field image with soft fallback color
-          Container(color: const Color(0xFF0F2C1B)),
           Image.asset(
-            'assets/images/tea_background.png',
+            'assets/images/tea_welcome_card.png',
             fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) =>
-                Container(color: const Color(0xFF143B25)),
+            alignment: const Alignment(0, -0.1),
+            errorBuilder: (context, error, stackTrace) => Image.asset(
+              'assets/images/tea_background.png',
+              fit: BoxFit.cover,
+              alignment: const Alignment(0, -0.1),
+            ),
           ),
-          // Deep emerald gradient overlay
-          Container(
+          DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  Colors.black.withValues(alpha: 0.35),
-                  const Color(0xFF0C2517).withValues(alpha: 0.75),
-                  const Color(0xFF07180E).withValues(alpha: 0.95),
+                  const Color(0xFFF9F9FC).withValues(alpha: 0.82),
+                  const Color(0xFFF9F9FC).withValues(alpha: 0.18),
+                  Colors.transparent,
+                  Colors.transparent,
                 ],
+                stops: const [0.0, 0.17, 0.34, 1.0],
               ),
             ),
           ),
-          // Content
-          SafeArea(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                return SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 28,
-                    vertical: 24,
-                  ),
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        // Top branding
-                        Column(
-                          children: [
-                            const SizedBox(height: 24),
-                            Container(
-                              width: 100,
-                              height: 100,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: const Color(0xFF22C55E).withValues(
-                                      alpha: 0.4,
-                                    ),
-                                    blurRadius: 30,
-                                    spreadRadius: 5,
-                                  ),
-                                ],
-                              ),
-                              child: ClipOval(
-                                child: Image.asset(
-                                  'assets/images/teamate_logo.png',
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, _, __) => Container(
-                                    color: const Color(0xFF16A34A),
-                                    child: const Icon(
-                                      Icons.eco,
-                                      size: 50,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 20),
-                            const Text(
-                              'TeaMATE',
-                              style: TextStyle(
-                                fontSize: 40,
-                                fontWeight: FontWeight.w900,
-                                color: Colors.white,
-                                letterSpacing: 2.0,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 6,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.12),
-                                borderRadius: BorderRadius.circular(999),
-                                border: Border.all(
-                                  color: Colors.white.withValues(alpha: 0.2),
-                                ),
-                              ),
-                              child: const Text(
-                                'AI Yield Optimization & Segmentation',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  color: Color(0xFF86EFAC),
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  letterSpacing: 0.5,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 24),
+          const Positioned(left: 20, top: 18, child: _BrandPill()),
+          Positioned(
+            right: 18,
+            top: 98,
+            child: Icon(
+              Icons.scatter_plot_outlined,
+              size: 20,
+              color: const Color(0xFF7A8174).withValues(alpha: 0.45),
+            ),
+          ),
+          const Positioned(left: 26, right: 24, top: 168, child: _HeroCopy()),
+        ],
+      ),
+    );
+  }
+}
 
-                        // Bottom Glassmorphic Card with Action Buttons
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(32),
-                          child: BackdropFilter(
-                            filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-                            child: Container(
-                              padding: const EdgeInsets.all(28),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(32),
-                                border: Border.all(
-                                  color: Colors.white.withValues(alpha: 0.2),
-                                  width: 1.5,
-                                ),
-                              ),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Text(
-                                    'Maximize Your Tea Harvest',
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      fontSize: 22,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 10),
-                                  Text(
-                                    'Analyze shoot growth, predict pluckable buds with YOLOv8, and manage field schedules effortlessly.',
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      color: Colors.white.withValues(
-                                        alpha: 0.75,
-                                      ),
-                                      height: 1.4,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 30),
-                                  SizedBox(
-                                    width: double.infinity,
-                                    height: 56,
-                                    child: ElevatedButton(
-                                      onPressed: () {
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (context) =>
-                                                const LoginScreen(),
-                                          ),
-                                        );
-                                      },
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: const Color(
-                                          0xFF16A34A,
-                                        ),
-                                        foregroundColor: Colors.white,
-                                        elevation: 8,
-                                        shadowColor: const Color(
-                                          0xFF16A34A,
-                                        ).withValues(alpha: 0.5),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            18,
-                                          ),
-                                        ),
-                                      ),
-                                      child: const Text(
-                                        'Log In',
-                                        style: TextStyle(
-                                          fontSize: 17,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 16),
-                                  SizedBox(
-                                    width: double.infinity,
-                                    height: 56,
-                                    child: OutlinedButton(
-                                      onPressed: () {
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (context) =>
-                                                const SignupScreen(),
-                                          ),
-                                        );
-                                      },
-                                      style: OutlinedButton.styleFrom(
-                                        foregroundColor: Colors.white,
-                                        side: BorderSide(
-                                          color: Colors.white.withValues(
-                                            alpha: 0.6,
-                                          ),
-                                          width: 1.5,
-                                        ),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            18,
-                                          ),
-                                        ),
-                                      ),
-                                      child: const Text(
-                                        'Create Account',
-                                        style: TextStyle(
-                                          fontSize: 17,
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+class _BrandPill extends StatelessWidget {
+  const _BrandPill();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(8, 8, 16, 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.94),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            width: 30,
+            height: 30,
+            child: ClipOval(
+              child: Image.asset(
+                'assets/images/teamate_logo.png',
+                fit: BoxFit.cover,
+                errorBuilder: (context, _, __) => Container(
+                  color: const Color(0xFF005F26),
+                  child: const Icon(
+                    Icons.eco_rounded,
+                    size: 18,
+                    color: Colors.white,
                   ),
-                );
-              },
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          const Text(
+            'TeaMate',
+            style: TextStyle(
+              fontSize: 24,
+              height: 1,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.6,
+              color: Color(0xFF00481D),
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _HeroCopy extends StatelessWidget {
+  const _HeroCopy();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text.rich(
+          TextSpan(
+            style: TextStyle(
+              fontSize: 28,
+              height: 1.15,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.9,
+              color: Color(0xFF1A1C1E),
+            ),
+            children: [
+              TextSpan(text: 'Smarter Tea Production\n'),
+              TextSpan(
+                text: 'Starts Here',
+                style: TextStyle(color: Color(0xFF00692C)),
+              ),
+            ],
+          ),
+        ),
+        SizedBox(height: 18),
+        Text(
+          'Optimize yield, detect diseases early,\nand grade tea quality with AI-powered\ninsights.',
+          style: TextStyle(
+            fontSize: 16,
+            height: 1.6,
+            fontWeight: FontWeight.w400,
+            color: Colors.white,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ActionCard extends StatelessWidget {
+  const _ActionCard({required this.compact});
+
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(24, 14, 24, 18),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF9F9FC),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: const Color(0xFFBFC9BD).withValues(alpha: 0.30),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _PrimaryAction(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const LoginScreen()),
+              );
+            },
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: Container(
+                  height: 1,
+                  color: const Color(0xFFBFC9BD).withValues(alpha: 0.30),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Container(
+                  height: 1,
+                  color: const Color(0xFFBFC9BD).withValues(alpha: 0.30),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _SecondaryAction(
+            compact: compact,
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const SignupScreen()),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PrimaryAction extends StatelessWidget {
+  const _PrimaryAction({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      height: 46,
+      child: ElevatedButton(
+        onPressed: onPressed,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFF00481D),
+          foregroundColor: Colors.white,
+          elevation: 0,
+          padding: const EdgeInsets.symmetric(horizontal: 18),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+        child: const FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(
+            children: [
+              Icon(Icons.login_rounded, size: 18, color: Colors.white),
+              SizedBox(width: 8),
+              Text(
+                'Login',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SecondaryAction extends StatelessWidget {
+  const _SecondaryAction({required this.compact, required this.onPressed});
+
+  final bool compact;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      height: 47,
+      child: OutlinedButton(
+        onPressed: onPressed,
+        style: OutlinedButton.styleFrom(
+          backgroundColor: const Color(0xFFDADEDB).withValues(alpha: 0.50),
+          foregroundColor: const Color(0xFF5C645F),
+          elevation: 0,
+          padding: const EdgeInsets.symmetric(horizontal: 18),
+          side: BorderSide(
+            color: const Color(0xFFBFC9BD).withValues(alpha: 0.20),
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(
+            children: [
+              Icon(
+                Icons.person_add_alt_1_rounded,
+                size: compact ? 18 : 19,
+                color: const Color(0xFF5C645F),
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                'Register Account',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF5C645F),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
