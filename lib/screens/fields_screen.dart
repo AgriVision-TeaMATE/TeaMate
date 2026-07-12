@@ -12,53 +12,112 @@ class FieldsScreen extends StatefulWidget {
 }
 
 class _FieldsScreenState extends State<FieldsScreen> {
+  Future<void> _refreshFields() async {
+    await FieldManager().syncFromServer();
+  }
+
   void _showAddFieldDialog() {
-    final controller = TextEditingController();
+    final nameController = TextEditingController();
+    final areaController = TextEditingController();
+    var isSaving = false;
     showDialog<void>(
       context: context,
       builder: (context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: const Text(
-            'Add new field',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-              letterSpacing: -0.4,
-            ),
-          ),
-          content: TextField(
-            controller: controller,
-            autofocus: true,
-            decoration: InputDecoration(
-              hintText: 'Field name',
-              filled: true,
-              fillColor: const Color(0xFFF3F4F6),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
-                borderSide: BorderSide.none,
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                final name = controller.text.trim();
-                if (name.isEmpty) {
-                  return;
-                }
-                FieldManager().addField(name);
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            Future<void> handleSave() async {
+              final name = nameController.text.trim();
+              final area = double.tryParse(areaController.text.trim());
+              if (name.isEmpty || area == null || area <= 0) {
+                return;
+              }
+
+              setDialogState(() => isSaving = true);
+              final created = await FieldManager().addField(
+                name: name,
+                areaHectares: area,
+              );
+              if (!context.mounted) return;
+              setDialogState(() => isSaving = false);
+
+              if (created) {
                 Navigator.pop(context);
-              },
-              child: const Text('Save'),
-            ),
-          ],
+                return;
+              }
+
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text(
+                    'Unable to save field. Check login and backend.',
+                  ),
+                ),
+              );
+            }
+
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              title: const Text(
+                'Add new field',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.4,
+                ),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: nameController,
+                    autofocus: true,
+                    decoration: InputDecoration(
+                      hintText: 'Field name',
+                      filled: true,
+                      fillColor: const Color(0xFFF3F4F6),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: areaController,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: 'Field area (ha)',
+                      filled: true,
+                      fillColor: const Color(0xFFF3F4F6),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isSaving ? null : () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: isSaving ? null : handleSave,
+                  child: isSaving
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Save'),
+                ),
+              ],
+            );
+          },
         );
       },
     );
@@ -128,23 +187,35 @@ class _FieldsScreenState extends State<FieldsScreen> {
               ),
             ],
           ),
-          body: fields.isEmpty
-              ? _EmptyFieldState(onTap: _showAddFieldDialog)
-              : ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
-                  itemCount: fields.length,
-                  itemBuilder: (context, index) {
-                    final field = fields[index];
-                    return _FieldCard(
-                      key: ValueKey(field.id),
-                      field: field,
-                      initiallyExpanded: index == 0,
-                      onAnalyze: () => _openNewAnalysis(field),
-                      onHistoryTap: (measurement) =>
-                          _openHistory(field, measurement),
-                    );
-                  },
-                ),
+          body: RefreshIndicator(
+            onRefresh: _refreshFields,
+            child: fields.isEmpty
+                ? ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    children: [
+                      SizedBox(
+                        height: MediaQuery.of(context).size.height * 0.7,
+                        child: _EmptyFieldState(onTap: _showAddFieldDialog),
+                      ),
+                    ],
+                  )
+                : ListView.builder(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+                    itemCount: fields.length,
+                    itemBuilder: (context, index) {
+                      final field = fields[index];
+                      return _FieldCard(
+                        key: ValueKey(field.id),
+                        field: field,
+                        initiallyExpanded: index == 0,
+                        onAnalyze: () => _openNewAnalysis(field),
+                        onHistoryTap: (measurement) =>
+                            _openHistory(field, measurement),
+                      );
+                    },
+                  ),
+          ),
         );
       },
     );
@@ -356,7 +427,7 @@ class _FieldCardState extends State<_FieldCard> {
                             ),
                             const SizedBox(height: 10),
                             Text(
-                              '${field.region} • ${field.areaHectares.toStringAsFixed(1)} ha',
+                              field.subtitle,
                               style: const TextStyle(
                                 fontSize: 13,
                                 color: AppTheme.textSecondary,

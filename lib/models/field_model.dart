@@ -1,5 +1,4 @@
 import 'dart:ui' show Offset;
-import 'dart:math' show max;
 
 import 'package:flutter/foundation.dart';
 
@@ -97,8 +96,10 @@ class WeatherForecast {
   int get currentRainChance {
     if (hourly.isEmpty) return 0;
     final now = DateTime.now();
-    final closest = hourly.reduce((a, b) =>
-        (a.time.difference(now).abs() < b.time.difference(now).abs()) ? a : b);
+    final closest = hourly.reduce(
+      (a, b) =>
+          (a.time.difference(now).abs() < b.time.difference(now).abs()) ? a : b,
+    );
     return closest.rainChance;
   }
 
@@ -114,8 +115,9 @@ class WeatherForecast {
     for (int i = 0; i < upcoming.length - 3; i++) {
       final window = upcoming.sublist(i, i + 4);
       final allDry = window.every((h) => h.rainChance < 30);
-      final goodTemp =
-          window.every((h) => h.temperatureC > 18 && h.temperatureC < 30);
+      final goodTemp = window.every(
+        (h) => h.temperatureC > 18 && h.temperatureC < 30,
+      );
       if (allDry && goodTemp) {
         final start = window.first.time;
         final end = window.last.time;
@@ -185,18 +187,24 @@ class Worker {
 class PluckingSchedule {
   final String id;
   final String fieldId;
+  final String? harvestRoundId;
   final DateTime scheduledDate;
   final String shiftStart;
   final String shiftEnd;
+  final int recommendedWorkers;
+  final String? notes;
   final List<String> assignedWorkerIds;
   ScheduleStatus status;
 
   PluckingSchedule({
     required this.id,
     required this.fieldId,
+    this.harvestRoundId,
     required this.scheduledDate,
     required this.shiftStart,
     required this.shiftEnd,
+    this.recommendedWorkers = 0,
+    this.notes,
     required this.assignedWorkerIds,
     this.status = ScheduleStatus.scheduled,
   });
@@ -220,6 +228,30 @@ class LaborPlan {
   bool get hasShortage => availableWorkers < recommendedWorkers;
 }
 
+class RoundPlanResult {
+  final String roundId;
+  final String fieldId;
+  final String pluckingStatus;
+  final double? predictedYieldKg;
+  final LaborPlan laborPlan;
+  final WeatherSnapshot? weather;
+  final bool canSchedule;
+  final DateTime scheduledDate;
+  final String shiftEnd;
+
+  const RoundPlanResult({
+    required this.roundId,
+    required this.fieldId,
+    required this.pluckingStatus,
+    required this.predictedYieldKg,
+    required this.laborPlan,
+    required this.weather,
+    required this.canSchedule,
+    required this.scheduledDate,
+    required this.shiftEnd,
+  });
+}
+
 class InsightAlert {
   final String id;
   final String title;
@@ -238,6 +270,7 @@ class InsightAlert {
 
 class AppNotificationItem {
   final String id;
+  final String? fieldId;
   final String fieldName;
   final String title;
   final String message;
@@ -248,6 +281,7 @@ class AppNotificationItem {
 
   const AppNotificationItem({
     required this.id,
+    this.fieldId,
     required this.fieldName,
     required this.title,
     required this.message,
@@ -288,6 +322,8 @@ class FieldMeasurement {
   final String id;
   final DateTime date;
   final List<AnalysisImageResult> analyzedImages;
+  final String pluckingStatus;
+  final bool isCompleted;
   final double? fieldArea;
   final double? predictedYieldKg;
   final double? actualYieldKg;
@@ -298,6 +334,8 @@ class FieldMeasurement {
     required this.id,
     required this.date,
     required this.analyzedImages,
+    this.pluckingStatus = 'awaiting_analysis',
+    this.isCompleted = false,
     this.fieldArea,
     this.predictedYieldKg,
     this.actualYieldKg,
@@ -309,6 +347,8 @@ class FieldMeasurement {
     String? id,
     DateTime? date,
     List<AnalysisImageResult>? analyzedImages,
+    String? pluckingStatus,
+    bool? isCompleted,
     double? fieldArea,
     double? predictedYieldKg,
     double? actualYieldKg,
@@ -320,6 +360,8 @@ class FieldMeasurement {
       id: id ?? this.id,
       date: date ?? this.date,
       analyzedImages: analyzedImages ?? this.analyzedImages,
+      pluckingStatus: pluckingStatus ?? this.pluckingStatus,
+      isCompleted: isCompleted ?? this.isCompleted,
       fieldArea: fieldArea ?? this.fieldArea,
       predictedYieldKg: clearPrediction
           ? null
@@ -397,6 +439,9 @@ class FieldMeasurement {
   }
 
   String get readinessLabel {
+    if (isCompleted) {
+      return 'Completed';
+    }
     if (analyzedImages.isEmpty) {
       return 'Awaiting analysis';
     }
@@ -412,6 +457,7 @@ class FieldMeasurement {
 
 class Field {
   final String id;
+  final String userId;
   String name;
   final DateTime? _createdAt;
   final String region;
@@ -424,6 +470,7 @@ class Field {
 
   Field({
     required this.id,
+    required this.userId,
     required this.name,
     required this.region,
     required this.areaHectares,
@@ -433,14 +480,22 @@ class Field {
     DateTime? createdAt,
     List<FieldMeasurement>? measurements,
     List<String>? assignedWorkerIds,
-  })  : _createdAt = createdAt,
-        measurements = measurements ?? [],
-        assignedWorkerIds = assignedWorkerIds ?? [];
+  }) : _createdAt = createdAt,
+       measurements = measurements ?? [],
+       assignedWorkerIds = assignedWorkerIds ?? [];
 
   DateTime get createdAt => _createdAt ?? DateTime.now();
 
   FieldMeasurement? get latestMeasurement =>
       measurements.isEmpty ? null : measurements.last;
+
+  String get subtitle {
+    final trimmedRegion = region.trim();
+    if (trimmedRegion.isEmpty) {
+      return '${areaHectares.toStringAsFixed(1)} ha';
+    }
+    return '$trimmedRegion • ${areaHectares.toStringAsFixed(1)} ha';
+  }
 }
 
 class FieldManager extends ChangeNotifier {
@@ -456,108 +511,30 @@ class FieldManager extends ChangeNotifier {
   Future<void> syncFromServer() async {
     try {
       final fields = await _api.fetchFields();
+      for (final field in fields) {
+        field.measurements = await _api.fetchFieldRounds(field.id);
+      }
       final workers = await _api.fetchWorkers();
-      if (fields.isNotEmpty) {
-        _fields.clear();
-        _fields.addAll(fields);
-      }
-      if (workers.isNotEmpty) {
-        _workers.clear();
-        _workers.addAll(workers);
-      }
+      final schedules = await _api.fetchSchedules();
+      final notifications = await _api.fetchNotifications();
+      _fields
+        ..clear()
+        ..addAll(fields);
+      _workers
+        ..clear()
+        ..addAll(workers);
+      _schedules
+        ..clear()
+        ..addAll(schedules);
+      _notifications
+        ..clear()
+        ..addAll(_hydrateNotifications(notifications));
       notifyListeners();
     } catch (_) {}
   }
 
   // ── Workers ───────────────────────────────────────────────
-  final List<Worker> _workers = [
-    Worker(
-      id: 'w1',
-      name: 'Kamal Perera',
-      phone: '+94 77 123 4567',
-      status: WorkerStatus.assigned,
-      skillLevel: SkillLevel.senior,
-      assignedFieldId: '1',
-      createdAt: DateTime.now().subtract(const Duration(days: 120)),
-    ),
-    Worker(
-      id: 'w2',
-      name: 'Nimal Silva',
-      phone: '+94 76 234 5678',
-      status: WorkerStatus.assigned,
-      skillLevel: SkillLevel.experienced,
-      assignedFieldId: '1',
-      createdAt: DateTime.now().subtract(const Duration(days: 90)),
-    ),
-    Worker(
-      id: 'w3',
-      name: 'Saman Jayawardena',
-      phone: '+94 71 345 6789',
-      status: WorkerStatus.assigned,
-      skillLevel: SkillLevel.experienced,
-      assignedFieldId: '2',
-      createdAt: DateTime.now().subtract(const Duration(days: 200)),
-    ),
-    Worker(
-      id: 'w4',
-      name: 'Ruwan Fernando',
-      phone: '+94 78 456 7890',
-      status: WorkerStatus.available,
-      skillLevel: SkillLevel.junior,
-      createdAt: DateTime.now().subtract(const Duration(days: 45)),
-    ),
-    Worker(
-      id: 'w5',
-      name: 'Dilshan Kumara',
-      phone: '+94 75 567 8901',
-      status: WorkerStatus.assigned,
-      skillLevel: SkillLevel.senior,
-      assignedFieldId: '3',
-      createdAt: DateTime.now().subtract(const Duration(days: 300)),
-    ),
-    Worker(
-      id: 'w6',
-      name: 'Priyantha Bandara',
-      phone: '+94 77 678 9012',
-      status: WorkerStatus.onLeave,
-      skillLevel: SkillLevel.experienced,
-      createdAt: DateTime.now().subtract(const Duration(days: 150)),
-    ),
-    Worker(
-      id: 'w7',
-      name: 'Chaminda Wijesinghe',
-      phone: '+94 76 789 0123',
-      status: WorkerStatus.assigned,
-      skillLevel: SkillLevel.experienced,
-      assignedFieldId: '4',
-      createdAt: DateTime.now().subtract(const Duration(days: 80)),
-    ),
-    Worker(
-      id: 'w8',
-      name: 'Lakmal Rathnayake',
-      phone: '+94 71 890 1234',
-      status: WorkerStatus.available,
-      skillLevel: SkillLevel.junior,
-      createdAt: DateTime.now().subtract(const Duration(days: 30)),
-    ),
-    Worker(
-      id: 'w9',
-      name: 'Ashan de Mel',
-      phone: '+94 78 901 2345',
-      status: WorkerStatus.assigned,
-      skillLevel: SkillLevel.senior,
-      assignedFieldId: '5',
-      createdAt: DateTime.now().subtract(const Duration(days: 250)),
-    ),
-    Worker(
-      id: 'w10',
-      name: 'Tharuka Gamage',
-      phone: '+94 75 012 3456',
-      status: WorkerStatus.available,
-      skillLevel: SkillLevel.experienced,
-      createdAt: DateTime.now().subtract(const Duration(days: 60)),
-    ),
-  ];
+  final List<Worker> _workers = [];
 
   List<Worker> get workers => _workers;
 
@@ -579,20 +556,27 @@ class FieldManager extends ChangeNotifier {
     SkillLevel skillLevel = SkillLevel.experienced,
   }) {
     final tempId = 'w${DateTime.now().millisecondsSinceEpoch}';
-    _workers.add(Worker(
-      id: tempId,
-      name: name,
-      phone: phone,
-      skillLevel: skillLevel,
-      status: WorkerStatus.available,
-    ));
+    _workers.add(
+      Worker(
+        id: tempId,
+        name: name,
+        phone: phone,
+        skillLevel: skillLevel,
+        status: WorkerStatus.available,
+      ),
+    );
     notifyListeners();
     _api.addWorker(name: name, phone: phone, skillLevel: skillLevel).then((w) {
       if (w != null) syncFromServer();
     });
   }
 
-  void updateWorker(String workerId, {String? name, String? phone, SkillLevel? skillLevel}) {
+  void updateWorker(
+    String workerId, {
+    String? name,
+    String? phone,
+    SkillLevel? skillLevel,
+  }) {
     final worker = _workers.firstWhere((w) => w.id == workerId);
     if (name != null) worker.name = name;
     if (phone != null) worker.phone = phone;
@@ -661,203 +645,25 @@ class FieldManager extends ChangeNotifier {
   }
 
   // ── Fields ────────────────────────────────────────────────
-  final List<Field> _fields = [
-    Field(
-      id: '1',
-      name: 'Highland North Block',
-      region: 'Hatton Division',
-      areaHectares: 2.4,
-      latitude: 6.8985,
-      longitude: 80.5853,
-      elevationMeters: 1250,
-      assignedWorkerIds: ['w1', 'w2'],
-      createdAt: DateTime.now().subtract(const Duration(days: 12, hours: 4)),
-      measurements: [
-        FieldMeasurement(
-          id: 'm-1001',
-          date: DateTime.now().subtract(const Duration(days: 9)),
-          fieldArea: 2.4,
-          predictedYieldKg: 186.5,
-          actualYieldKg: 214.0,
-          weather: WeatherSnapshot(
-            date: DateTime.now().subtract(const Duration(days: 9)),
-            summary: 'Cloudy morning',
-            rainChance: 34,
-            humidity: 78,
-            temperatureC: 22.5,
-            stormRisk: false,
-          ),
-          laborPlan: LaborPlan(
-            availableWorkers: 8,
-            recommendedWorkers: 10,
-            shiftStart: '06:00 AM',
-            smsScheduled: true,
-            focusZones: ['North row', 'Center lane'],
-          ),
-          analyzedImages: const [],
-        ),
-      ],
-    ),
-    Field(
-      id: '2',
-      name: 'Lower Valley Section B',
-      region: 'Dickoya Division',
-      areaHectares: 1.8,
-      latitude: 6.8823,
-      longitude: 80.6112,
-      elevationMeters: 1100,
-      assignedWorkerIds: ['w3'],
-      createdAt: DateTime.now().subtract(const Duration(days: 3, hours: 2)),
-      measurements: [
-        FieldMeasurement(
-          id: 'm-1002',
-          date: DateTime.now().subtract(const Duration(days: 1, hours: 6)),
-          fieldArea: 1.8,
-          predictedYieldKg: 126.0,
-          weather: WeatherSnapshot(
-            date: DateTime.now(),
-            summary: 'Rain after noon',
-            rainChance: 72,
-            humidity: 86,
-            temperatureC: 21.0,
-            stormRisk: true,
-          ),
-          laborPlan: LaborPlan(
-            availableWorkers: 5,
-            recommendedWorkers: 7,
-            shiftStart: '06:30 AM',
-            smsScheduled: false,
-            focusZones: ['Lower terrace', 'River edge'],
-          ),
-          analyzedImages: const [],
-        ),
-      ],
-    ),
-    Field(
-      id: '3',
-      name: 'Summit East Terrace',
-      region: 'Bogawantalawa Division',
-      areaHectares: 3.1,
-      latitude: 6.8142,
-      longitude: 80.6655,
-      elevationMeters: 1450,
-      assignedWorkerIds: ['w5'],
-      createdAt: DateTime.now().subtract(const Duration(days: 18, hours: 5)),
-      measurements: [
-        FieldMeasurement(
-          id: 'm-1003',
-          date: DateTime.now().subtract(const Duration(days: 4, hours: 2)),
-          fieldArea: 3.1,
-          predictedYieldKg: 205.4,
-          actualYieldKg: 198.2,
-          weather: WeatherSnapshot(
-            date: DateTime.now().subtract(const Duration(days: 4, hours: 2)),
-            summary: 'Bright intervals',
-            rainChance: 28,
-            humidity: 73,
-            temperatureC: 23.1,
-            stormRisk: false,
-          ),
-          laborPlan: LaborPlan(
-            availableWorkers: 9,
-            recommendedWorkers: 9,
-            shiftStart: '06:15 AM',
-            smsScheduled: true,
-            focusZones: ['Upper terrace', 'East bend'],
-          ),
-          analyzedImages: const [],
-        ),
-      ],
-    ),
-    Field(
-      id: '4',
-      name: 'Riverbank South Plot',
-      region: 'Maskeliya Division',
-      areaHectares: 2.0,
-      latitude: 6.8401,
-      longitude: 80.5432,
-      elevationMeters: 1180,
-      assignedWorkerIds: ['w7'],
-      createdAt: DateTime.now().subtract(const Duration(days: 7, hours: 1)),
-      measurements: [
-        FieldMeasurement(
-          id: 'm-1004',
-          date: DateTime.now().subtract(const Duration(days: 2, hours: 7)),
-          fieldArea: 2.0,
-          predictedYieldKg: 142.6,
-          weather: WeatherSnapshot(
-            date: DateTime.now().subtract(const Duration(days: 2, hours: 7)),
-            summary: 'Humid morning',
-            rainChance: 41,
-            humidity: 82,
-            temperatureC: 21.8,
-            stormRisk: false,
-          ),
-          laborPlan: LaborPlan(
-            availableWorkers: 6,
-            recommendedWorkers: 8,
-            shiftStart: '06:40 AM',
-            smsScheduled: false,
-            focusZones: ['South edge', 'Drain line'],
-          ),
-          analyzedImages: const [],
-        ),
-      ],
-    ),
-    Field(
-      id: '5',
-      name: 'Cedar Upper Lane',
-      region: 'Nanu Oya Division',
-      areaHectares: 1.6,
-      latitude: 6.9501,
-      longitude: 80.5788,
-      elevationMeters: 1320,
-      assignedWorkerIds: ['w9'],
-      createdAt: DateTime.now().subtract(const Duration(days: 21, hours: 3)),
-      measurements: [
-        FieldMeasurement(
-          id: 'm-1005',
-          date: DateTime.now().subtract(const Duration(days: 6, hours: 9)),
-          fieldArea: 1.6,
-          predictedYieldKg: 118.3,
-          actualYieldKg: 121.9,
-          weather: WeatherSnapshot(
-            date: DateTime.now().subtract(const Duration(days: 6, hours: 9)),
-            summary: 'Cool breeze',
-            rainChance: 22,
-            humidity: 69,
-            temperatureC: 20.9,
-            stormRisk: false,
-          ),
-          laborPlan: LaborPlan(
-            availableWorkers: 4,
-            recommendedWorkers: 5,
-            shiftStart: '07:00 AM',
-            smsScheduled: true,
-            focusZones: ['Upper lane', 'Rock border'],
-          ),
-          analyzedImages: const [],
-        ),
-      ],
-    ),
-  ];
+  final List<Field> _fields = [];
+  final List<AppNotificationItem> _notifications = [];
 
   List<Field> get fields => _fields;
 
-  void addField(String name) {
-    _fields.add(
-      Field(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        name: name,
-        region: 'New Division',
-        areaHectares: 2.0,
-        createdAt: DateTime.now(),
-      ),
-    );
+  Future<bool> addField({
+    required String name,
+    required double areaHectares,
+  }) async {
+    final created = await _api.addField(name: name, areaHectares: areaHectares);
+    if (created == null) {
+      return false;
+    }
+    _fields.add(created);
     notifyListeners();
+    return true;
   }
 
-  void deleteField(String fieldId) {
+  Future<void> deleteField(String fieldId) async {
     // Unassign workers from deleted field
     for (final worker in _workers) {
       if (worker.assignedFieldId == fieldId) {
@@ -867,6 +673,7 @@ class FieldManager extends ChangeNotifier {
     }
     _fields.removeWhere((field) => field.id == fieldId);
     notifyListeners();
+    await _api.deleteField(fieldId);
   }
 
   Future<FieldMeasurement> createDraftMeasurement(String fieldId) async {
@@ -884,7 +691,6 @@ class FieldManager extends ChangeNotifier {
       analyzedImages: const [],
       fieldArea: field.areaHectares,
       weather: _buildWeatherForField(field),
-      laborPlan: _buildLaborPlanForField(field, const []),
     );
     field.measurements.add(measurement);
     notifyListeners();
@@ -912,6 +718,7 @@ class FieldManager extends ChangeNotifier {
 
   void deleteMeasurement(String fieldId, String measurementId) {
     removeMeasurement(fieldId, measurementId);
+    _api.deleteRound(measurementId);
   }
 
   void updateActualYield(
@@ -935,136 +742,27 @@ class FieldManager extends ChangeNotifier {
     String fieldId,
     FieldMeasurement measurement,
   ) {
-    final field = _findField(fieldId);
     return measurement.copyWith(
-      weather: _buildWeatherForField(field),
-      laborPlan: _buildLaborPlanForField(field, measurement.analyzedImages),
+      weather: measurement.weather ?? _weatherFromForecast(_cachedForecast),
+      laborPlan: measurement.laborPlan,
     );
   }
 
   // ── Notifications ─────────────────────────────────────────
-  List<AppNotificationItem> get notifications {
-    final items = <AppNotificationItem>[];
-    for (final field in _fields) {
-      final measurement = field.latestMeasurement;
-      if (measurement == null) {
-        continue;
-      }
-
-      if (measurement.weather?.stormRisk == true) {
-        items.add(
-          AppNotificationItem(
-            id: '${field.id}-weather',
-            fieldName: field.name,
-            title: 'Weather warning',
-            message:
-                'Rain risk is high. Move plucking round earlier and protect collected leaf quality.',
-            category: 'Weather',
-            createdAt: DateTime.now().subtract(const Duration(hours: 2)),
-            severity: AlertSeverity.warning,
-          ),
-        );
-      }
-
-      if (measurement.laborPlan?.hasShortage == true) {
-        items.add(
-          AppNotificationItem(
-            id: '${field.id}-labor',
-            fieldName: field.name,
-            title: 'Labor shortage',
-            message:
-                'Only ${measurement.laborPlan!.availableWorkers} workers available for ${measurement.laborPlan!.recommendedWorkers} required slots.',
-            category: 'Labor',
-            createdAt: DateTime.now().subtract(const Duration(hours: 3)),
-            severity: AlertSeverity.critical,
-          ),
-        );
-      }
-
-      if (measurement.hasOverPluckingRisk) {
-        final variance = measurement.yieldVariancePercent!.toStringAsFixed(1);
-        items.add(
-          AppNotificationItem(
-            id: '${field.id}-overpluck',
-            fieldName: field.name,
-            title: 'Over-plucking alert',
-            message:
-                'Actual yield is $variance% above prediction. Review coarse leaves and restricted Arimbu mixing.',
-            category: 'Quality',
-            createdAt: DateTime.now().subtract(const Duration(hours: 5)),
-            severity: AlertSeverity.critical,
-          ),
-        );
-      }
-
-      if (measurement.isReadyToPluck) {
-        items.add(
-          AppNotificationItem(
-            id: '${field.id}-ready',
-            fieldName: field.name,
-            title: 'Ready to pluck',
-            message:
-                'The maturity ratio is in the optimal window. Crew reminder can be sent for ${measurement.laborPlan?.shiftStart ?? 'next round'}.',
-            category: 'Reminder',
-            createdAt: DateTime.now().subtract(const Duration(hours: 1)),
-            severity: AlertSeverity.info,
-            isUnread: false,
-          ),
-        );
-      }
-
-      // Labour assignment notifications
-      final assignedCount = workersForField(field.id).length;
-      final recommended = measurement.laborPlan?.recommendedWorkers ?? 0;
-      if (recommended > 0 && assignedCount < recommended) {
-        items.add(
-          AppNotificationItem(
-            id: '${field.id}-assign',
-            fieldName: field.name,
-            title: 'Workers needed',
-            message:
-                '$assignedCount of $recommended workers assigned. Assign ${recommended - assignedCount} more workers for optimal coverage.',
-            category: 'Labor',
-            createdAt: DateTime.now().subtract(const Duration(hours: 4)),
-            severity: AlertSeverity.warning,
-          ),
-        );
-      }
-
-      // Schedule reminders
-      if (measurement.isReadyToPluck && assignedCount > 0) {
-        items.add(
-          AppNotificationItem(
-            id: '${field.id}-schedule',
-            fieldName: field.name,
-            title: 'Plucking round scheduled',
-            message:
-                '$assignedCount workers assigned for tomorrow\'s round starting at ${measurement.laborPlan?.shiftStart ?? '06:00 AM'}.',
-            category: 'Schedule',
-            createdAt: DateTime.now().subtract(const Duration(hours: 6)),
-            severity: AlertSeverity.info,
-            isUnread: false,
-          ),
-        );
-      }
-    }
-
-    items.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-    return items;
-  }
+  List<AppNotificationItem> get notifications => _notifications;
 
   int get unreadNotificationCount =>
       notifications.where((item) => item.isUnread).length;
 
   double get predictedYieldTotalKg => _fields.fold(
-        0,
-        (sum, field) => sum + (field.latestMeasurement?.predictedYieldKg ?? 0),
-      );
+    0,
+    (sum, field) => sum + (field.latestMeasurement?.predictedYieldKg ?? 0),
+  );
 
   double get actualYieldTotalKg => _fields.fold(
-        0,
-        (sum, field) => sum + (field.latestMeasurement?.actualYieldKg ?? 0),
-      );
+    0,
+    (sum, field) => sum + (field.latestMeasurement?.actualYieldKg ?? 0),
+  );
 
   int get fieldsReadyToPluck =>
       _fields.where((f) => f.latestMeasurement?.isReadyToPluck == true).length;
@@ -1169,22 +867,43 @@ class FieldManager extends ChangeNotifier {
     );
   }
 
-  static LaborPlan _buildLaborPlanForField(
-    Field field,
-    List<AnalysisImageResult> images,
+  List<AppNotificationItem> _hydrateNotifications(
+    List<AppNotificationItem> notifications,
   ) {
-    final availableWorkers = 6 + (field.name.length % 3);
-    final recommendedWorkers =
-        max(availableWorkers, 7) + (images.length >= 3 ? 1 : 0);
-    return LaborPlan(
-      availableWorkers: availableWorkers,
-      recommendedWorkers: recommendedWorkers,
-      shiftStart: '06:00 AM',
-      smsScheduled: images.length >= 3,
-      focusZones: images
-          .take(2)
-          .map((item) => item.sourceLabel)
-          .toList(growable: false),
+    final fieldNames = {for (final field in _fields) field.id: field.name};
+    final hydrated = notifications
+        .map(
+          (item) => AppNotificationItem(
+            id: item.id,
+            fieldId: item.fieldId,
+            fieldName:
+                item.fieldName.isNotEmpty
+                    ? item.fieldName
+                    : fieldNames[item.fieldId] ?? 'System',
+            title: item.title,
+            message: item.message,
+            category: item.category,
+            createdAt: item.createdAt,
+            severity: item.severity,
+            isUnread: item.isUnread,
+          ),
+        )
+        .toList();
+    hydrated.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return hydrated;
+  }
+
+  static WeatherSnapshot? _weatherFromForecast(WeatherForecast? forecast) {
+    if (forecast == null) {
+      return null;
+    }
+    return WeatherSnapshot(
+      date: forecast.fetchedAt,
+      summary: forecast.currentDescription,
+      rainChance: forecast.currentRainChance,
+      humidity: forecast.currentHumidity,
+      temperatureC: forecast.currentTemp,
+      stormRisk: forecast.hasStormRisk,
     );
   }
 }

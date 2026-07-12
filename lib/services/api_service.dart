@@ -1,11 +1,11 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:ui' show Offset;
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../models/field_model.dart';
+import 'auth_service.dart';
 
 class ApiService {
   static String get baseUrl {
@@ -22,10 +22,22 @@ class ApiService {
 
   static const Duration _timeout = Duration(seconds: 12);
 
+  Map<String, String> _headers({bool json = false}) {
+    final headers = <String, String>{};
+    final token = AuthService().token;
+    if (token != null && token.isNotEmpty) {
+      headers['Authorization'] = 'Bearer $token';
+    }
+    if (json) {
+      headers['Content-Type'] = 'application/json';
+    }
+    return headers;
+  }
+
   Future<List<Field>> fetchFields() async {
     try {
       final response = await http
-          .get(Uri.parse('$baseUrl/fields'))
+          .get(Uri.parse('$baseUrl/fields'), headers: _headers())
           .timeout(_timeout);
       if (response.statusCode != 200) return [];
       final List data = jsonDecode(response.body);
@@ -36,10 +48,69 @@ class ApiService {
     }
   }
 
+  Future<Field?> addField({
+    required String name,
+    required double areaHectares,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/fields'),
+            headers: _headers(json: true),
+            body: jsonEncode({'name': name, 'area_hectares': areaHectares}),
+          )
+          .timeout(_timeout);
+      if (response.statusCode != 201 && response.statusCode != 200) return null;
+      return _parseField(jsonDecode(response.body));
+    } catch (e) {
+      debugPrint('ApiService addField error: $e');
+      return null;
+    }
+  }
+
+  Future<List<FieldMeasurement>> fetchFieldRounds(String fieldId) async {
+    try {
+      final response = await http
+          .get(
+            Uri.parse('$baseUrl/fields/$fieldId/rounds'),
+            headers: _headers(),
+          )
+          .timeout(_timeout);
+      if (response.statusCode != 200) return [];
+      final List data = jsonDecode(response.body);
+      return data
+          .map((json) => _parseRound(json as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      debugPrint('ApiService fetchFieldRounds error: $e');
+      return [];
+    }
+  }
+
+  Future<void> deleteField(String fieldId) async {
+    try {
+      await http
+          .delete(Uri.parse('$baseUrl/fields/$fieldId'), headers: _headers())
+          .timeout(_timeout);
+    } catch (e) {
+      debugPrint('ApiService deleteField error: $e');
+    }
+  }
+
+  Future<void> deleteRound(String roundId) async {
+    try {
+      await http
+          .delete(Uri.parse('$baseUrl/rounds/$roundId'), headers: _headers())
+          .timeout(_timeout);
+    } catch (e) {
+      debugPrint('ApiService deleteRound error: $e');
+    }
+  }
+
   Future<List<Worker>> fetchWorkers() async {
     try {
       final response = await http
-          .get(Uri.parse('$baseUrl/workers'))
+          .get(Uri.parse('$baseUrl/workers'), headers: _headers())
           .timeout(_timeout);
       if (response.statusCode != 200) return [];
       final List data = jsonDecode(response.body);
@@ -53,7 +124,7 @@ class ApiService {
   Future<List<PluckingSchedule>> fetchSchedules() async {
     try {
       final response = await http
-          .get(Uri.parse('$baseUrl/schedules'))
+          .get(Uri.parse('$baseUrl/schedules'), headers: _headers())
           .timeout(_timeout);
       if (response.statusCode != 200) return [];
       final List data = jsonDecode(response.body);
@@ -67,7 +138,7 @@ class ApiService {
   Future<List<AppNotificationItem>> fetchNotifications() async {
     try {
       final response = await http
-          .get(Uri.parse('$baseUrl/notifications'))
+          .get(Uri.parse('$baseUrl/notifications'), headers: _headers())
           .timeout(_timeout);
       if (response.statusCode != 200) return [];
       final List data = jsonDecode(response.body);
@@ -92,7 +163,7 @@ class ApiService {
       final response = await http
           .post(
             Uri.parse('$baseUrl/workers'),
-            headers: {'Content-Type': 'application/json'},
+            headers: _headers(json: true),
             body: jsonEncode({
               'name': name,
               'phone': phone,
@@ -118,7 +189,7 @@ class ApiService {
       await http
           .put(
             Uri.parse('$baseUrl/workers/$workerId/status'),
-            headers: {'Content-Type': 'application/json'},
+            headers: _headers(json: true),
             body: jsonEncode({'status': statusStr}),
           )
           .timeout(_timeout);
@@ -130,7 +201,7 @@ class ApiService {
   Future<void> deleteWorker(String workerId) async {
     try {
       await http
-          .delete(Uri.parse('$baseUrl/workers/$workerId'))
+          .delete(Uri.parse('$baseUrl/workers/$workerId'), headers: _headers())
           .timeout(_timeout);
     } catch (e) {
       debugPrint('ApiService deleteWorker error: $e');
@@ -142,7 +213,7 @@ class ApiService {
       await http
           .post(
             Uri.parse('$baseUrl/workers/$workerId/assign'),
-            headers: {'Content-Type': 'application/json'},
+            headers: _headers(json: true),
             body: jsonEncode({'field_id': fieldId}),
           )
           .timeout(_timeout);
@@ -154,7 +225,10 @@ class ApiService {
   Future<void> unassignWorker(String workerId) async {
     try {
       await http
-          .post(Uri.parse('$baseUrl/workers/$workerId/unassign'))
+          .post(
+            Uri.parse('$baseUrl/workers/$workerId/unassign'),
+            headers: _headers(),
+          )
           .timeout(_timeout);
     } catch (e) {
       debugPrint('ApiService unassignWorker error: $e');
@@ -166,10 +240,8 @@ class ApiService {
       final response = await http
           .post(
             Uri.parse('$baseUrl/fields/$fieldId/rounds'),
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({
-              'round_date': DateTime.now().toIso8601String(),
-            }),
+            headers: _headers(json: true),
+            body: jsonEncode({}),
           )
           .timeout(_timeout);
       if (response.statusCode != 201 && response.statusCode != 200) return null;
@@ -183,34 +255,39 @@ class ApiService {
   Future<AnalysisImageResult?> uploadImageToRound({
     required String roundId,
     required String imagePathOrUrl,
-    required String sourceLabel,
+    required double capturedArea,
   }) async {
     try {
-      String imageUrlPayload = imagePathOrUrl;
-      if (!imagePathOrUrl.startsWith('http') && !imagePathOrUrl.startsWith('data:')) {
-        try {
-          final file = File(imagePathOrUrl);
-          final bytes = await file.readAsBytes();
-          imageUrlPayload = 'data:image/jpeg;base64,${base64Encode(bytes)}';
-          debugPrint('Successfully encoded local image file to base64 (${bytes.length} bytes)');
-        } catch (err) {
-          debugPrint('Error reading file $imagePathOrUrl for base64 upload: $err');
-        }
+      if (imagePathOrUrl.startsWith('http') ||
+          imagePathOrUrl.startsWith('data:')) {
+        return null;
       }
-      final pathPayload = imagePathOrUrl.length > 450 ? 'local_upload.jpg' : imagePathOrUrl;
-      final response = await http
-          .post(
-            Uri.parse('$baseUrl/rounds/$roundId/images'),
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({
-              'firebase_url': imageUrlPayload,
-              'firebase_path': pathPayload,
-              'source_label': sourceLabel,
-              'captured_at': DateTime.now().toIso8601String(),
-            }),
-          )
-          .timeout(const Duration(seconds: 30));
-      if (response.statusCode != 201 && response.statusCode != 200) return null;
+
+      final request = http.MultipartRequest(
+        'POST',
+        Uri.parse('$baseUrl/rounds/$roundId/images'),
+      );
+      request.headers.addAll(_headers());
+      request.fields['captured_area_sqm'] = capturedArea.toString();
+
+      final file = File(imagePathOrUrl);
+      final bytes = await file.readAsBytes();
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          'image',
+          bytes,
+          filename: imagePathOrUrl.split(Platform.pathSeparator).last,
+        ),
+      );
+
+      final streamedResponse = await request.send().timeout(
+        const Duration(seconds: 30),
+      );
+      if (streamedResponse.statusCode != 201 &&
+          streamedResponse.statusCode != 200) {
+        return null;
+      }
+      final response = await http.Response.fromStream(streamedResponse);
       return _parseImageResult(jsonDecode(response.body));
     } catch (e) {
       debugPrint('ApiService uploadImageToRound error: $e');
@@ -221,7 +298,10 @@ class ApiService {
   Future<FieldMeasurement?> analyzeRound(String roundId) async {
     try {
       final response = await http
-          .post(Uri.parse('$baseUrl/rounds/$roundId/analyze'))
+          .post(
+            Uri.parse('$baseUrl/rounds/$roundId/analyze'),
+            headers: _headers(),
+          )
           .timeout(const Duration(seconds: 90));
       if (response.statusCode != 200) return null;
       return _parseRound(jsonDecode(response.body));
@@ -231,26 +311,79 @@ class ApiService {
     }
   }
 
+  Future<bool> deleteAnalysisImage(String imageId) async {
+    try {
+      final response = await http
+          .delete(Uri.parse('$baseUrl/images/$imageId'), headers: _headers())
+          .timeout(_timeout);
+      return response.statusCode == 204;
+    } catch (e) {
+      debugPrint('ApiService deleteAnalysisImage error: $e');
+      return false;
+    }
+  }
+
+  Future<FieldMeasurement?> predictRoundYield(String roundId) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/rounds/$roundId/predict-yield'),
+            headers: _headers(),
+          )
+          .timeout(_timeout);
+      if (response.statusCode != 200) return null;
+      return _parseRound(jsonDecode(response.body));
+    } catch (e) {
+      debugPrint('ApiService predictRoundYield error: $e');
+      return null;
+    }
+  }
+
+  Future<RoundPlanResult?> planRound({
+    required String roundId,
+    required double kgPerWorkerPerDay,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/rounds/$roundId/plan'),
+            headers: _headers(json: true),
+            body: jsonEncode({'kg_per_worker_per_day': kgPerWorkerPerDay}),
+          )
+          .timeout(_timeout);
+      if (response.statusCode != 200) return null;
+      return _parseRoundPlan(jsonDecode(response.body));
+    } catch (e) {
+      debugPrint('ApiService planRound error: $e');
+      return null;
+    }
+  }
+
   Future<AnalysisImageResult?> analyzeImageDirectly({
     required String imagePath,
     required String sourceLabel,
   }) async {
     try {
-      final request = http.MultipartRequest('POST', Uri.parse('$modelBaseUrl/predict'));
+      final request = http.MultipartRequest(
+        'POST',
+        Uri.parse('$modelBaseUrl/predict'),
+      );
       if (imagePath.startsWith('http') || imagePath.startsWith('data:')) {
         return null;
       }
       final file = File(imagePath);
       final bytes = await file.readAsBytes();
-      request.files.add(http.MultipartFile.fromBytes(
-        'file',
-        bytes,
-        filename: 'image.jpg',
-      ));
+      request.files.add(
+        http.MultipartFile.fromBytes('file', bytes, filename: 'image.jpg'),
+      );
 
-      final streamedResponse = await request.send().timeout(const Duration(seconds: 60));
+      final streamedResponse = await request.send().timeout(
+        const Duration(seconds: 60),
+      );
       if (streamedResponse.statusCode != 200) {
-        debugPrint('Direct model response error: ${streamedResponse.statusCode}');
+        debugPrint(
+          'Direct model response error: ${streamedResponse.statusCode}',
+        );
         return null;
       }
 
@@ -263,7 +396,9 @@ class ApiService {
 
       return AnalysisImageResult(
         id: DateTime.now().microsecondsSinceEpoch.toString(),
-        imagePath: base64Img.isNotEmpty ? 'data:image/jpeg;base64,$base64Img' : imagePath,
+        imagePath: base64Img.isNotEmpty
+            ? 'data:image/jpeg;base64,$base64Img'
+            : imagePath,
         sourceLabel: sourceLabel,
         capturedAt: DateTime.now(),
         arimbuCount: arimbuCount,
@@ -282,15 +417,95 @@ class ApiService {
       await http
           .put(
             Uri.parse('$baseUrl/rounds/$roundId'),
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({'actual_yield_kg': yieldKg}),
+            headers: _headers(json: true),
+            body: jsonEncode({'actual_yield': yieldKg}),
           )
           .timeout(_timeout);
       await http
-          .put(Uri.parse('$baseUrl/rounds/$roundId/complete'))
+          .put(
+            Uri.parse('$baseUrl/rounds/$roundId/complete'),
+            headers: _headers(),
+          )
           .timeout(_timeout);
     } catch (e) {
       debugPrint('ApiService saveActualYield error: $e');
+    }
+  }
+
+  Future<void> updateActualYield(String roundId, double yieldKg) async {
+    try {
+      await http
+          .put(
+            Uri.parse('$baseUrl/rounds/$roundId'),
+            headers: _headers(json: true),
+            body: jsonEncode({'actual_yield': yieldKg}),
+          )
+          .timeout(_timeout);
+    } catch (e) {
+      debugPrint('ApiService updateActualYield error: $e');
+    }
+  }
+
+  Future<PluckingSchedule?> createSchedule({
+    required String fieldId,
+    required String roundId,
+    required DateTime scheduledDate,
+    required String shiftStart,
+    required String shiftEnd,
+    required int recommendedWorkers,
+    required List<String> assignedWorkerIds,
+    String? notes,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/schedules'),
+            headers: _headers(json: true),
+            body: jsonEncode({
+              'field_id': fieldId,
+              'harvest_round_id': roundId,
+              'scheduled_date': _dateOnly(scheduledDate),
+              'shift_start': shiftStart,
+              'shift_end': shiftEnd,
+              'recommended_workers': recommendedWorkers,
+              'notes': notes,
+              'assigned_worker_ids': assignedWorkerIds,
+            }),
+          )
+          .timeout(_timeout);
+      if (response.statusCode != 201 && response.statusCode != 200) return null;
+      return _parseSchedule(jsonDecode(response.body));
+    } catch (e) {
+      debugPrint('ApiService createSchedule error: $e');
+      return null;
+    }
+  }
+
+  Future<bool> sendScheduleSms(String scheduleId) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/schedules/$scheduleId/send-sms'),
+            headers: _headers(),
+          )
+          .timeout(_timeout);
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint('ApiService sendScheduleSms error: $e');
+      return false;
+    }
+  }
+
+  Future<void> markAllNotificationsRead() async {
+    try {
+      await http
+          .put(
+            Uri.parse('$baseUrl/notifications/read-all'),
+            headers: _headers(),
+          )
+          .timeout(_timeout);
+    } catch (e) {
+      debugPrint('ApiService markAllNotificationsRead error: $e');
     }
   }
 
@@ -305,8 +520,9 @@ class ApiService {
 
     return Field(
       id: json['id'].toString(),
+      userId: json['user_id']?.toString() ?? '',
       name: json['name'] ?? 'Tea Field',
-      region: json['region'] ?? 'Estate',
+      region: json['region'] ?? '',
       areaHectares: (json['area_hectares'] as num?)?.toDouble() ?? 1.0,
       latitude: (json['latitude'] as num?)?.toDouble() ?? 6.9271,
       longitude: (json['longitude'] as num?)?.toDouble() ?? 80.6005,
@@ -350,33 +566,36 @@ class ApiService {
 
     return FieldMeasurement(
       id: json['id'].toString(),
-      date: DateTime.tryParse(json['round_date'] ?? '') ?? DateTime.now(),
+      date:
+          DateTime.tryParse(json['created_at'] ?? json['round_date'] ?? '') ??
+          DateTime.now(),
       analyzedImages: images,
+      pluckingStatus:
+          json['plucking_status']?.toString() ?? 'awaiting_analysis',
+      isCompleted: json['is_completed'] as bool? ?? false,
       fieldArea: (json['field_area_hectares'] as num?)?.toDouble(),
-      predictedYieldKg: (json['predicted_yield_kg'] as num?)?.toDouble(),
-      actualYieldKg: (json['actual_yield_kg'] as num?)?.toDouble(),
+      predictedYieldKg:
+          (json['predicted_yield'] as num?)?.toDouble() ??
+          (json['predicted_yield_kg'] as num?)?.toDouble(),
+      actualYieldKg:
+          (json['actual_yield'] as num?)?.toDouble() ??
+          (json['actual_yield_kg'] as num?)?.toDouble(),
     );
   }
 
   AnalysisImageResult _parseImageResult(Map<String, dynamic> json) {
-    final markersJson = json['bud_markers'] as List? ?? [];
-    final markers = markersJson.map((m) {
-      final map = m as Map<String, dynamic>;
-      return Offset(
-        (map['x_position'] as num?)?.toDouble() ?? 0.5,
-        (map['y_position'] as num?)?.toDouble() ?? 0.5,
-      );
-    }).toList();
-
     return AnalysisImageResult(
       id: json['id'].toString(),
-      imagePath: json['firebase_url'] ?? '',
-      sourceLabel: json['source_label'] ?? 'Upload',
-      capturedAt: DateTime.tryParse(json['captured_at'] ?? '') ?? DateTime.now(),
+      imagePath: json['image_url'] ?? json['firebase_url'] ?? '',
+      sourceLabel: 'Upload',
+      capturedAt: DateTime.now(),
       arimbuCount: (json['arimbu_count'] as num?)?.toInt() ?? 0,
       pluckableCount: (json['pluckable_count'] as num?)?.toInt() ?? 0,
-      capturedArea: (json['captured_area_sqm'] as num?)?.toDouble() ?? 8.0,
-      budMarkers: markers,
+      capturedArea:
+          (json['captured_area_sqm'] as num?)?.toDouble() ??
+          (json['captured_area'] as num?)?.toDouble() ??
+          0,
+      budMarkers: const [],
     );
   }
 
@@ -396,9 +615,13 @@ class ApiService {
     return PluckingSchedule(
       id: json['id'].toString(),
       fieldId: json['field_id'].toString(),
-      scheduledDate: DateTime.tryParse(json['scheduled_date'] ?? '') ?? DateTime.now(),
+      harvestRoundId: json['harvest_round_id']?.toString(),
+      scheduledDate:
+          DateTime.tryParse(json['scheduled_date'] ?? '') ?? DateTime.now(),
       shiftStart: json['shift_start'] ?? '06:00 AM',
       shiftEnd: json['shift_end'] ?? '02:00 PM',
+      recommendedWorkers: (json['recommended_workers'] as num?)?.toInt() ?? 0,
+      notes: json['notes']?.toString(),
       assignedWorkerIds: workers,
       status: status,
     );
@@ -414,7 +637,8 @@ class ApiService {
 
     return AppNotificationItem(
       id: json['id'].toString(),
-      fieldName: json['field_id']?.toString() ?? 'System',
+      fieldId: json['field_id']?.toString(),
+      fieldName: '',
       title: json['title'] ?? 'Notice',
       message: json['message'] ?? '',
       category: json['category'] ?? 'System',
@@ -423,4 +647,40 @@ class ApiService {
       isUnread: !(json['is_read'] as bool? ?? false),
     );
   }
+
+  RoundPlanResult _parseRoundPlan(Map<String, dynamic> json) {
+    final scheduledDate =
+        DateTime.tryParse(json['scheduled_date'] ?? '') ?? DateTime.now();
+    final weather = json['weather_summary'] == null
+        ? null
+        : WeatherSnapshot(
+            date: scheduledDate,
+            summary: json['weather_summary']?.toString() ?? '',
+            rainChance: (json['rain_chance_pct'] as num?)?.toInt() ?? 0,
+            humidity: (json['humidity_pct'] as num?)?.toInt() ?? 0,
+            temperatureC: (json['temperature_c'] as num?)?.toDouble() ?? 0,
+            stormRisk: json['storm_risk'] as bool? ?? false,
+          );
+
+    return RoundPlanResult(
+      roundId: json['round_id'].toString(),
+      fieldId: json['field_id'].toString(),
+      pluckingStatus:
+          json['plucking_status']?.toString() ?? 'awaiting_analysis',
+      predictedYieldKg: (json['predicted_yield'] as num?)?.toDouble(),
+      laborPlan: LaborPlan(
+        availableWorkers: 0,
+        recommendedWorkers: (json['recommended_workers'] as num?)?.toInt() ?? 0,
+        shiftStart: json['shift_start']?.toString() ?? '06:00:00',
+        smsScheduled: false,
+        focusZones: const [],
+      ),
+      weather: weather,
+      canSchedule: json['can_schedule'] as bool? ?? false,
+      scheduledDate: scheduledDate,
+      shiftEnd: json['shift_end']?.toString() ?? '14:00:00',
+    );
+  }
+
+  String _dateOnly(DateTime date) => date.toIso8601String().split('T').first;
 }

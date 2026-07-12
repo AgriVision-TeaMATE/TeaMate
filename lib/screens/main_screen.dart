@@ -57,7 +57,7 @@ class _MainScreenState extends State<MainScreen> {
                 const BottomNavigationBarItem(
                   icon: Icon(Icons.agriculture_outlined),
                   activeIcon: Icon(Icons.agriculture),
-                  label: 'Yield',
+                  label: 'Fields',
                 ),
                 BottomNavigationBarItem(
                   icon: Badge(

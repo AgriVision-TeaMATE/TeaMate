@@ -1,12 +1,11 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../models/field_model.dart';
 import '../services/api_service.dart';
+import '../services/app_settings_service.dart';
 import '../theme.dart';
 
 class FieldAnalysisScreen extends StatefulWidget {
@@ -25,6 +24,7 @@ class FieldAnalysisScreen extends StatefulWidget {
 
 class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
   static const int _minimumImages = 3;
+  static const double _capturedAreaPerImageSqm = 8.0;
 
   final ImagePicker _picker = ImagePicker();
   final PageController _pageController = PageController(viewportFraction: 0.92);
@@ -64,11 +64,19 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
   }
 
   Future<void> _pickImage(ImageSource source) async {
+    if (_measurement.isCompleted) {
+      return;
+    }
     final pickedFile = await _picker.pickImage(
       source: source,
       imageQuality: 85,
     );
     if (pickedFile == null) {
+      return;
+    }
+
+    final capturedArea = await _promptCapturedArea();
+    if (capturedArea == null) {
       return;
     }
 
@@ -79,6 +87,7 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
           imagePath: pickedFile.path,
           sourceLabel: source == ImageSource.camera ? 'Camera' : 'Upload',
           capturedAt: DateTime.now(),
+          capturedArea: capturedArea,
         ),
       );
       _currentIndex = _galleryItems.length - 1;
@@ -93,6 +102,72 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
         );
       }
     });
+  }
+
+  Future<double?> _promptCapturedArea() async {
+    final controller = TextEditingController(
+      text: _capturedAreaPerImageSqm.toStringAsFixed(1),
+    );
+
+    final result = await showDialog<double>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
+          title: const Text(
+            'Captured area',
+            style: TextStyle(fontWeight: FontWeight.w800),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Enter the sampled area covered by this image in square meters.',
+                style: TextStyle(color: AppTheme.textSecondary, height: 1.5),
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: controller,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                autofocus: true,
+                decoration: InputDecoration(
+                  labelText: 'Area (sq.m)',
+                  filled: true,
+                  fillColor: const Color(0xFFF3F4F6),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final area = double.tryParse(controller.text.trim());
+                if (area == null || area <= 0) {
+                  return;
+                }
+                Navigator.pop(context, area);
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+
+    return result;
   }
 
   Future<void> _showEntryAlerts() async {
@@ -202,7 +277,7 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
   }
 
   Future<void> _analyzeBuds() async {
-    if (!_canAnalyze) {
+    if (_measurement.isCompleted || !_canAnalyze) {
       return;
     }
 
@@ -214,36 +289,54 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
     final pendingCopy = List<_PendingImage>.from(_pendingImages);
     final api = ApiService();
 
-    final analyzedImages = List<AnalysisImageResult>.from(
-      _measurement.analyzedImages,
-    );
-
     for (var index = 0; index < pendingCopy.length; index++) {
       setState(() {
         _analysisStatus =
-            'Analyzing image ${index + 1} of ${pendingCopy.length} with AI Model...';
+            'Uploading image ${index + 1} of ${pendingCopy.length}...';
       });
-      final result = await api.analyzeImageDirectly(
-        imagePath: pendingCopy[index].imagePath,
-        sourceLabel: pendingCopy[index].sourceLabel,
+      final uploaded = await api.uploadImageToRound(
+        roundId: widget.measurementId,
+        imagePathOrUrl: pendingCopy[index].imagePath,
+        capturedArea: pendingCopy[index].capturedArea,
       );
-      if (result != null) {
-        analyzedImages.add(result);
-      } else {
-        analyzedImages.add(
-          _mockAnalyzeImage(pendingCopy[index], index + analyzedImages.length),
+      if (uploaded == null) {
+        if (!mounted) return;
+        setState(() {
+          _isAnalyzing = false;
+          _analysisStatus = null;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Image upload failed. Check backend connection.'),
+          ),
         );
+        return;
       }
+    }
+
+    setState(() {
+      _analysisStatus = 'Analyzing uploaded images...';
+    });
+
+    final serverRound = await api.analyzeRound(widget.measurementId);
+    if (serverRound == null) {
+      if (!mounted) return;
+      setState(() {
+        _isAnalyzing = false;
+        _analysisStatus = null;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Bud analysis failed. Check backend and ML service.'),
+        ),
+      );
+      return;
     }
 
     final manager = FieldManager();
     _measurement = manager.hydrateMeasurementSupportData(
       widget.fieldId,
-      _measurement.copyWith(
-        analyzedImages: analyzedImages,
-        date: DateTime.now(),
-        clearPrediction: true,
-      ),
+      serverRound.copyWith(clearPrediction: true),
     );
 
     manager.saveMeasurement(widget.fieldId, _measurement);
@@ -257,98 +350,50 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
   }
 
   Future<void> _showPredictYieldSheet() async {
-    final controller = TextEditingController(
-      text:
-          _measurement.fieldArea?.toStringAsFixed(1) ??
-          _field.areaHectares.toStringAsFixed(1),
-    );
-
-    final result = await showModalBottomSheet<double>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        return Padding(
-          padding: EdgeInsets.only(
-            left: 20,
-            right: 20,
-            bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-          ),
-          child: Container(
-            padding: const EdgeInsets.all(24),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Predict yield',
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.5,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Use analyzed bud counts and full field area to estimate harvest output for planning.',
-                  style: TextStyle(color: AppTheme.textSecondary, height: 1.5),
-                ),
-                const SizedBox(height: 18),
-                TextField(
-                  controller: controller,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  decoration: InputDecoration(
-                    labelText: 'Field area (hectares)',
-                    hintText: 'Ex: 2.5',
-                    filled: true,
-                    fillColor: const Color(0xFFF5F7F6),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      borderSide: BorderSide.none,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 18),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      final area = double.tryParse(controller.text.trim());
-                      if (area == null || area <= 0) {
-                        return;
-                      }
-                      Navigator.pop(context, area);
-                    },
-                    child: const Text('Confirm Prediction'),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-
-    if (result == null) {
+    if (_measurement.isCompleted) {
+      return;
+    }
+    if (_measurement.analyzedImages.length < _minimumImages) {
       return;
     }
 
-    final predictedYield = _calculatePredictedYield(result);
-    final manager = FieldManager();
     setState(() {
-      _measurement = manager.hydrateMeasurementSupportData(
-        widget.fieldId,
-        _measurement.copyWith(
-          fieldArea: result,
-          predictedYieldKg: predictedYield,
-        ),
-      );
+      _isAnalyzing = true;
+      _analysisStatus = 'Calculating predicted yield...';
+    });
+
+    final api = ApiService();
+    final predictedRound = await api.predictRoundYield(widget.measurementId);
+    if (!mounted) {
+      return;
+    }
+    if (predictedRound == null) {
+      setState(() {
+        _isAnalyzing = false;
+        _analysisStatus = null;
+      });
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Yield prediction failed.')));
+      return;
+    }
+
+    final plan = await api.planRound(
+      roundId: widget.measurementId,
+      kgPerWorkerPerDay: AppSettingsService().kgPerWorkerPerDay,
+    );
+    final manager = FieldManager();
+    var nextMeasurement = manager.hydrateMeasurementSupportData(
+      widget.fieldId,
+      predictedRound,
+    );
+    if (plan != null) {
+      nextMeasurement = _mergeRoundPlan(nextMeasurement, plan);
+    }
+    setState(() {
+      _measurement = nextMeasurement;
+      _analysisStatus = null;
+      _isAnalyzing = false;
     });
     manager.saveMeasurement(widget.fieldId, _measurement);
   }
@@ -439,6 +484,15 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
       _measurement = _measurement.copyWith(actualYieldKg: result);
     });
     manager.saveMeasurement(widget.fieldId, _measurement);
+    if (_measurement.isCompleted) {
+      await ApiService().updateActualYield(widget.measurementId, result);
+      if (!mounted) {
+        return false;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Actual yield updated.')));
+    }
     return true;
   }
 
@@ -451,6 +505,17 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
       return;
     }
 
+    await ApiService().saveActualYield(
+      widget.measurementId,
+      _measurement.actualYieldKg!,
+    );
+    if (!mounted) {
+      return;
+    }
+    final manager = FieldManager();
+    _measurement = _measurement.copyWith(isCompleted: true);
+    manager.saveMeasurement(widget.fieldId, _measurement);
+
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Plucking round completed and actual yield recorded.'),
@@ -458,34 +523,27 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
     );
   }
 
-  double _calculatePredictedYield(double fieldArea) {
-    final summary = _measurement;
-    final budStrength =
-        (summary.totalPluckableCount * 0.42) +
-        (summary.totalArimbuCount * 0.18);
-    final maturityFactor = 0.92 + (summary.averagePluckableRatio * 0.35);
-    return budStrength * fieldArea * maturityFactor;
-  }
-
-  AnalysisImageResult _mockAnalyzeImage(_PendingImage image, int seed) {
-    final random = Random(seed + image.imagePath.length);
-    final arimbuCount = 16 + random.nextInt(18);
-    final pluckableCount = 24 + random.nextInt(24);
-    final total = arimbuCount + pluckableCount;
-    return AnalysisImageResult(
-      id: image.id,
-      imagePath: image.imagePath,
-      sourceLabel: image.sourceLabel,
-      capturedAt: image.capturedAt,
-      arimbuCount: arimbuCount,
-      pluckableCount: pluckableCount,
-      capturedArea: 6.5 + (random.nextDouble() * 3.5),
-      budMarkers: List.generate(
-        min(total, 18),
-        (_) => Offset(
-          0.12 + (random.nextDouble() * 0.76),
-          0.16 + (random.nextDouble() * 0.64),
-        ),
+  FieldMeasurement _mergeRoundPlan(
+    FieldMeasurement baseMeasurement,
+    RoundPlanResult plan,
+  ) {
+    final assignedWorkers = FieldManager()
+        .workersForField(widget.fieldId)
+        .length;
+    final hasSchedule = FieldManager().schedules.any(
+      (schedule) => schedule.harvestRoundId == plan.roundId,
+    );
+    return baseMeasurement.copyWith(
+      weather: plan.weather,
+      laborPlan: LaborPlan(
+        availableWorkers: assignedWorkers,
+        recommendedWorkers: plan.laborPlan.recommendedWorkers,
+        shiftStart: _formatShiftTime(plan.laborPlan.shiftStart),
+        smsScheduled: hasSchedule,
+        focusZones: baseMeasurement.analyzedImages
+            .take(3)
+            .map((image) => image.sourceLabel)
+            .toList(growable: false),
       ),
     );
   }
@@ -513,10 +571,204 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
     return _galleryItems[safeIndex];
   }
 
+  String? get _selectedItemId => _selectedItem?.id;
+
   bool get _canAnalyze =>
       !_isAnalyzing &&
+      !_measurement.isCompleted &&
       _pendingImages.isNotEmpty &&
       _galleryItems.length >= _minimumImages;
+
+  bool get _canDeleteSelectedImage {
+    final selected = _selectedItem;
+    if (selected == null || _measurement.isCompleted || _isAnalyzing) {
+      return false;
+    }
+    if (selected.pending != null) {
+      return true;
+    }
+    final analysis = selected.analysis;
+    return analysis != null &&
+        analysis.arimbuCount == 0 &&
+        analysis.pluckableCount == 0;
+  }
+
+  Future<void> _removeSelectedImage() async {
+    final selected = _selectedItem;
+    if (selected == null || !_canDeleteSelectedImage) {
+      return;
+    }
+
+    if (selected.pending != null) {
+      setState(() {
+        _pendingImages.removeWhere((img) => img.id == selected.pending!.id);
+        _currentIndex = _galleryItems.isEmpty
+            ? 0
+            : _currentIndex.clamp(0, _galleryItems.length - 1).toInt();
+      });
+      return;
+    }
+
+    final image = selected.analysis!;
+    setState(() {
+      _isAnalyzing = true;
+      _analysisStatus = 'Removing uploaded image...';
+    });
+
+    final deleted = await ApiService().deleteAnalysisImage(image.id);
+    if (!mounted) {
+      return;
+    }
+    if (!deleted) {
+      setState(() {
+        _isAnalyzing = false;
+        _analysisStatus = null;
+      });
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Failed to delete image.')));
+      return;
+    }
+
+    final updatedImages = _measurement.analyzedImages
+        .where((item) => item.id != image.id)
+        .toList(growable: false);
+    final manager = FieldManager();
+    final updatedMeasurement = _measurement.copyWith(
+      analyzedImages: updatedImages,
+      clearPrediction: true,
+    );
+    manager.saveMeasurement(widget.fieldId, updatedMeasurement);
+
+    setState(() {
+      _measurement = updatedMeasurement;
+      _isAnalyzing = false;
+      _analysisStatus = null;
+      _currentIndex = _galleryItems.isEmpty
+          ? 0
+          : _currentIndex.clamp(0, _galleryItems.length - 1).toInt();
+    });
+  }
+
+  Future<void> _scheduleCrewAndSendSms() async {
+    if (_measurement.isCompleted || _measurement.predictedYieldKg == null) {
+      return;
+    }
+
+    final assignedWorkers = FieldManager().workersForField(widget.fieldId);
+    if (assignedWorkers.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Assign workers to this field before scheduling SMS.'),
+        ),
+      );
+      return;
+    }
+
+    final api = ApiService();
+    setState(() {
+      _isAnalyzing = true;
+      _analysisStatus = 'Preparing labour plan...';
+    });
+
+    final plan = await api.planRound(
+      roundId: widget.measurementId,
+      kgPerWorkerPerDay: AppSettingsService().kgPerWorkerPerDay,
+    );
+    if (!mounted) {
+      return;
+    }
+    if (plan == null) {
+      setState(() {
+        _isAnalyzing = false;
+        _analysisStatus = null;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to create labour plan.')),
+      );
+      return;
+    }
+
+    final workerIds = assignedWorkers
+        .take(plan.laborPlan.recommendedWorkers)
+        .map((worker) => worker.id)
+        .toList();
+    final schedule = await api.createSchedule(
+      fieldId: widget.fieldId,
+      roundId: widget.measurementId,
+      scheduledDate: plan.scheduledDate,
+      shiftStart: plan.laborPlan.shiftStart,
+      shiftEnd: plan.shiftEnd,
+      recommendedWorkers: plan.laborPlan.recommendedWorkers,
+      assignedWorkerIds: workerIds,
+      notes: plan.weather?.stormRisk == true
+          ? 'Weather caution: ${plan.weather!.summary}'
+          : 'AI plucking schedule',
+    );
+    if (!mounted) {
+      return;
+    }
+    if (schedule == null) {
+      setState(() {
+        _isAnalyzing = false;
+        _analysisStatus = null;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to save plucking schedule.')),
+      );
+      return;
+    }
+
+    final smsSent = workerIds.isNotEmpty
+        ? await api.sendScheduleSms(schedule.id)
+        : false;
+
+    await FieldManager().syncFromServer();
+    if (!mounted) {
+      return;
+    }
+
+    final refreshedField = FieldManager().fields.firstWhere(
+      (field) => field.id == widget.fieldId,
+    );
+    final refreshedMeasurement = refreshedField.measurements.firstWhere(
+      (measurement) => measurement.id == widget.measurementId,
+      orElse: () => _measurement,
+    );
+
+    setState(() {
+      _field = refreshedField;
+      _measurement = _mergeRoundPlan(refreshedMeasurement, plan);
+      _isAnalyzing = false;
+      _analysisStatus = null;
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          smsSent
+              ? 'Schedule saved and SMS sent to ${workerIds.length} workers.'
+              : 'Schedule saved. SMS not sent.',
+        ),
+      ),
+    );
+  }
+
+  String _formatShiftTime(String raw) {
+    final normalized = raw.trim();
+    if (!normalized.contains(':')) {
+      return normalized;
+    }
+    final parts = normalized.split(':');
+    if (parts.length < 2) {
+      return normalized;
+    }
+    final hour = int.tryParse(parts[0]) ?? 0;
+    final minute = int.tryParse(parts[1]) ?? 0;
+    final suffix = hour >= 12 ? 'PM' : 'AM';
+    final displayHour = hour % 12 == 0 ? 12 : hour % 12;
+    return '${displayHour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')} $suffix';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -552,7 +804,7 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
                 ),
               ),
               Text(
-                '${_field.region} • ${_field.areaHectares.toStringAsFixed(1)} ha',
+                _field.subtitle,
                 style: TextStyle(
                   color: const Color(0xFF6E7E8B),
                   fontSize: 12,
@@ -592,7 +844,9 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
                   children: [
                     Expanded(
                       child: ElevatedButton.icon(
-                        onPressed: _showPredictYieldSheet,
+                        onPressed: _measurement.isCompleted
+                            ? null
+                            : _showPredictYieldSheet,
                         icon: const Icon(Icons.insights_outlined),
                         label: Text(
                           _measurement.predictedYieldKg == null
@@ -619,6 +873,19 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
                 ),
                 const SizedBox(height: 18),
                 _buildComparisonCard(),
+                const SizedBox(height: 18),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed:
+                        _measurement.predictedYieldKg == null ||
+                            _measurement.isCompleted
+                        ? null
+                        : _scheduleCrewAndSendSms,
+                    icon: const Icon(Icons.group_add_outlined),
+                    label: const Text('Plan Labour & Send SMS'),
+                  ),
+                ),
                 const SizedBox(height: 18),
                 _buildCompleteRoundButton(),
               ],
@@ -682,7 +949,7 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    '${_field.region} • ${_field.areaHectares.toStringAsFixed(1)} ha in rotation',
+                    '${_field.subtitle} in rotation',
                     style: const TextStyle(
                       color: Color(0xFF6E7E8B),
                       fontSize: 12,
@@ -782,7 +1049,7 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
             children: [
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: _isAnalyzing
+                  onPressed: _isAnalyzing || _measurement.isCompleted
                       ? null
                       : () => _pickImage(ImageSource.camera),
                   icon: const Icon(Icons.photo_camera_outlined),
@@ -792,7 +1059,7 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
               const SizedBox(width: 12),
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: _isAnalyzing
+                  onPressed: _isAnalyzing || _measurement.isCompleted
                       ? null
                       : () => _pickImage(ImageSource.gallery),
                   icon: const Icon(Icons.upload_file_outlined),
@@ -955,6 +1222,30 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
                       ),
                     ),
                   ),
+                  if (_selectedItemId == item.id && _canDeleteSelectedImage)
+                    Positioned(
+                      right: 16,
+                      top: 16,
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: _removeSelectedImage,
+                          borderRadius: BorderRadius.circular(999),
+                          child: Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.5),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.delete_outline_rounded,
+                              color: Colors.white,
+                              size: 20,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -1279,7 +1570,7 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
   }
 
   Widget _buildCompleteRoundButton() {
-    final isCompleted = _measurement.hasActualYield;
+    final isCompleted = _measurement.isCompleted;
 
     return SizedBox(
       width: double.infinity,
@@ -1583,12 +1874,14 @@ class _PendingImage {
   final String imagePath;
   final String sourceLabel;
   final DateTime capturedAt;
+  final double capturedArea;
 
   const _PendingImage({
     required this.id,
     required this.imagePath,
     required this.sourceLabel,
     required this.capturedAt,
+    required this.capturedArea,
   });
 }
 
@@ -1604,5 +1897,6 @@ class _GalleryItem {
   factory _GalleryItem.pending(_PendingImage pending) =>
       _GalleryItem._(pending: pending);
 
+  String get id => analysis?.id ?? pending!.id;
   String? get imagePath => analysis?.imagePath ?? pending?.imagePath;
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/field_model.dart';
+import '../services/api_service.dart';
 import '../theme.dart';
 
 class NotificationsScreen extends StatefulWidget {
@@ -60,13 +61,18 @@ class _NotificationsScreenState extends State<NotificationsScreen>
               if (allNotifications.any((n) => n.isUnread))
                 TextButton(
                   onPressed: () {
-                    // In a real app, this would mark all as read
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('All notifications marked as read'),
-                        duration: Duration(seconds: 2),
-                      ),
-                    );
+                    ApiService().markAllNotificationsRead().then((_) {
+                      FieldManager().syncFromServer();
+                      if (!context.mounted) {
+                        return;
+                      }
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('All notifications marked as read'),
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
+                    });
                   },
                   child: const Text(
                     'Mark all read',

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/field_model.dart';
+import '../services/app_settings_service.dart';
 import '../theme.dart';
 import '../widgets/labour_widgets.dart';
 
@@ -61,10 +62,7 @@ class _SettingsScreenState extends State<SettingsScreen>
           ),
           body: TabBarView(
             controller: _tabController,
-            children: [
-              _LabourManagementTab(),
-              _GeneralSettingsTab(),
-            ],
+            children: [_LabourManagementTab(), _GeneralSettingsTab()],
           ),
         );
       },
@@ -76,6 +74,7 @@ class _LabourManagementTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final manager = FieldManager();
+    final settings = AppSettingsService();
     final workers = manager.workers;
     final available = manager.availableWorkers.length;
     final assigned = manager.assignedWorkers.length;
@@ -175,10 +174,71 @@ class _LabourManagementTab extends StatelessWidget {
               field: field,
               assignedWorkers: fieldWorkers,
               recommendedWorkers: recommended,
-              onAssignTap: () =>
-                  _showAssignWorkersSheet(context, field),
+              onAssignTap: () => _showAssignWorkersSheet(context, field),
             );
           }),
+
+          const SizedBox(height: 24),
+
+          ListenableBuilder(
+            listenable: settings,
+            builder: (context, _) {
+              return Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: const Color(0xFFE5E7EB)),
+                ),
+                child: Row(
+                  children: [
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Daily plucking capacity',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          SizedBox(height: 6),
+                          Text(
+                            'Used to estimate required labour from predicted yield.',
+                            style: TextStyle(
+                              color: AppTheme.textSecondary,
+                              height: 1.4,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          '${settings.kgPerWorkerPerDay.toStringAsFixed(0)} kg/day',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        OutlinedButton(
+                          onPressed: () =>
+                              _showKgSettingSheet(context, settings),
+                          child: const Text('Change'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
 
           const SizedBox(height: 24),
 
@@ -208,8 +268,9 @@ class _LabourManagementTab extends StatelessWidget {
             String? fieldName;
             if (worker.assignedFieldId != null) {
               try {
-                final field = manager.fields
-                    .firstWhere((f) => f.id == worker.assignedFieldId);
+                final field = manager.fields.firstWhere(
+                  (f) => f.id == worker.assignedFieldId,
+                );
                 fieldName = field.name;
               } catch (_) {}
             }
@@ -220,8 +281,11 @@ class _LabourManagementTab extends StatelessWidget {
                 fieldName: fieldName != null ? 'Assigned: $fieldName' : null,
                 onTap: () => _showWorkerDetailSheet(context, worker),
                 trailing: PopupMenuButton<String>(
-                  icon: const Icon(Icons.more_vert_rounded,
-                      color: AppTheme.textSecondary, size: 20),
+                  icon: const Icon(
+                    Icons.more_vert_rounded,
+                    color: AppTheme.textSecondary,
+                    size: 20,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
                   ),
@@ -229,11 +293,15 @@ class _LabourManagementTab extends StatelessWidget {
                     switch (value) {
                       case 'available':
                         manager.setWorkerStatus(
-                            worker.id, WorkerStatus.available);
+                          worker.id,
+                          WorkerStatus.available,
+                        );
                         break;
                       case 'leave':
                         manager.setWorkerStatus(
-                            worker.id, WorkerStatus.onLeave);
+                          worker.id,
+                          WorkerStatus.onLeave,
+                        );
                         break;
                       case 'unassign':
                         manager.unassignWorker(worker.id);
@@ -281,11 +349,16 @@ class _LabourManagementTab extends StatelessWidget {
                       value: 'delete',
                       child: Row(
                         children: [
-                          Icon(Icons.delete_outline, size: 18,
-                              color: Color(0xFFD95C5C)),
+                          Icon(
+                            Icons.delete_outline,
+                            size: 18,
+                            color: Color(0xFFD95C5C),
+                          ),
                           SizedBox(width: 10),
-                          Text('Delete',
-                              style: TextStyle(color: Color(0xFFD95C5C))),
+                          Text(
+                            'Delete',
+                            style: TextStyle(color: Color(0xFFD95C5C)),
+                          ),
                         ],
                       ),
                     ),
@@ -296,6 +369,78 @@ class _LabourManagementTab extends StatelessWidget {
           }),
         ],
       ),
+    );
+  }
+
+  void _showKgSettingSheet(BuildContext context, AppSettingsService settings) {
+    final controller = TextEditingController(
+      text: settings.kgPerWorkerPerDay.toStringAsFixed(0),
+    );
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return Padding(
+          padding: EdgeInsets.only(
+            left: 20,
+            right: 20,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+          ),
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Plucking capacity',
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Set the daily kilograms one labourer can pluck for labour estimation.',
+                  style: TextStyle(color: AppTheme.textSecondary, height: 1.45),
+                ),
+                const SizedBox(height: 18),
+                TextField(
+                  controller: controller,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  decoration: InputDecoration(
+                    labelText: 'Kg per worker per day',
+                    filled: true,
+                    fillColor: const Color(0xFFF5F7F6),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () async {
+                      final value = double.tryParse(controller.text.trim());
+                      if (value == null || value <= 0) return;
+                      await settings.setKgPerWorkerPerDay(value);
+                      if (context.mounted) Navigator.pop(context);
+                    },
+                    child: const Text('Save'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -319,8 +464,7 @@ class _LabourManagementTab extends StatelessWidget {
                 padding: const EdgeInsets.all(24),
                 decoration: const BoxDecoration(
                   color: Colors.white,
-                  borderRadius:
-                      BorderRadius.vertical(top: Radius.circular(28)),
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -335,8 +479,10 @@ class _LabourManagementTab extends StatelessWidget {
                             color: const Color(0xFFE8F5EC),
                             borderRadius: BorderRadius.circular(14),
                           ),
-                          child: const Icon(Icons.person_add_outlined,
-                              color: Color(0xFF0B4F3F)),
+                          child: const Icon(
+                            Icons.person_add_outlined,
+                            color: Color(0xFF0B4F3F),
+                          ),
                         ),
                         const SizedBox(width: 14),
                         const Text(
@@ -411,8 +557,7 @@ class _LabourManagementTab extends StatelessWidget {
                               margin: EdgeInsets.only(
                                 right: skill != SkillLevel.senior ? 8 : 0,
                               ),
-                              padding: const EdgeInsets.symmetric(
-                                  vertical: 12),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
                               decoration: BoxDecoration(
                                 color: isSelected
                                     ? const Color(0xFF0B4F3F)
@@ -467,7 +612,9 @@ class _LabourManagementTab extends StatelessWidget {
                         child: const Text(
                           'Add Worker',
                           style: TextStyle(
-                              fontWeight: FontWeight.w700, fontSize: 15),
+                            fontWeight: FontWeight.w700,
+                            fontSize: 15,
+                          ),
                         ),
                       ),
                     ),
@@ -502,8 +649,9 @@ class _LabourManagementTab extends StatelessWidget {
                 return Container(
                   decoration: const BoxDecoration(
                     color: Colors.white,
-                    borderRadius:
-                        BorderRadius.vertical(top: Radius.circular(28)),
+                    borderRadius: BorderRadius.vertical(
+                      top: Radius.circular(28),
+                    ),
                   ),
                   child: Column(
                     children: [
@@ -532,7 +680,7 @@ class _LabourManagementTab extends StatelessWidget {
                             ),
                             const SizedBox(height: 6),
                             Text(
-                              '${field.region} • ${field.areaHectares.toStringAsFixed(1)} ha',
+                              field.subtitle,
                               style: const TextStyle(
                                 color: AppTheme.textSecondary,
                                 fontWeight: FontWeight.w600,
@@ -556,26 +704,27 @@ class _LabourManagementTab extends StatelessWidget {
                                 ),
                               ),
                               const SizedBox(height: 10),
-                              ...fieldWorkers.map((w) => Padding(
-                                    padding:
-                                        const EdgeInsets.only(bottom: 8),
-                                    child: WorkerAssignmentTile(
-                                      worker: w,
-                                      trailing: TextButton(
-                                        onPressed: () {
-                                          manager.unassignWorker(w.id);
-                                          setSheetState(() {});
-                                        },
-                                        child: const Text(
-                                          'Remove',
-                                          style: TextStyle(
-                                            color: Color(0xFFD95C5C),
-                                            fontWeight: FontWeight.w700,
-                                          ),
+                              ...fieldWorkers.map(
+                                (w) => Padding(
+                                  padding: const EdgeInsets.only(bottom: 8),
+                                  child: WorkerAssignmentTile(
+                                    worker: w,
+                                    trailing: TextButton(
+                                      onPressed: () {
+                                        manager.unassignWorker(w.id);
+                                        setSheetState(() {});
+                                      },
+                                      child: const Text(
+                                        'Remove',
+                                        style: TextStyle(
+                                          color: Color(0xFFD95C5C),
+                                          fontWeight: FontWeight.w700,
                                         ),
                                       ),
                                     ),
-                                  )),
+                                  ),
+                                ),
+                              ),
                             ],
                           ),
                         ),
@@ -611,41 +760,46 @@ class _LabourManagementTab extends StatelessWidget {
                                 ),
                               )
                             else
-                              ...available.map((w) => Padding(
-                                    padding:
-                                        const EdgeInsets.only(bottom: 8),
-                                    child: WorkerAssignmentTile(
-                                      worker: w,
-                                      trailing: ElevatedButton(
-                                        onPressed: () {
-                                          manager.assignWorkerToField(
-                                              w.id, field.id);
-                                          setSheetState(() {});
-                                        },
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor:
-                                              const Color(0xFF0B4F3F),
-                                          foregroundColor: Colors.white,
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 16,
-                                            vertical: 8,
-                                          ),
-                                          minimumSize: Size.zero,
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius:
-                                                BorderRadius.circular(10),
-                                          ),
+                              ...available.map(
+                                (w) => Padding(
+                                  padding: const EdgeInsets.only(bottom: 8),
+                                  child: WorkerAssignmentTile(
+                                    worker: w,
+                                    trailing: ElevatedButton(
+                                      onPressed: () {
+                                        manager.assignWorkerToField(
+                                          w.id,
+                                          field.id,
+                                        );
+                                        setSheetState(() {});
+                                      },
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: const Color(
+                                          0xFF0B4F3F,
                                         ),
-                                        child: const Text(
-                                          'Assign',
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.w700,
-                                            fontSize: 13,
+                                        foregroundColor: Colors.white,
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 16,
+                                          vertical: 8,
+                                        ),
+                                        minimumSize: Size.zero,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            10,
                                           ),
                                         ),
                                       ),
+                                      child: const Text(
+                                        'Assign',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 13,
+                                        ),
+                                      ),
                                     ),
-                                  )),
+                                  ),
+                                ),
+                              ),
                             const SizedBox(height: 20),
                           ],
                         ),
@@ -666,8 +820,9 @@ class _LabourManagementTab extends StatelessWidget {
     String? fieldName;
     if (worker.assignedFieldId != null) {
       try {
-        final field = manager.fields
-            .firstWhere((f) => f.id == worker.assignedFieldId);
+        final field = manager.fields.firstWhere(
+          (f) => f.id == worker.assignedFieldId,
+        );
         fieldName = field.name;
       } catch (_) {}
     }
@@ -735,7 +890,9 @@ class _LabourManagementTab extends StatelessWidget {
                     style: OutlinedButton.styleFrom(
                       foregroundColor: const Color(0xFFD95C5C),
                       side: const BorderSide(
-                          color: Color(0xFFD95C5C), width: 1.5),
+                        color: Color(0xFFD95C5C),
+                        width: 1.5,
+                      ),
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14),
@@ -788,8 +945,18 @@ class _LabourManagementTab extends StatelessWidget {
 
   String _formatDate(DateTime date) {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${date.day} ${months[date.month - 1]} ${date.year}';
   }
@@ -836,22 +1003,28 @@ class _GeneralSettingsTab extends StatelessWidget {
                 icon: Icons.landscape_outlined,
                 title: 'Default Region',
                 subtitle: 'Hatton Division',
-                trailing: const Icon(Icons.chevron_right_rounded,
-                    color: AppTheme.textSecondary),
+                trailing: const Icon(
+                  Icons.chevron_right_rounded,
+                  color: AppTheme.textSecondary,
+                ),
               ),
               _SettingsTile(
                 icon: Icons.thermostat_outlined,
                 title: 'Temperature Unit',
                 subtitle: 'Celsius (°C)',
-                trailing: const Icon(Icons.chevron_right_rounded,
-                    color: AppTheme.textSecondary),
+                trailing: const Icon(
+                  Icons.chevron_right_rounded,
+                  color: AppTheme.textSecondary,
+                ),
               ),
               _SettingsTile(
                 icon: Icons.schedule_outlined,
                 title: 'Default Shift Time',
                 subtitle: '06:00 AM',
-                trailing: const Icon(Icons.chevron_right_rounded,
-                    color: AppTheme.textSecondary),
+                trailing: const Icon(
+                  Icons.chevron_right_rounded,
+                  color: AppTheme.textSecondary,
+                ),
               ),
             ],
           ),
@@ -943,10 +1116,7 @@ class _DetailRow extends StatelessWidget {
           Flexible(
             child: Text(
               value,
-              style: const TextStyle(
-                fontWeight: FontWeight.w700,
-                fontSize: 14,
-              ),
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
               overflow: TextOverflow.ellipsis,
             ),
           ),

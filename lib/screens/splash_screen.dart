@@ -59,21 +59,15 @@ class _SplashScreenState extends State<SplashScreen>
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // Deep green gradient background
-          Container(
-            decoration: const BoxDecoration(
-              gradient: RadialGradient(
-                center: Alignment.center,
-                radius: 1.2,
-                colors: [
-                  Color(0xFF165B32),
-                  Color(0xFF0D341C),
-                  Color(0xFF061A0E),
-                ],
-              ),
+          // Scenic tea field background with soft fade to white top
+          Image.asset(
+            'assets/images/tea_splash_background.png',
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) => Container(
+              color: Colors.white,
             ),
           ),
-          // Animated Logo and Title
+          // Animated Logo, Title, and Loader
           Center(
             child: AnimatedBuilder(
               animation: _controller,
@@ -85,18 +79,12 @@ class _SplashScreenState extends State<SplashScreen>
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
+                        // Minimalist TeaMATE Logo
                         Container(
                           width: 140,
                           height: 140,
-                          decoration: BoxDecoration(
+                          decoration: const BoxDecoration(
                             shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(0xFF22C55E).withValues(alpha: 0.5),
-                                blurRadius: 40,
-                                spreadRadius: 10,
-                              ),
-                            ],
                           ),
                           child: ClipOval(
                             child: Image.asset(
@@ -113,24 +101,46 @@ class _SplashScreenState extends State<SplashScreen>
                             ),
                           ),
                         ),
-                        const SizedBox(height: 32),
+                        const SizedBox(height: 24),
+                        // App Name
                         const Text(
                           'TeaMATE',
                           style: TextStyle(
                             fontSize: 44,
                             fontWeight: FontWeight.w900,
-                            color: Colors.white,
-                            letterSpacing: 3.0,
+                            color: Color(0xFF1B4D22),
+                            letterSpacing: 1.5,
                           ),
                         ),
-                        const SizedBox(height: 10),
-                        Text(
-                          'AI Yield Optimization',
+                        const SizedBox(height: 8),
+                        // Tagline
+                        const Text(
+                          'AI for Better Tea',
                           style: TextStyle(
                             fontSize: 16,
-                            fontWeight: FontWeight.w500,
-                            color: const Color(0xFF86EFAC).withValues(alpha: 0.9),
-                            letterSpacing: 2.0,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF2E7D32),
+                            letterSpacing: 1.0,
+                          ),
+                        ),
+                        const SizedBox(height: 60),
+                        // Loading Indicator
+                        const SizedBox(
+                          width: 32,
+                          height: 32,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.5,
+                            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF2E7D32)),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        const Text(
+                          'Loading...',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF2E7D32),
+                            letterSpacing: 0.5,
                           ),
                         ),
                       ],

@@ -235,7 +235,7 @@ class FieldAssignmentCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '${field.region} • ${field.areaHectares.toStringAsFixed(1)} ha',
+                      field.subtitle,
                       style: const TextStyle(
                         color: AppTheme.textSecondary,
                         fontSize: 12,
@@ -246,8 +246,10 @@ class FieldAssignmentCard extends StatelessWidget {
                 ),
               ),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 5,
+                ),
                 decoration: BoxDecoration(
                   color: status == 'Ready to pluck'
                       ? const Color(0xFFE6F2EB)
@@ -280,9 +282,7 @@ class FieldAssignmentCard extends StatelessWidget {
                   height: 36,
                   child: Row(
                     children: [
-                      for (int i = 0;
-                          i < assignedWorkers.length && i < 4;
-                          i++)
+                      for (int i = 0; i < assignedWorkers.length && i < 4; i++)
                         Padding(
                           padding: EdgeInsets.only(left: i == 0 ? 0 : 4),
                           child: WorkerAvatar(
@@ -325,9 +325,7 @@ class FieldAssignmentCard extends StatelessWidget {
               child: OutlinedButton.icon(
                 onPressed: onAssignTap,
                 icon: const Icon(Icons.person_add_outlined, size: 18),
-                label: Text(
-                  hasShortage ? 'Assign Workers' : 'Manage Workers',
-                ),
+                label: Text(hasShortage ? 'Assign Workers' : 'Manage Workers'),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: hasShortage
                       ? const Color(0xFFD95C5C)
@@ -390,8 +388,7 @@ class ShortageIndicator extends StatelessWidget {
         if (hasShortage) ...[
           const SizedBox(width: 8),
           Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
             decoration: BoxDecoration(
               color: const Color(0xFFD95C5C).withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(999),
