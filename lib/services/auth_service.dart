@@ -1,7 +1,8 @@
 import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+
+import '../config/network_config.dart';
 
 class AuthUser {
   final String id;
@@ -31,11 +32,7 @@ class AuthService {
   factory AuthService() => _instance;
   AuthService._internal();
 
-  static String get baseUrl {
-    if (kIsWeb) return 'http://localhost:8001/api/v1/auth';
-    if (Platform.isAndroid) return 'http://10.0.2.2:8001/api/v1/auth';
-    return 'http://localhost:8001/api/v1/auth';
-  }
+  static String get baseUrl => NetworkConfig.authBaseUrl();
 
   String? _token;
   AuthUser? _currentUser;

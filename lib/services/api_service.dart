@@ -4,21 +4,14 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
+import '../config/network_config.dart';
 import '../models/field_model.dart';
 import 'auth_service.dart';
 
 class ApiService {
-  static String get baseUrl {
-    if (kIsWeb) return 'http://localhost:8001/api/v1';
-    if (Platform.isAndroid) return 'http://10.0.2.2:8001/api/v1';
-    return 'http://localhost:8001/api/v1';
-  }
+  static String get baseUrl => NetworkConfig.apiBaseUrl();
 
-  static String get modelBaseUrl {
-    if (kIsWeb) return 'http://localhost:8000';
-    if (Platform.isAndroid) return 'http://10.0.2.2:8000';
-    return 'http://localhost:8000';
-  }
+  static String get modelBaseUrl => NetworkConfig.modelBaseUrl();
 
   static const Duration _timeout = Duration(seconds: 12);
 

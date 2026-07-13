@@ -30,6 +30,9 @@ class ArCaptureViewFactory(
         val view = ArCaptureView(activity, viewId, methodChannel)
         eventChannel.setStreamHandler(view)
         activeView = view
+        // Platform views are often created while the Activity is already resumed, so there may be
+        // no subsequent ON_RESUME callback to start ARCore unless we do it here.
+        view.onResume()
         return view
     }
 }

@@ -42,6 +42,7 @@ class ArCaptureView(
     private val backgroundRenderer = BackgroundRenderer()
 
     private var session: Session? = null
+    private var isResumed = false
 
     private var viewportWidth = 1
     private var viewportHeight = 1
@@ -156,6 +157,8 @@ class ArCaptureView(
             emitEvent(mapOf("type" to "tracking", "state" to "PAUSED"))
             return
         }
+
+        emitEvent(mapOf("type" to "tracking", "state" to "TRACKING"))
 
         consumeQueuedTap(frame)
         consumeQueuedDrag(frame)
@@ -348,24 +351,47 @@ class ArCaptureView(
 
     /** Forwarded from ArCapturePlugin's activity lifecycle observer - see its class doc. */
     fun onResume() {
+        if (isResumed) return
         val s = session ?: return
         try {
             s.resume()
             glSurfaceView.onResume()
+            isResumed = true
+        } catch (e: SecurityException) {
+            emitEvent(
+                mapOf(
+                    "type" to "error",
+                    "code" to "CAMERA_PERMISSION_DENIED",
+                    "message" to (e.message ?: "Camera permission not granted"),
+                ),
+            )
+        } catch (e: Exception) {
+            emitEvent(
+                mapOf(
+                    "type" to "error",
+                    "code" to "SESSION_RESUME_FAILED",
+                    "message" to (e.message ?: "Failed to start AR session"),
+                ),
+            )
         } catch (e: CameraNotAvailableException) {
             emitEvent(mapOf("type" to "error", "code" to "CAMERA_NOT_AVAILABLE", "message" to (e.message ?: "")))
         }
     }
 
     fun onPause() {
+        if (!isResumed) return
         glSurfaceView.onPause()
         session?.pause()
+        isResumed = false
     }
 
     override fun dispose() {
         anchors.forEach { it.detach() }
         anchors.clear()
-        glSurfaceView.onPause()
+        if (isResumed) {
+            glSurfaceView.onPause()
+            isResumed = false
+        }
         session?.close()
         session = null
         methodChannel.setMethodCallHandler(null)

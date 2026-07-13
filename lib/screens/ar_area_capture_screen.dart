@@ -26,14 +26,23 @@ class _ArAreaCaptureScreenState extends State<ArAreaCaptureScreen> {
   int _pointCount = 0;
   double? _areaPreviewSqm;
   bool _trackingLost = false;
+  bool _hasTrackedOnce = false;
   bool _isConfirming = false;
   String? _errorMessage;
 
   bool get _canConfirm => _pointCount >= 4 && !_trackingLost && !_isConfirming;
 
+  void _safeSetState(VoidCallback fn) {
+    if (!mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      setState(fn);
+    });
+  }
+
   void _onPlatformViewCreated(int id) {
     final session = ArCaptureSession(id);
-    setState(() => _session = session);
+    _safeSetState(() => _session = session);
     _eventSub = session.events.listen(_handleEvent, onError: (_) {});
   }
 
@@ -41,17 +50,25 @@ class _ArAreaCaptureScreenState extends State<ArAreaCaptureScreen> {
     final type = event['type'] as String?;
     switch (type) {
       case 'pointsChanged':
-        setState(() {
+        _safeSetState(() {
           _pointCount = (event['count'] as num?)?.toInt() ?? _pointCount;
           final area = event['areaPreviewSqm'] as num?;
           _areaPreviewSqm = area?.toDouble();
         });
         break;
       case 'tracking':
-        setState(() => _trackingLost = event['state'] == 'PAUSED');
+        _safeSetState(() {
+          final state = event['state'] as String?;
+          if (state == 'TRACKING') {
+            _hasTrackedOnce = true;
+            _trackingLost = false;
+          } else {
+            _trackingLost = _hasTrackedOnce;
+          }
+        });
         break;
       case 'error':
-        setState(() => _errorMessage = event['message'] as String?);
+        _safeSetState(() => _errorMessage = event['message'] as String?);
         break;
     }
   }
@@ -162,7 +179,9 @@ class _ArAreaCaptureScreenState extends State<ArAreaCaptureScreen> {
 
   Widget _buildInstructions() {
     final text = _trackingLost
-        ? 'Tracking lost - hold steady and ensure good lighting.'
+        ? 'Tracking lost - point at a flat, textured surface and move slowly.'
+        : !_hasTrackedOnce
+        ? 'Scanning for a surface. Aim at the desk or floor, not the laptop screen.'
         : _pointCount == 0
         ? 'Move your phone slowly to find a surface, then tap the 4 corners of the sample area.'
         : _pointCount < 4
@@ -177,7 +196,9 @@ class _ArAreaCaptureScreenState extends State<ArAreaCaptureScreen> {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
-            color: _trackingLost ? Colors.red.withValues(alpha: 0.75) : Colors.black.withValues(alpha: 0.55),
+            color: _trackingLost
+                ? Colors.red.withValues(alpha: 0.75)
+                : Colors.black.withValues(alpha: 0.55),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Text(

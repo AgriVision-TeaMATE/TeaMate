@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import '../models/ar_area_capture_result.dart';
 import '../models/field_model.dart';
@@ -99,6 +100,27 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
   /// only when the device has no ARCore support at all, so the Camera button stays usable.
   Future<void> _captureWithAr() async {
     if (_measurement.isCompleted) {
+      return;
+    }
+
+    final cameraStatus = await Permission.camera.request();
+    if (!cameraStatus.isGranted) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            cameraStatus.isPermanentlyDenied
+                ? 'Camera permission is blocked. Enable it in Android app settings.'
+                : 'Camera permission is required to use AR area capture.',
+          ),
+          action: cameraStatus.isPermanentlyDenied
+              ? SnackBarAction(
+                  label: 'Settings',
+                  onPressed: openAppSettings,
+                )
+              : null,
+        ),
+      );
       return;
     }
 
