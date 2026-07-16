@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme.dart';
 import '../services/auth_service.dart';
 import 'main_screen.dart';
 import 'login_screen.dart';
@@ -37,7 +38,7 @@ class _SignupScreenState extends State<SignupScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Account created! Welcome, ${user.fullName}!'),
-            backgroundColor: const Color(0xFF16A34A),
+            backgroundColor: AppTheme.brandGreen,
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -72,85 +73,43 @@ class _SignupScreenState extends State<SignupScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F7F5),
+      backgroundColor: Colors.white,
       body: SingleChildScrollView(
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Creative Curved Green Header
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.only(top: 60, bottom: 36, left: 28, right: 28),
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topRight,
-                  end: Alignment.bottomLeft,
-                  colors: [
-                    Color(0xFF0F2C1B),
-                    Color(0xFF165B32),
-                    Color(0xFF1A743E),
-                  ],
-                ),
-                borderRadius: BorderRadius.only(
-                  bottomLeft: Radius.circular(44),
-                  bottomRight: Radius.circular(44),
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: const Icon(Icons.person_add_alt_1_rounded, color: Color(0xFF86EFAC), size: 28),
-                      ),
-                      const SizedBox(width: 12),
-                      const Text(
-                        'TeaMATE',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 22,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 1.2,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-                  const Text(
-                    'Create Account',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 34,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: -0.5,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Join the AI agricultural yield optimization platform today.',
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.85),
-                      fontSize: 15,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            const _RegisterHeader(),
 
-            // Form Card
             Padding(
-              padding: const EdgeInsets.all(28.0),
+              padding: const EdgeInsets.fromLTRB(28, 4, 28, 16),
               child: Form(
                 key: _formKey,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    const Text(
+                      'Create Account',
+                      style: TextStyle(
+                        color: AppTheme.textPrimary,
+                        fontSize: 30,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -0.4,
+                      ),
+                    ),
                     const SizedBox(height: 6),
+                    const Text.rich(
+                      TextSpan(
+                        text:
+                            'Join TeaMate and start tracking healthier tea fields.',
+                      ),
+                      style: TextStyle(
+                        color: AppTheme.textSecondary,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        height: 1.35,
+                      ),
+                    ),
+                    const SizedBox(height: 18),
                     // Full Name Field
                     const Text(
                       'Full Name',
@@ -166,28 +125,49 @@ class _SignupScreenState extends State<SignupScreen> {
                       style: const TextStyle(fontWeight: FontWeight.w600),
                       decoration: InputDecoration(
                         hintText: 'John Doe',
-                        prefixIcon: const Icon(Icons.person_outline_rounded, color: Color(0xFF16A34A)),
+                        hintStyle: const TextStyle(
+                          color: AppTheme.inputHint,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 13,
+                        ),
+                        prefixIcon: const Icon(
+                          Icons.person_outline_rounded,
+                          color: AppTheme.primaryButton,
+                        ),
                         filled: true,
                         fillColor: Colors.white,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(16),
-                          borderSide: BorderSide.none,
+                          borderSide: const BorderSide(
+                            color: Color(0xFFE5E7EB),
+                          ),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(16),
-                          borderSide: BorderSide.none,
+                          borderSide: const BorderSide(
+                            color: Color(0xFFE5E7EB),
+                          ),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(16),
-                          borderSide: const BorderSide(color: Color(0xFF16A34A), width: 2),
+                          borderSide: const BorderSide(
+                            color: AppTheme.primaryButton,
+                            width: 2,
+                          ),
                         ),
                       ),
                       validator: (val) {
-                        if (val == null || val.isEmpty) return 'Enter full name';
+                        if (val == null || val.isEmpty) {
+                          return 'Enter full name';
+                        }
                         return null;
                       },
                     ),
-                    const SizedBox(height: 18),
+                    const SizedBox(height: 12),
 
                     // Email Field
                     const Text(
@@ -205,29 +185,50 @@ class _SignupScreenState extends State<SignupScreen> {
                       style: const TextStyle(fontWeight: FontWeight.w600),
                       decoration: InputDecoration(
                         hintText: 'manager@teamate.ai',
-                        prefixIcon: const Icon(Icons.email_outlined, color: Color(0xFF16A34A)),
+                        hintStyle: const TextStyle(
+                          color: AppTheme.inputHint,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 13,
+                        ),
+                        prefixIcon: const Icon(
+                          Icons.email_outlined,
+                          color: AppTheme.primaryButton,
+                        ),
                         filled: true,
                         fillColor: Colors.white,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(16),
-                          borderSide: BorderSide.none,
+                          borderSide: const BorderSide(
+                            color: Color(0xFFE5E7EB),
+                          ),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(16),
-                          borderSide: BorderSide.none,
+                          borderSide: const BorderSide(
+                            color: Color(0xFFE5E7EB),
+                          ),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(16),
-                          borderSide: const BorderSide(color: Color(0xFF16A34A), width: 2),
+                          borderSide: const BorderSide(
+                            color: AppTheme.primaryButton,
+                            width: 2,
+                          ),
                         ),
                       ),
                       validator: (val) {
-                        if (val == null || val.isEmpty) return 'Enter email address';
+                        if (val == null || val.isEmpty) {
+                          return 'Enter email address';
+                        }
                         if (!val.contains('@')) return 'Enter a valid email';
                         return null;
                       },
                     ),
-                    const SizedBox(height: 18),
+                    const SizedBox(height: 12),
 
                     // Password Field
                     const Text(
@@ -245,38 +246,63 @@ class _SignupScreenState extends State<SignupScreen> {
                       style: const TextStyle(fontWeight: FontWeight.w600),
                       decoration: InputDecoration(
                         hintText: 'At least 6 characters',
-                        prefixIcon: const Icon(Icons.lock_outline_rounded, color: Color(0xFF16A34A)),
+                        hintStyle: const TextStyle(
+                          color: AppTheme.inputHint,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 13,
+                        ),
+                        prefixIcon: const Icon(
+                          Icons.lock_outline_rounded,
+                          color: AppTheme.primaryButton,
+                        ),
                         suffixIcon: IconButton(
                           icon: Icon(
-                            _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                            _obscurePassword
+                                ? Icons.visibility_off
+                                : Icons.visibility,
                             color: Colors.grey,
                           ),
                           onPressed: () {
-                            setState(() => _obscurePassword = !_obscurePassword);
+                            setState(
+                              () => _obscurePassword = !_obscurePassword,
+                            );
                           },
                         ),
                         filled: true,
                         fillColor: Colors.white,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(16),
-                          borderSide: BorderSide.none,
+                          borderSide: const BorderSide(
+                            color: Color(0xFFE5E7EB),
+                          ),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(16),
-                          borderSide: BorderSide.none,
+                          borderSide: const BorderSide(
+                            color: Color(0xFFE5E7EB),
+                          ),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(16),
-                          borderSide: const BorderSide(color: Color(0xFF16A34A), width: 2),
+                          borderSide: const BorderSide(
+                            color: AppTheme.primaryButton,
+                            width: 2,
+                          ),
                         ),
                       ),
                       validator: (val) {
                         if (val == null || val.isEmpty) return 'Enter password';
-                        if (val.length < 6) return 'Password must be at least 6 characters';
+                        if (val.length < 6) {
+                          return 'Password must be at least 6 characters';
+                        }
                         return null;
                       },
                     ),
-                    const SizedBox(height: 18),
+                    const SizedBox(height: 12),
 
                     // Confirm Password Field
                     const Text(
@@ -294,10 +320,24 @@ class _SignupScreenState extends State<SignupScreen> {
                       style: const TextStyle(fontWeight: FontWeight.w600),
                       decoration: InputDecoration(
                         hintText: 'Repeat your password',
-                        prefixIcon: const Icon(Icons.lock_reset_rounded, color: Color(0xFF16A34A)),
+                        hintStyle: const TextStyle(
+                          color: AppTheme.inputHint,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 13,
+                        ),
+                        prefixIcon: const Icon(
+                          Icons.lock_reset_rounded,
+                          color: AppTheme.primaryButton,
+                        ),
                         suffixIcon: IconButton(
                           icon: Icon(
-                            _obscureConfirm ? Icons.visibility_off : Icons.visibility,
+                            _obscureConfirm
+                                ? Icons.visibility_off
+                                : Icons.visibility,
                             color: Colors.grey,
                           ),
                           onPressed: () {
@@ -308,35 +348,46 @@ class _SignupScreenState extends State<SignupScreen> {
                         fillColor: Colors.white,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(16),
-                          borderSide: BorderSide.none,
+                          borderSide: const BorderSide(
+                            color: Color(0xFFE5E7EB),
+                          ),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(16),
-                          borderSide: BorderSide.none,
+                          borderSide: const BorderSide(
+                            color: Color(0xFFE5E7EB),
+                          ),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(16),
-                          borderSide: const BorderSide(color: Color(0xFF16A34A), width: 2),
+                          borderSide: const BorderSide(
+                            color: AppTheme.primaryButton,
+                            width: 2,
+                          ),
                         ),
                       ),
                       validator: (val) {
-                        if (val != _passwordController.text) return 'Passwords do not match';
+                        if (val != _passwordController.text) {
+                          return 'Passwords do not match';
+                        }
                         return null;
                       },
                     ),
-                    const SizedBox(height: 32),
+                    const SizedBox(height: 90),
 
                     // Submit Button
                     SizedBox(
                       width: double.infinity,
-                      height: 56,
+                      height: 52,
                       child: ElevatedButton(
                         onPressed: _isLoading ? null : _handleSignup,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF16A34A),
+                          backgroundColor: AppTheme.primaryButton,
                           foregroundColor: Colors.white,
                           elevation: 6,
-                          shadowColor: const Color(0xFF16A34A).withValues(alpha: 0.4),
+                          shadowColor: AppTheme.primaryButton.withValues(
+                            alpha: 0.25,
+                          ),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(18),
                           ),
@@ -360,7 +411,7 @@ class _SignupScreenState extends State<SignupScreen> {
                       ),
                     ),
 
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 8),
 
                     // Switch to Log In
                     Row(
@@ -368,7 +419,10 @@ class _SignupScreenState extends State<SignupScreen> {
                       children: [
                         const Text(
                           'Already have an account?',
-                          style: TextStyle(color: Color(0xFF64748B), fontSize: 15),
+                          style: TextStyle(
+                            color: Color(0xFF64748B),
+                            fontSize: 15,
+                          ),
                         ),
                         TextButton(
                           onPressed: () {
@@ -382,7 +436,7 @@ class _SignupScreenState extends State<SignupScreen> {
                           child: const Text(
                             'Log In',
                             style: TextStyle(
-                              color: Color(0xFF16A34A),
+                              color: AppTheme.brandGreen,
                               fontWeight: FontWeight.w800,
                               fontSize: 15,
                             ),
@@ -399,4 +453,85 @@ class _SignupScreenState extends State<SignupScreen> {
       ),
     );
   }
+}
+
+class _RegisterHeader extends StatelessWidget {
+  const _RegisterHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipPath(
+      clipper: _RegisterHeaderCurveClipper(),
+      child: SizedBox(
+        width: double.infinity,
+        height: 220,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Image.asset(
+              'assets/images/register_header.png',
+              fit: BoxFit.cover,
+              errorBuilder: (context, _, __) =>
+                  Container(color: AppTheme.primaryButton),
+            ),
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.black.withValues(alpha: 0.18),
+                    Colors.black.withValues(alpha: 0.04),
+                    Colors.black.withValues(alpha: 0.18),
+                  ],
+                ),
+              ),
+            ),
+            SafeArea(
+              child: Align(
+                alignment: Alignment.topLeft,
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 22, top: 14),
+                  child: Material(
+                    color: Colors.white,
+                    shape: const CircleBorder(),
+                    clipBehavior: Clip.antiAlias,
+                    child: IconButton(
+                      icon: const Icon(
+                        Icons.arrow_back_ios_new_rounded,
+                        color: AppTheme.primaryButton,
+                        size: 18,
+                      ),
+                      onPressed: () => Navigator.maybePop(context),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RegisterHeaderCurveClipper extends CustomClipper<Path> {
+  @override
+  Path getClip(Size size) {
+    return Path()
+      ..lineTo(0, size.height)
+      ..cubicTo(
+        size.width * 0.32,
+        size.height * 0.9,
+        size.width * 0.48,
+        size.height * 0.6,
+        size.width,
+        size.height * 0.44,
+      )
+      ..lineTo(size.width, 0)
+      ..close();
+  }
+
+  @override
+  bool shouldReclip(covariant CustomClipper<Path> oldClipper) => false;
 }

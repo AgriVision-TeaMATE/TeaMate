@@ -1,15 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../theme.dart';
 import 'login_screen.dart';
 import 'signup_screen.dart';
 
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key});
 
-  static const _green = Color.fromARGB(255, 116, 195, 19);
-  static const _buttonBlack = Color.fromARGB(255, 48, 48, 48);
-  static const _background = Color.fromARGB(255, 254, 255, 253);
   static const _darkText = Color(0xFF1D1F22);
   static const _mutedText = Color(0xFF777D85);
 
@@ -22,7 +20,7 @@ class WelcomeScreen extends StatelessWidget {
         systemNavigationBarIconBrightness: Brightness.dark,
       ),
       child: Scaffold(
-        backgroundColor: _background,
+        backgroundColor: AppTheme.screenBackground,
         body: SafeArea(
           child: LayoutBuilder(
             builder: (context, constraints) {
@@ -63,7 +61,7 @@ class WelcomeScreen extends StatelessWidget {
                           const Text(
                             'TeaMate',
                             style: TextStyle(
-                              color: _green,
+                              color: AppTheme.brandGreen,
                               fontSize: 34,
                               fontWeight: FontWeight.w900,
                               height: 1,
@@ -140,7 +138,7 @@ class _LeafHero extends StatelessWidget {
         'assets/images/welcome.png',
         fit: BoxFit.contain,
         errorBuilder: (context, _, __) =>
-            const Icon(Icons.eco, color: WelcomeScreen._green, size: 140),
+            const Icon(Icons.eco, color: AppTheme.brandGreen, size: 140),
       ),
     );
   }
@@ -170,9 +168,9 @@ class _WelcomeButton extends StatelessWidget {
           ? OutlinedButton(
               onPressed: onPressed,
               style: OutlinedButton.styleFrom(
-                foregroundColor: WelcomeScreen._buttonBlack,
+                foregroundColor: AppTheme.primaryButton,
                 side: const BorderSide(
-                  color: WelcomeScreen._buttonBlack,
+                  color: AppTheme.primaryButton,
                   width: 1.4,
                 ),
                 shape: shape,
@@ -186,7 +184,7 @@ class _WelcomeButton extends StatelessWidget {
           : ElevatedButton(
               onPressed: onPressed,
               style: ElevatedButton.styleFrom(
-                backgroundColor: WelcomeScreen._buttonBlack,
+                backgroundColor: AppTheme.primaryButton,
                 foregroundColor: Colors.white,
                 elevation: 0,
                 shape: shape,

@@ -10,15 +10,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:teamate_mobile/main.dart';
 
 void main() {
-  testWidgets('TeaMate startup flow smoke test', (
-    WidgetTester tester,
-  ) async {
+  testWidgets('TeaMate startup flow smoke test', (WidgetTester tester) async {
     await tester.pumpWidget(const TeaMateApp());
     await tester.pumpAndSettle();
 
-    expect(find.text('TeaMATE'), findsOneWidget);
-    expect(find.text('Maximize Your Tea Harvest'), findsOneWidget);
-    expect(find.text('Log In'), findsOneWidget);
+    expect(find.text('TeaMate'), findsOneWidget);
+    expect(find.text('Welcome to'), findsOneWidget);
+    expect(find.text('Login'), findsOneWidget);
     expect(find.text('Create Account'), findsOneWidget);
+    expect(find.text('Continue as Guest'), findsNothing);
   });
 }

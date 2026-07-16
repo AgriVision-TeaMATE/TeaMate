@@ -79,27 +79,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     },
                   ),
                   const SizedBox(height: 22),
-                  _SectionHeader(
-                    title: 'AI / ML Modules',
-                    actionLabel: 'Explore All',
-                    onAction: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const FieldsScreen()),
-                      );
-                    },
-                  ),
+                  _SectionHeader(title: 'AI / ML Modules', compact: true),
                   const SizedBox(height: 12),
                   Row(
                     children: [
                       Expanded(
                         child: _ModuleTile(
-                          title: 'Yield\nOptimization',
-                          iconWidget: const CustomPaint(
-                            painter: _YieldIconPainter(),
-                            size: Size(32, 32),
-                          ),
-                          colors: const [Color(0xFF0F4E36), Color(0xFF0A3324)],
+                          eyebrow: 'YIELD',
+                          title: 'Optimization',
+                          colors: const [
+                            AppTheme.primaryButton,
+                            Color(0xFF1F1F1F),
+                          ],
                           onTap: () {
                             Navigator.push(
                               context,
@@ -113,24 +104,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: _ModuleTile(
-                          title: 'Disease\nDetection',
-                          iconWidget: const CustomPaint(
-                            painter: _DiseaseIconPainter(),
-                            size: Size(32, 32),
-                          ),
-                          colors: const [Color(0xFF0F4E36), Color(0xFF0A3324)],
+                          eyebrow: 'DISEASE',
+                          title: 'Detection',
+                          colors: const [
+                            AppTheme.primaryButton,
+                            Color(0xFF1F1F1F),
+                          ],
                           onTap: () {},
                         ),
                       ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: _ModuleTile(
-                          title: 'Tea Quality\nGrading',
-                          iconWidget: const CustomPaint(
-                            painter: _TeaIconPainter(),
-                            size: Size(32, 32),
-                          ),
-                          colors: const [Color(0xFF0F4E36), Color(0xFF0A3324)],
+                          eyebrow: 'QUALITY',
+                          title: 'Grading',
+                          colors: const [
+                            AppTheme.primaryButton,
+                            Color(0xFF1F1F1F),
+                          ],
                           onTap: () {},
                         ),
                       ),
@@ -183,21 +174,33 @@ class _DashboardHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.only(bottom: 16),
       decoration: const BoxDecoration(
         border: Border(bottom: BorderSide(color: Color(0xFFF0F2F0))),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          const Expanded(
-            child: Text(
-              'Arjun',
-              style: TextStyle(
-                color: Color(0xFF1B242C),
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -0.4,
+          Expanded(
+            child: RichText(
+              text: const TextSpan(
+                style: TextStyle(
+                  color: AppTheme.textPrimary,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.4,
+                ),
+                children: [
+                  TextSpan(
+                    text: 'Good morning, ',
+                    style: TextStyle(
+                      color: AppTheme.textSecondary,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  TextSpan(text: 'Arjun'),
+                ],
               ),
             ),
           ),
@@ -217,7 +220,7 @@ class _DashboardHeader extends StatelessWidget {
                   icon: Badge(
                     isLabelVisible: unreadCount > 0,
                     label: Text('$unreadCount'),
-                    backgroundColor: const Color(0xFF388E3C),
+                    backgroundColor: AppTheme.brandGreen,
                     textColor: Colors.white,
                     child: const Icon(
                       Icons.notifications_none_rounded,
@@ -302,7 +305,7 @@ class _WeatherCard extends StatelessWidget {
               colors: [
                 Colors.black.withValues(alpha: 0.1),
                 Colors.black.withValues(alpha: 0.2),
-                const Color(0xFF0F3C18).withValues(alpha: 0.7),
+                AppTheme.primaryButton.withValues(alpha: 0.7),
               ],
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
@@ -478,9 +481,7 @@ class _WeatherCard extends StatelessWidget {
                           vertical: 10,
                         ),
                         decoration: BoxDecoration(
-                          color: const Color(
-                            0xFF0C2B29,
-                          ).withValues(alpha: 0.85),
+                          color: AppTheme.primaryButton.withValues(alpha: 0.85),
                           borderRadius: const BorderRadius.vertical(
                             bottom: Radius.circular(16),
                           ),
@@ -593,14 +594,14 @@ class _WeatherInfoChip extends StatelessWidget {
 }
 
 class _ModuleTile extends StatelessWidget {
+  final String eyebrow;
   final String title;
-  final Widget iconWidget;
   final List<Color> colors;
   final VoidCallback onTap;
 
   const _ModuleTile({
+    required this.eyebrow,
     required this.title,
-    required this.iconWidget,
     required this.colors,
     required this.onTap,
   });
@@ -611,72 +612,91 @@ class _ModuleTile extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         child: Ink(
-          padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
             gradient: LinearGradient(
               colors: colors,
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
-            image: const DecorationImage(
-              image: AssetImage('assets/images/leaf_watermark.png'),
-              alignment: Alignment.centerLeft,
-              opacity: 0.08,
-              fit: BoxFit.none,
-            ),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.08),
+                blurRadius: 10,
+                offset: const Offset(0, 5),
+              ),
+            ],
           ),
           child: SizedBox(
-            height: 64,
-            child: Stack(
+            height: 70,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                Container(
+                  width: 24,
+                  height: 3,
+                  decoration: BoxDecoration(
+                    color: AppTheme.brandGreen,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  eyebrow,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.62),
+                    fontSize: 8,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.9,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w900,
+                    height: 1.1,
+                  ),
+                ),
+                const Spacer(),
                 Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    SizedBox(
-                      width: 32,
-                      height: 32,
-                      child: iconWidget,
+                    Text(
+                      'Open',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.72),
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            title,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w800,
-                              height: 1.15,
-                            ),
-                          ),
-                        ],
+                    const Spacer(),
+                    Container(
+                      width: 22,
+                      height: 22,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.10),
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.10),
+                        ),
+                      ),
+                      child: const Icon(
+                        Icons.arrow_forward_rounded,
+                        color: Colors.white,
+                        size: 13,
                       ),
                     ),
                   ],
-                ),
-                Positioned(
-                  right: 0,
-                  bottom: 0,
-                  child: Container(
-                    padding: const EdgeInsets.all(2),
-                    decoration: const BoxDecoration(
-                      color: Color(0x22FFFFFF),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.chevron_right_rounded,
-                      color: Colors.white,
-                      size: 12,
-                    ),
-                  ),
                 ),
               ],
             ),
@@ -685,326 +705,6 @@ class _ModuleTile extends StatelessWidget {
       ),
     );
   }
-}
-
-class _YieldIconPainter extends CustomPainter {
-  const _YieldIconPainter();
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final w = size.width;
-    final h = size.height;
-
-    // Draw offset shadows first
-    final shadowPaint = Paint()
-      ..color = Colors.black.withValues(alpha: 0.15)
-      ..style = PaintingStyle.fill;
-
-    final barWidth = w * 0.10;
-    
-    // Draw 3D shadows for bars (slightly offset to bottom-right)
-    final shadowOffset = 2.0;
-    for (int i = 0; i < 4; i++) {
-      double bh = 0.0;
-      double bx = 0.0;
-      double by = 0.0;
-      if (i == 0) { bx = w * 0.05; by = h * 0.60; bh = h * 0.30; }
-      if (i == 1) { bx = w * 0.20; by = h * 0.45; bh = h * 0.45; }
-      if (i == 2) { bx = w * 0.35; by = h * 0.50; bh = h * 0.40; }
-      if (i == 3) { bx = w * 0.50; by = h * 0.35; bh = h * 0.55; }
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromLTWH(bx + shadowOffset, by + shadowOffset, barWidth, bh),
-          const Radius.circular(3),
-        ),
-        shadowPaint,
-      );
-    }
-
-    // Paint bars with a green gradient
-    final barGradient = const LinearGradient(
-      colors: [Color(0xFFA5D6A7), Color(0xFF2E7D32)],
-      begin: Alignment.topCenter,
-      end: Alignment.bottomCenter,
-    ).createShader(Rect.fromLTWH(0, 0, w, h));
-
-    final barPaint = Paint()
-      ..shader = barGradient
-      ..style = PaintingStyle.fill;
-
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(w * 0.05, h * 0.60, barWidth, h * 0.30),
-        const Radius.circular(3),
-      ),
-      barPaint,
-    );
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(w * 0.20, h * 0.45, barWidth, h * 0.45),
-        const Radius.circular(3),
-      ),
-      barPaint,
-    );
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(w * 0.35, h * 0.50, barWidth, h * 0.40),
-        const Radius.circular(3),
-      ),
-      barPaint,
-    );
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(w * 0.50, h * 0.35, barWidth, h * 0.55),
-        const Radius.circular(3),
-      ),
-      barPaint,
-    );
-
-    // Glowing trend line (with dual stroke for neon look)
-    final trendShadow = Paint()
-      ..color = const Color(0xFFC8E6C9).withValues(alpha: 0.3)
-      ..strokeWidth = 4.0
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-
-    final trendLine = Paint()
-      ..color = Colors.white
-      ..strokeWidth = 2.0
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-
-    final path = Path();
-    path.moveTo(w * 0.05, h * 0.55);
-    path.quadraticBezierTo(w * 0.30, h * 0.40, w * 0.50, h * 0.30);
-    
-    canvas.drawPath(path, trendShadow);
-    canvas.drawPath(path, trendLine);
-
-    // 3D Leaves at the end
-    final leafShadow = Path();
-    leafShadow.moveTo(w * 0.50 + shadowOffset, h * 0.30 + shadowOffset);
-    leafShadow.quadraticBezierTo(w * 0.62 + shadowOffset, h * 0.08 + shadowOffset, w * 0.85 + shadowOffset, h * 0.12 + shadowOffset);
-    leafShadow.quadraticBezierTo(w * 0.72 + shadowOffset, h * 0.34 + shadowOffset, w * 0.50 + shadowOffset, h * 0.30 + shadowOffset);
-    canvas.drawPath(leafShadow, shadowPaint);
-
-    final leafGradient = const LinearGradient(
-      colors: [Color(0xFFE8F5E9), Color(0xFF4CAF50)],
-      begin: Alignment.topRight,
-      end: Alignment.bottomLeft,
-    ).createShader(Rect.fromLTWH(w * 0.5, h * 0.1, w * 0.35, h * 0.25));
-
-    final leafPaint = Paint()
-      ..shader = leafGradient
-      ..style = PaintingStyle.fill;
-    
-    final leaf1 = Path();
-    leaf1.moveTo(w * 0.50, h * 0.30);
-    leaf1.quadraticBezierTo(w * 0.62, h * 0.08, w * 0.85, h * 0.12);
-    leaf1.quadraticBezierTo(w * 0.72, h * 0.34, w * 0.50, h * 0.30);
-    canvas.drawPath(leaf1, leafPaint);
-
-    final leaf2 = Path();
-    leaf2.moveTo(w * 0.58, h * 0.26);
-    leaf2.quadraticBezierTo(w * 0.74, h * 0.18, w * 0.80, h * 0.35);
-    leaf2.quadraticBezierTo(w * 0.66, h * 0.38, w * 0.58, h * 0.26);
-    
-    final leafPaintSmall = Paint()
-      ..color = const Color(0xFFC8E6C9)
-      ..style = PaintingStyle.fill;
-    canvas.drawPath(leaf2, leafPaintSmall);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-class _DiseaseIconPainter extends CustomPainter {
-  const _DiseaseIconPainter();
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final w = size.width;
-    final h = size.height;
-    final shadowOffset = 2.0;
-
-    final shadowPaint = Paint()
-      ..color = Colors.black.withValues(alpha: 0.15)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.0;
-
-    // Shield shadow path
-    final shieldShadowPath = Path();
-    shieldShadowPath.moveTo(w * 0.5 + shadowOffset, h * 0.15 + shadowOffset);
-    shieldShadowPath.quadraticBezierTo(w * 0.78 + shadowOffset, h * 0.15 + shadowOffset, w * 0.82 + shadowOffset, h * 0.24 + shadowOffset);
-    shieldShadowPath.quadraticBezierTo(w * 0.82 + shadowOffset, h * 0.60 + shadowOffset, w * 0.5 + shadowOffset, h * 0.88 + shadowOffset);
-    shieldShadowPath.quadraticBezierTo(w * 0.18 + shadowOffset, h * 0.60 + shadowOffset, w * 0.18 + shadowOffset, h * 0.24 + shadowOffset);
-    shieldShadowPath.quadraticBezierTo(w * 0.22 + shadowOffset, h * 0.15 + shadowOffset, w * 0.5 + shadowOffset, h * 0.15 + shadowOffset);
-    canvas.drawPath(shieldShadowPath, shadowPaint);
-
-    // Shield paint with 3D gradient stroke
-    final shieldGradient = const LinearGradient(
-      colors: [Color(0xFFE8F5E9), Color(0xFF2E7D32)],
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-    ).createShader(Rect.fromLTWH(w * 0.15, h * 0.15, w * 0.7, h * 0.73));
-
-    final shieldPaint = Paint()
-      ..shader = shieldGradient
-      ..strokeWidth = 2.5
-      ..style = PaintingStyle.stroke;
-
-    final shieldPath = Path();
-    shieldPath.moveTo(w * 0.5, h * 0.15);
-    shieldPath.quadraticBezierTo(w * 0.78, h * 0.15, w * 0.82, h * 0.24);
-    shieldPath.quadraticBezierTo(w * 0.82, h * 0.60, w * 0.5, h * 0.88);
-    shieldPath.quadraticBezierTo(w * 0.18, h * 0.60, w * 0.18, h * 0.24);
-    shieldPath.quadraticBezierTo(w * 0.22, h * 0.15, w * 0.5, h * 0.15);
-    canvas.drawPath(shieldPath, shieldPaint);
-
-    // Translucent shield inner body for depth
-    final shieldInnerPaint = Paint()
-      ..color = const Color(0xFF81C784).withValues(alpha: 0.1)
-      ..style = PaintingStyle.fill;
-    canvas.drawPath(shieldPath, shieldInnerPaint);
-
-    // Leaves inside shield (with shadow and gradient)
-    final leafShadow = Path();
-    leafShadow.moveTo(w * 0.35 + shadowOffset, h * 0.62 + shadowOffset);
-    leafShadow.quadraticBezierTo(w * 0.44 + shadowOffset, h * 0.32 + shadowOffset, w * 0.65 + shadowOffset, h * 0.38 + shadowOffset);
-    leafShadow.quadraticBezierTo(w * 0.56 + shadowOffset, h * 0.68 + shadowOffset, w * 0.35 + shadowOffset, h * 0.62 + shadowOffset);
-    
-    final leafShadowPaint = Paint()
-      ..color = Colors.black.withValues(alpha: 0.15)
-      ..style = PaintingStyle.fill;
-    canvas.drawPath(leafShadow, leafShadowPaint);
-
-    final leafGradient = const LinearGradient(
-      colors: [Color(0xFFA5D6A7), Color(0xFF1B5E20)],
-      begin: Alignment.topRight,
-      end: Alignment.bottomLeft,
-    ).createShader(Rect.fromLTWH(w * 0.35, h * 0.32, w * 0.3, h * 0.36));
-
-    final leafPaint = Paint()
-      ..shader = leafGradient
-      ..style = PaintingStyle.fill;
-
-    final leaf1 = Path();
-    leaf1.moveTo(w * 0.35, h * 0.62);
-    leaf1.quadraticBezierTo(w * 0.44, h * 0.32, w * 0.65, h * 0.38);
-    leaf1.quadraticBezierTo(w * 0.56, h * 0.68, w * 0.35, h * 0.62);
-    canvas.drawPath(leaf1, leafPaint);
-
-    final leaf2 = Path();
-    leaf2.moveTo(w * 0.44, h * 0.53);
-    leaf2.quadraticBezierTo(w * 0.58, h * 0.42, w * 0.68, h * 0.53);
-    leaf2.quadraticBezierTo(w * 0.54, h * 0.64, w * 0.44, h * 0.53);
-    
-    final leafPaint2 = Paint()
-      ..color = const Color(0xFFC8E6C9)
-      ..style = PaintingStyle.fill;
-    canvas.drawPath(leaf2, leafPaint2);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-class _TeaIconPainter extends CustomPainter {
-  const _TeaIconPainter();
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final w = size.width;
-    final h = size.height;
-    final shadowOffset = 2.0;
-
-    // Cup shadow
-    final cupShadowPaint = Paint()
-      ..color = Colors.black.withValues(alpha: 0.15)
-      ..style = PaintingStyle.fill;
-
-    final cupShadowPath = Path();
-    cupShadowPath.moveTo(w * 0.18 + shadowOffset, h * 0.46 + shadowOffset);
-    cupShadowPath.lineTo(w * 0.82 + shadowOffset, h * 0.46 + shadowOffset);
-    cupShadowPath.quadraticBezierTo(w * 0.82 + shadowOffset, h * 0.82 + shadowOffset, w * 0.5 + shadowOffset, h * 0.82 + shadowOffset);
-    cupShadowPath.quadraticBezierTo(w * 0.18 + shadowOffset, h * 0.82 + shadowOffset, w * 0.18 + shadowOffset, h * 0.46 + shadowOffset);
-    canvas.drawPath(cupShadowPath, cupShadowPaint);
-
-    // Cup body with radial shading for 3D sphere/cup feel
-    final cupGradient = const RadialGradient(
-      colors: [Colors.white, Color(0xFFD7CCC8)],
-      center: Alignment(-0.2, -0.2),
-      radius: 0.8,
-    ).createShader(Rect.fromLTWH(w * 0.18, h * 0.46, w * 0.64, h * 0.36));
-
-    final cupPaint = Paint()
-      ..shader = cupGradient
-      ..style = PaintingStyle.fill;
-
-    final cupPath = Path();
-    cupPath.moveTo(w * 0.18, h * 0.46);
-    cupPath.lineTo(w * 0.82, h * 0.46);
-    cupPath.quadraticBezierTo(w * 0.82, h * 0.82, w * 0.5, h * 0.82);
-    cupPath.quadraticBezierTo(w * 0.18, h * 0.82, w * 0.18, h * 0.46);
-    canvas.drawPath(cupPath, cupPaint);
-
-    // Cup handle with highlight/gradient
-    final handlePaint = Paint()
-      ..color = Colors.white
-      ..strokeWidth = 2.5
-      ..style = PaintingStyle.stroke;
-    
-    final handlePath = Path();
-    handlePath.moveTo(w * 0.82, h * 0.52);
-    handlePath.quadraticBezierTo(w * 0.98, h * 0.60, w * 0.82, h * 0.72);
-    canvas.drawPath(handlePath, handlePaint);
-
-    // 3D leaves (with linear gradients for shadows/highlights)
-    final leafGrad1 = const LinearGradient(
-      colors: [Color(0xFF81C784), Color(0xFF1B5E20)],
-      begin: Alignment.topCenter,
-      end: Alignment.bottomCenter,
-    ).createShader(Rect.fromLTWH(w * 0.18, h * 0.22, w * 0.64, h * 0.24));
-
-    final leafPaint1 = Paint()
-      ..shader = leafGrad1
-      ..style = PaintingStyle.fill;
-
-    final leafGrad2 = const LinearGradient(
-      colors: [Color(0xFFE8F5E9), Color(0xFF4CAF50)],
-      begin: Alignment.topCenter,
-      end: Alignment.bottomCenter,
-    ).createShader(Rect.fromLTWH(w * 0.38, h * 0.16, w * 0.24, h * 0.30));
-
-    final leafPaint2 = Paint()
-      ..shader = leafGrad2
-      ..style = PaintingStyle.fill;
-
-    // Left leaf
-    final leafLeft = Path();
-    leafLeft.moveTo(w * 0.36, h * 0.46);
-    leafLeft.quadraticBezierTo(w * 0.18, h * 0.26, w * 0.28, h * 0.22);
-    leafLeft.quadraticBezierTo(w * 0.44, h * 0.36, w * 0.36, h * 0.46);
-    canvas.drawPath(leafLeft, leafPaint1);
-
-    // Right leaf
-    final leafRight = Path();
-    leafRight.moveTo(w * 0.64, h * 0.46);
-    leafRight.quadraticBezierTo(w * 0.82, h * 0.26, w * 0.72, h * 0.22);
-    leafRight.quadraticBezierTo(w * 0.56, h * 0.36, w * 0.64, h * 0.46);
-    canvas.drawPath(leafRight, leafPaint1);
-
-    // Center leaf
-    final leafCenter = Path();
-    leafCenter.moveTo(w * 0.5, h * 0.46);
-    leafCenter.quadraticBezierTo(w * 0.38, h * 0.22, w * 0.5, h * 0.16);
-    leafCenter.quadraticBezierTo(w * 0.62, h * 0.22, w * 0.5, h * 0.46);
-    canvas.drawPath(leafCenter, leafPaint2);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class _TrendCard extends StatelessWidget {
@@ -1059,10 +759,13 @@ class _TrendCard extends StatelessWidget {
             runSpacing: 8,
             children: [
               _LegendDot(
-                color: Color(0xFF1D8A3E),
+                color: AppTheme.brandGreen,
                 label: 'Estimated Yield (kg)',
               ),
-              _LegendDot(color: Color(0xFFF2B11A), label: 'Risk Index (%)'),
+              _LegendDot(
+                color: AppTheme.primaryButton,
+                label: 'Risk Index (%)',
+              ),
             ],
           ),
           const SizedBox(height: 18),
@@ -1096,7 +799,7 @@ class _RangePill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: active ? const Color(0xFF0B5B2E) : Colors.transparent,
+        color: active ? AppTheme.primaryButton : Colors.transparent,
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
@@ -1143,14 +846,16 @@ class _LegendDot extends StatelessWidget {
 class _SectionHeader extends StatelessWidget {
   final String title;
   final String? badgeText;
-  final String actionLabel;
-  final VoidCallback onAction;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+  final bool compact;
 
   const _SectionHeader({
     required this.title,
     this.badgeText,
-    required this.actionLabel,
-    required this.onAction,
+    this.actionLabel,
+    this.onAction,
+    this.compact = false,
   });
 
   @override
@@ -1159,8 +864,8 @@ class _SectionHeader extends StatelessWidget {
       children: [
         Text(
           title,
-          style: const TextStyle(
-            fontSize: 22,
+          style: TextStyle(
+            fontSize: compact ? 18 : 22,
             fontWeight: FontWeight.w800,
             letterSpacing: -0.5,
           ),
@@ -1182,17 +887,19 @@ class _SectionHeader extends StatelessWidget {
             ),
           ),
         ],
-        const Spacer(),
-        TextButton(
-          onPressed: onAction,
-          child: Text(
-            actionLabel,
-            style: const TextStyle(
-              color: Color(0xFF0B5B2E),
-              fontWeight: FontWeight.w800,
+        if (onAction != null && actionLabel != null) ...[
+          const Spacer(),
+          TextButton(
+            onPressed: onAction,
+            child: Text(
+              actionLabel!,
+              style: const TextStyle(
+                color: AppTheme.primaryButton,
+                fontWeight: FontWeight.w800,
+              ),
             ),
           ),
-        ),
+        ],
       ],
     );
   }
@@ -1423,7 +1130,7 @@ class _DashboardStats {
     } else {
       riskLabel = 'Low';
       riskCaption = 'Stable current outlook';
-      riskColor = const Color(0xFF2E8B57);
+      riskColor = AppTheme.brandGreen;
     }
 
     final criticalFields = manager.fields
@@ -1501,7 +1208,7 @@ class _CriticalFieldInfo {
         chipColor: const Color(0xFFE2574C),
         metricLabel: 'Readiness',
         metricValue: '${readinessPct.toStringAsFixed(0)}%',
-        metricColor: const Color(0xFF2E8B57),
+        metricColor: AppTheme.brandGreen,
       );
     }
 
@@ -1514,7 +1221,7 @@ class _CriticalFieldInfo {
         chipColor: const Color(0xFFCC8A17),
         metricLabel: 'Readiness',
         metricValue: '${readinessPct.toStringAsFixed(0)}%',
-        metricColor: const Color(0xFF2E8B57),
+        metricColor: AppTheme.brandGreen,
       );
     }
 
@@ -1629,21 +1336,21 @@ class _TrendPainter extends CustomPainter {
       ..strokeWidth = 1;
 
     final yieldPaint = Paint()
-      ..color = const Color(0xFF2E8B57)
+      ..color = AppTheme.brandGreen
       ..strokeWidth = 2.5
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
 
     final riskPaint = Paint()
-      ..color = const Color(0xFFF59E0B)
+      ..color = AppTheme.primaryButton
       ..strokeWidth = 2.5
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
 
     final yieldFillShader = LinearGradient(
       colors: [
-        const Color(0xFF2E8B57).withValues(alpha: 0.15),
-        const Color(0xFF2E8B57).withValues(alpha: 0.0),
+        AppTheme.brandGreen.withValues(alpha: 0.15),
+        AppTheme.brandGreen.withValues(alpha: 0.0),
       ],
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
@@ -1653,8 +1360,8 @@ class _TrendPainter extends CustomPainter {
 
     final riskFillShader = LinearGradient(
       colors: [
-        const Color(0xFFF59E0B).withValues(alpha: 0.1),
-        const Color(0xFFF59E0B).withValues(alpha: 0.0),
+        AppTheme.primaryButton.withValues(alpha: 0.1),
+        AppTheme.primaryButton.withValues(alpha: 0.0),
       ],
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
@@ -1810,11 +1517,11 @@ class _TrendPainter extends CustomPainter {
 
       final whitePaint = Paint()..color = Colors.white;
 
-      final yDotOuter = Paint()..color = const Color(0xFF2E8B57);
+      final yDotOuter = Paint()..color = AppTheme.brandGreen;
       canvas.drawCircle(selectedYieldOffset, 6.0, yDotOuter);
       canvas.drawCircle(selectedYieldOffset, 3.0, whitePaint);
 
-      final rDotOuter = Paint()..color = const Color(0xFFF59E0B);
+      final rDotOuter = Paint()..color = AppTheme.primaryButton;
       canvas.drawCircle(selectedRiskOffset, 6.0, rDotOuter);
       canvas.drawCircle(selectedRiskOffset, 3.0, whitePaint);
 
@@ -1852,12 +1559,12 @@ class _TrendPainter extends CustomPainter {
         fontWeight: FontWeight.w700,
       );
       const tooltipBodyGreen = TextStyle(
-        color: Color(0xFF2E8B57),
+        color: AppTheme.brandGreen,
         fontSize: 8,
         fontWeight: FontWeight.w700,
       );
       const tooltipBodyOrange = TextStyle(
-        color: Color(0xFFD97706),
+        color: AppTheme.primaryButton,
         fontSize: 8,
         fontWeight: FontWeight.w700,
       );

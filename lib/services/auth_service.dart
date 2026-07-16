@@ -84,10 +84,7 @@ class AuthService {
           .post(
             Uri.parse('$baseUrl/login'),
             headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({
-              'email': email,
-              'password': password,
-            }),
+            body: jsonEncode({'email': email, 'password': password}),
           )
           .timeout(const Duration(seconds: 15));
 
@@ -98,7 +95,9 @@ class AuthService {
         return _currentUser;
       } else {
         final error = jsonDecode(response.body);
-        throw Exception(error['detail'] ?? 'Login failed. Check your credentials.');
+        throw Exception(
+          error['detail'] ?? 'Login failed. Check your credentials.',
+        );
       }
     } catch (e) {
       debugPrint('AuthService login error: $e');
@@ -116,10 +115,64 @@ class AuthService {
           )
           .timeout(const Duration(seconds: 15));
 
-      return response.statusCode == 200;
+      if (response.statusCode == 200) return true;
+
+      final error = jsonDecode(response.body);
+      throw Exception(error['detail'] ?? 'Could not send reset code.');
     } catch (e) {
       debugPrint('AuthService forgotPassword error: $e');
-      return false;
+      rethrow;
+    }
+  }
+
+  Future<bool> verifyResetOtp({
+    required String email,
+    required String otp,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/verify-reset-otp'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'email': email, 'otp': otp}),
+          )
+          .timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200) return true;
+
+      final error = jsonDecode(response.body);
+      throw Exception(error['detail'] ?? 'Invalid verification code.');
+    } catch (e) {
+      debugPrint('AuthService verifyResetOtp error: $e');
+      rethrow;
+    }
+  }
+
+  Future<bool> resetPassword({
+    required String email,
+    required String otp,
+    required String newPassword,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/reset-password'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'email': email,
+              'otp': otp,
+              'new_password': newPassword,
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200) return true;
+
+      final error = jsonDecode(response.body);
+      throw Exception(error['detail'] ?? 'Could not reset password.');
+    } catch (e) {
+      debugPrint('AuthService resetPassword error: $e');
+      rethrow;
     }
   }
 
