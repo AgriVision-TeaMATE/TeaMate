@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'theme.dart';
-import 'screens/splash_screen.dart';
+import 'screens/onboarding/splash_screen.dart';
 
 void main() {
   runApp(const TeaMateApp());

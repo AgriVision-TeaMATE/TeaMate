@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import '../theme.dart';
-import '../widgets/custom_button.dart';
-import '../widgets/custom_text_field.dart';
-import '../widgets/alert_banner.dart';
+import '../../theme.dart';
+import '../../widgets/alert_banner.dart';
+import '../../widgets/custom_button.dart';
+import '../../widgets/custom_text_field.dart';
 import 'sampling_screen.dart';
 
 class FieldDetailScreen extends StatefulWidget {
@@ -13,7 +13,8 @@ class FieldDetailScreen extends StatefulWidget {
   State<FieldDetailScreen> createState() => _FieldDetailScreenState();
 }
 
-class _FieldDetailScreenState extends State<FieldDetailScreen> with SingleTickerProviderStateMixin {
+class _FieldDetailScreenState extends State<FieldDetailScreen>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
   double? _avgDensity;
   final TextEditingController _weightController = TextEditingController();
@@ -35,7 +36,9 @@ class _FieldDetailScreenState extends State<FieldDetailScreen> with SingleTicker
   void _startSampling() async {
     final result = await Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => SamplingScreen(fieldNumber: widget.fieldNumber)),
+      MaterialPageRoute(
+        builder: (context) => SamplingScreen(fieldNumber: widget.fieldNumber),
+      ),
     );
     if (result != null && result is double) {
       setState(() {
@@ -47,9 +50,10 @@ class _FieldDetailScreenState extends State<FieldDetailScreen> with SingleTicker
   void _verifyWeight() {
     final weightStr = _weightController.text;
     if (weightStr.isEmpty) return;
-    
+
     final weight = double.tryParse(weightStr);
-    if (weight != null && weight > 180) { // Max predicted was 180
+    if (weight != null && weight > 180) {
+      // Max predicted was 180
       setState(() {
         _showDilutionAlert = true;
       });
@@ -58,7 +62,9 @@ class _FieldDetailScreenState extends State<FieldDetailScreen> with SingleTicker
         _showDilutionAlert = false;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Yield matches prediction. Normal status.')),
+        const SnackBar(
+          content: Text('Yield matches prediction. Normal status.'),
+        ),
       );
     }
   }
@@ -81,10 +87,7 @@ class _FieldDetailScreenState extends State<FieldDetailScreen> with SingleTicker
       ),
       body: TabBarView(
         controller: _tabController,
-        children: [
-          _buildPreHarvestTab(),
-          _buildPostHarvestTab(),
-        ],
+        children: [_buildPreHarvestTab(), _buildPostHarvestTab()],
       ),
     );
   }
@@ -95,7 +98,10 @@ class _FieldDetailScreenState extends State<FieldDetailScreen> with SingleTicker
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('TRI-Aligned Status', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+          const Text(
+            'TRI-Aligned Status',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 16),
           Container(
             padding: const EdgeInsets.all(20),
@@ -112,8 +118,21 @@ class _FieldDetailScreenState extends State<FieldDetailScreen> with SingleTicker
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Ready to Pluck', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green)),
-                      Text('Optimal Day: Today', style: TextStyle(fontSize: 14, color: AppTheme.textSecondary)),
+                      Text(
+                        'Ready to Pluck',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.green,
+                        ),
+                      ),
+                      Text(
+                        'Optimal Day: Today',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -121,7 +140,10 @@ class _FieldDetailScreenState extends State<FieldDetailScreen> with SingleTicker
             ),
           ),
           const SizedBox(height: 32),
-          const Text('Smart Edge-Sampling', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+          const Text(
+            'Smart Edge-Sampling',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 16),
           if (_avgDensity != null) ...[
             Container(
@@ -133,16 +155,28 @@ class _FieldDetailScreenState extends State<FieldDetailScreen> with SingleTicker
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Average Density: ${_avgDensity!.toStringAsFixed(1)} buds/sqft', style: const TextStyle(fontWeight: FontWeight.bold)),
+                  Text(
+                    'Average Density: ${_avgDensity!.toStringAsFixed(1)} buds/sqft',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
                   const SizedBox(height: 8),
-                  const Text('Predicted Yield Range: 150 kg - 180 kg', style: TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold, fontSize: 16)),
+                  const Text(
+                    'Predicted Yield Range: 150 kg - 180 kg',
+                    style: TextStyle(
+                      color: AppTheme.primaryColor,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
                 ],
               ),
             ),
             const SizedBox(height: 16),
           ],
           CustomButton(
-            text: _avgDensity == null ? 'Start Edge-Sampling' : 'Re-Sample Field',
+            text: _avgDensity == null
+                ? 'Start Edge-Sampling'
+                : 'Re-Sample Field',
             onPressed: _startSampling,
           ),
         ],
@@ -156,9 +190,15 @@ class _FieldDetailScreenState extends State<FieldDetailScreen> with SingleTicker
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Post-Harvest Verification', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+          const Text(
+            'Post-Harvest Verification',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 8),
-          const Text('Compare actual scale weight against the predicted yield range to detect anomalies.', style: TextStyle(color: AppTheme.textSecondary)),
+          const Text(
+            'Compare actual scale weight against the predicted yield range to detect anomalies.',
+            style: TextStyle(color: AppTheme.textSecondary),
+          ),
           const SizedBox(height: 24),
           CustomTextField(
             label: 'Actual Scale Weight (kg)',
@@ -167,15 +207,13 @@ class _FieldDetailScreenState extends State<FieldDetailScreen> with SingleTicker
             controller: _weightController,
           ),
           const SizedBox(height: 24),
-          CustomButton(
-            text: 'Verify Weight',
-            onPressed: _verifyWeight,
-          ),
+          CustomButton(text: 'Verify Weight', onPressed: _verifyWeight),
           const SizedBox(height: 32),
           if (_showDilutionAlert)
             const AlertBanner(
               title: 'Quota Dilution Alert',
-              message: 'Actual weight is abnormally high compared to prediction. Workers may have included heavy coarse leaves or restricted Arimbu.',
+              message:
+                  'Actual weight is abnormally high compared to prediction. Workers may have included heavy coarse leaves or restricted Arimbu.',
             ),
         ],
       ),

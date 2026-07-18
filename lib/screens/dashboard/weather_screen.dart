@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-import '../models/field_model.dart';
-import '../services/weather_service.dart';
-import '../theme.dart';
-import '../widgets/weather_widgets.dart';
+import '../../models/field_model.dart';
+import '../../services/weather_service.dart';
+import '../../theme.dart';
+import '../../widgets/weather_widgets.dart';
 
 class WeatherScreen extends StatefulWidget {
   const WeatherScreen({super.key});
@@ -74,49 +74,56 @@ class _WeatherScreenState extends State<WeatherScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.cloud_off_rounded,
-                          size: 56, color: AppTheme.textSecondary),
-                      const SizedBox(height: 16),
-                      Text(_error!,
-                          style: const TextStyle(
-                              color: AppTheme.textSecondary, fontSize: 16)),
-                      const SizedBox(height: 16),
-                      ElevatedButton.icon(
-                        onPressed: _loadWeather,
-                        icon: const Icon(Icons.refresh),
-                        label: const Text('Retry'),
-                      ),
-                    ],
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(
+                    Icons.cloud_off_rounded,
+                    size: 56,
+                    color: AppTheme.textSecondary,
                   ),
-                )
-              : RefreshIndicator(
-                  onRefresh: _loadWeather,
-                  child: SingleChildScrollView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildCurrentConditions(),
-                        const SizedBox(height: 18),
-                        if (_forecast != null)
-                          PluckingWindowCard(forecast: _forecast!),
-                        const SizedBox(height: 22),
-                        _buildRainAlert(),
-                        const SizedBox(height: 22),
-                        _buildHourlyForecast(),
-                        const SizedBox(height: 22),
-                        _buildDailyForecast(),
-                        const SizedBox(height: 22),
-                        _buildFieldImpact(),
-                      ],
+                  const SizedBox(height: 16),
+                  Text(
+                    _error!,
+                    style: const TextStyle(
+                      color: AppTheme.textSecondary,
+                      fontSize: 16,
                     ),
                   ),
+                  const SizedBox(height: 16),
+                  ElevatedButton.icon(
+                    onPressed: _loadWeather,
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Retry'),
+                  ),
+                ],
+              ),
+            )
+          : RefreshIndicator(
+              onRefresh: _loadWeather,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildCurrentConditions(),
+                    const SizedBox(height: 18),
+                    if (_forecast != null)
+                      PluckingWindowCard(forecast: _forecast!),
+                    const SizedBox(height: 22),
+                    _buildRainAlert(),
+                    const SizedBox(height: 22),
+                    _buildHourlyForecast(),
+                    const SizedBox(height: 22),
+                    _buildDailyForecast(),
+                    const SizedBox(height: 22),
+                    _buildFieldImpact(),
+                  ],
                 ),
+              ),
+            ),
     );
   }
 
@@ -250,8 +257,11 @@ class _WeatherScreenState extends State<WeatherScreen> {
                   color: const Color(0xFFB97922).withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(Icons.warning_amber_rounded,
-                    color: Color(0xFFB97922), size: 20),
+                child: const Icon(
+                  Icons.warning_amber_rounded,
+                  color: Color(0xFFB97922),
+                  size: 20,
+                ),
               ),
               const SizedBox(width: 12),
               const Text(
@@ -275,11 +285,20 @@ class _WeatherScreenState extends State<WeatherScreen> {
             ),
           ),
           const SizedBox(height: 10),
-          _buildAlertAction(Icons.schedule_outlined, 'Move plucking to early morning window'),
+          _buildAlertAction(
+            Icons.schedule_outlined,
+            'Move plucking to early morning window',
+          ),
           const SizedBox(height: 6),
-          _buildAlertAction(Icons.shield_outlined, 'Protect collected leaves from moisture'),
+          _buildAlertAction(
+            Icons.shield_outlined,
+            'Protect collected leaves from moisture',
+          ),
           const SizedBox(height: 6),
-          _buildAlertAction(Icons.water_outlined, 'Check drainage in low-lying fields'),
+          _buildAlertAction(
+            Icons.water_outlined,
+            'Check drainage in low-lying fields',
+          ),
         ],
       ),
     );
@@ -308,8 +327,10 @@ class _WeatherScreenState extends State<WeatherScreen> {
   Widget _buildHourlyForecast() {
     final f = _forecast!;
     final now = DateTime.now();
-    final upcoming =
-        f.hourly.where((h) => h.time.isAfter(now)).take(24).toList();
+    final upcoming = f.hourly
+        .where((h) => h.time.isAfter(now))
+        .take(24)
+        .toList();
     if (upcoming.isEmpty) return const SizedBox.shrink();
 
     return Column(
@@ -335,12 +356,12 @@ class _WeatherScreenState extends State<WeatherScreen> {
               final isNow = index == 0;
               return Container(
                 width: 72,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 12,
+                ),
                 decoration: BoxDecoration(
-                  color: isNow
-                      ? const Color(0xFF173730)
-                      : Colors.white,
+                  color: isNow ? const Color(0xFF173730) : Colors.white,
                   borderRadius: BorderRadius.circular(18),
                   border: isNow
                       ? null
@@ -427,8 +448,7 @@ class _WeatherScreenState extends State<WeatherScreen> {
           child: Column(
             children: [
               for (int i = 0; i < f.daily.length; i++) ...[
-                if (i > 0)
-                  const Divider(height: 1, indent: 16, endIndent: 16),
+                if (i > 0) const Divider(height: 1, indent: 16, endIndent: 16),
                 _DailyRow(day: f.daily[i], isToday: i == 0),
               ],
             ],
@@ -463,17 +483,18 @@ class _WeatherScreenState extends State<WeatherScreen> {
           final measurement = field.latestMeasurement;
           final isReady = measurement?.isReadyToPluck == true;
           final hasRisk = _forecast!.hasStormRisk;
-          
+
           String impact;
           Color impactColor;
           IconData impactIcon;
-          
+
           if (isReady && !hasRisk) {
             impact = 'Good conditions — proceed with scheduled plucking.';
             impactColor = const Color(0xFF2E7655);
             impactIcon = Icons.check_circle_outline_rounded;
           } else if (isReady && hasRisk) {
-            impact = 'Move plucking earlier — rain risk may affect leaf quality.';
+            impact =
+                'Move plucking earlier — rain risk may affect leaf quality.';
             impactColor = const Color(0xFFB97922);
             impactIcon = Icons.warning_amber_rounded;
           } else if (!isReady && hasRisk) {
@@ -481,7 +502,8 @@ class _WeatherScreenState extends State<WeatherScreen> {
             impactColor = const Color(0xFFD95C5C);
             impactIcon = Icons.cancel_outlined;
           } else {
-            impact = 'Not ready — monitor growth. Current conditions are neutral.';
+            impact =
+                'Not ready — monitor growth. Current conditions are neutral.';
             impactColor = AppTheme.textSecondary;
             impactIcon = Icons.info_outline_rounded;
           }
@@ -582,9 +604,7 @@ class _DailyRow extends StatelessWidget {
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: isToday ? FontWeight.w800 : FontWeight.w600,
-                color: isToday
-                    ? AppTheme.textPrimary
-                    : AppTheme.textSecondary,
+                color: isToday ? AppTheme.textPrimary : AppTheme.textSecondary,
               ),
             ),
           ),
@@ -593,9 +613,7 @@ class _DailyRow extends StatelessWidget {
             style: const TextStyle(fontSize: 20),
           ),
           const SizedBox(width: 12),
-          Expanded(
-            child: RainChanceBar(percentage: day.rainChance),
-          ),
+          Expanded(child: RainChanceBar(percentage: day.rainChance)),
           const SizedBox(width: 12),
           Row(
             children: [

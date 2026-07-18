@@ -2,9 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../models/ar_area_capture_result.dart';
-import '../services/ar_capture_service.dart';
-import '../theme.dart';
+import '../../models/ar_area_capture_result.dart';
+import '../../services/ar_capture_service.dart';
+import '../../theme.dart';
 
 /// Full-screen AR area-capture flow: hosts the native ARCore AndroidView (camera preview +
 /// point/line overlay, all rendered natively - see ArCaptureView.kt) with Flutter chrome for
@@ -223,7 +223,10 @@ class _ArAreaCaptureScreenState extends State<ArAreaCaptureScreen> {
             color: Colors.red.withValues(alpha: 0.85),
             borderRadius: BorderRadius.circular(12),
           ),
-          child: Text(_errorMessage ?? '', style: const TextStyle(color: Colors.white)),
+          child: Text(
+            _errorMessage ?? '',
+            style: const TextStyle(color: Colors.white),
+          ),
         ),
       ),
     );
@@ -242,7 +245,10 @@ class _ArAreaCaptureScreenState extends State<ArAreaCaptureScreen> {
               Expanded(
                 child: OutlinedButton(
                   onPressed: _pointCount > 0 && !_isConfirming ? _undo : null,
-                  style: OutlinedButton.styleFrom(foregroundColor: Colors.white, side: const BorderSide(color: Colors.white54)),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    side: const BorderSide(color: Colors.white54),
+                  ),
                   child: const Text('Undo'),
                 ),
               ),
@@ -250,7 +256,10 @@ class _ArAreaCaptureScreenState extends State<ArAreaCaptureScreen> {
               Expanded(
                 child: OutlinedButton(
                   onPressed: _pointCount > 0 && !_isConfirming ? _reset : null,
-                  style: OutlinedButton.styleFrom(foregroundColor: Colors.white, side: const BorderSide(color: Colors.white54)),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    side: const BorderSide(color: Colors.white54),
+                  ),
                   child: const Text('Reset'),
                 ),
               ),
@@ -259,7 +268,9 @@ class _ArAreaCaptureScreenState extends State<ArAreaCaptureScreen> {
                 flex: 2,
                 child: ElevatedButton(
                   onPressed: _canConfirm ? _confirm : null,
-                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryGreen),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryGreen,
+                  ),
                   child: Text(
                     _areaPreviewSqm != null && _pointCount >= 4
                         ? 'Confirm (${_areaPreviewSqm!.toStringAsFixed(2)} m²)'
@@ -283,7 +294,10 @@ class _ArAreaCaptureScreenState extends State<ArAreaCaptureScreen> {
           children: [
             CircularProgressIndicator(color: Colors.white),
             SizedBox(height: 12),
-            Text('Capturing and cropping...', style: TextStyle(color: Colors.white)),
+            Text(
+              'Capturing and cropping...',
+              style: TextStyle(color: Colors.white),
+            ),
           ],
         ),
       ),

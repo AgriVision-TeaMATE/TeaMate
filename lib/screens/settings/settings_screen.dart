@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
-import '../models/field_model.dart';
-import '../services/app_settings_service.dart';
-import '../services/auth_service.dart';
-import '../theme.dart';
-import '../widgets/labour_widgets.dart';
-import 'login_screen.dart';
+import '../../models/field_model.dart';
+import '../../services/app_settings_service.dart';
+import '../../services/auth_service.dart';
+import '../../theme.dart';
+import '../../widgets/labour_widgets.dart';
+import '../auth/login_screen.dart';
 import 'profile_screen.dart';
 
 class SettingsScreen extends StatefulWidget {

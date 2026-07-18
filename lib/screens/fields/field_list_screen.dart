@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../theme.dart';
+import '../../theme.dart';
 import 'field_detail_screen.dart';
 
 class FieldListScreen extends StatelessWidget {
@@ -9,17 +9,45 @@ class FieldListScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     // Mocked data for labor routing ranking
     final List<Map<String, dynamic>> fields = [
-      {'id': 3, 'name': 'Field 3 (Upper Estate)', 'status': 'Ready to Pluck', 'score': 92, 'color': Colors.green},
-      {'id': 1, 'name': 'Field 1 (Main Estate)', 'status': 'Ready to Pluck', 'score': 85, 'color': Colors.green},
-      {'id': 5, 'name': 'Field 5 (East Slopes)', 'status': 'Pluck in 2 Days', 'score': 70, 'color': Colors.orange},
-      {'id': 2, 'name': 'Field 2 (Lower Estate)', 'status': 'Not Ready', 'score': 45, 'color': AppTheme.errorColor},
-      {'id': 4, 'name': 'Field 4 (North Ridge)', 'status': 'Recently Plucked', 'score': 10, 'color': Colors.grey},
+      {
+        'id': 3,
+        'name': 'Field 3 (Upper Estate)',
+        'status': 'Ready to Pluck',
+        'score': 92,
+        'color': Colors.green,
+      },
+      {
+        'id': 1,
+        'name': 'Field 1 (Main Estate)',
+        'status': 'Ready to Pluck',
+        'score': 85,
+        'color': Colors.green,
+      },
+      {
+        'id': 5,
+        'name': 'Field 5 (East Slopes)',
+        'status': 'Pluck in 2 Days',
+        'score': 70,
+        'color': Colors.orange,
+      },
+      {
+        'id': 2,
+        'name': 'Field 2 (Lower Estate)',
+        'status': 'Not Ready',
+        'score': 45,
+        'color': AppTheme.errorColor,
+      },
+      {
+        'id': 4,
+        'name': 'Field 4 (North Ridge)',
+        'status': 'Recently Plucked',
+        'score': 10,
+        'color': Colors.grey,
+      },
     ];
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Precise Labor Routing'),
-      ),
+      appBar: AppBar(title: const Text('Precise Labor Routing')),
       body: ListView.builder(
         padding: const EdgeInsets.all(24.0),
         itemCount: fields.length,
@@ -32,7 +60,8 @@ class FieldListScreen extends StatelessWidget {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => FieldDetailScreen(fieldNumber: field['id'] as int),
+                    builder: (context) =>
+                        FieldDetailScreen(fieldNumber: field['id'] as int),
                   ),
                 );
               },
@@ -42,7 +71,9 @@ class FieldListScreen extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: AppTheme.secondaryColor,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: field['color'].withValues(alpha: 0.3)),
+                  border: Border.all(
+                    color: field['color'].withValues(alpha: 0.3),
+                  ),
                 ),
                 child: Row(
                   children: [
@@ -70,7 +101,10 @@ class FieldListScreen extends StatelessWidget {
                           Row(
                             children: [
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
                                 decoration: BoxDecoration(
                                   color: field['color'].withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(8),

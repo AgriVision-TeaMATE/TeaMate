@@ -4,12 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 
-import '../models/ar_area_capture_result.dart';
-import '../models/field_model.dart';
-import '../services/api_service.dart';
-import '../services/app_settings_service.dart';
-import '../services/ar_capture_service.dart';
-import '../theme.dart';
+import '../../models/ar_area_capture_result.dart';
+import '../../models/field_model.dart';
+import '../../services/api_service.dart';
+import '../../services/app_settings_service.dart';
+import '../../services/ar_capture_service.dart';
+import '../../theme.dart';
 import 'ar_area_capture_screen.dart';
 
 class FieldAnalysisScreen extends StatefulWidget {
@@ -41,7 +41,6 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
   bool _isAnalyzing = false;
   String? _analysisStatus;
   bool _didCleanupDraft = false;
-  bool _didShowEntryAlerts = false;
 
   @override
   void initState() {
@@ -56,9 +55,6 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
       _measurement,
     );
     manager.saveMeasurement(widget.fieldId, _measurement);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _showEntryAlerts();
-    });
   }
 
   @override
@@ -114,10 +110,7 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
                 : 'Camera permission is required to use AR area capture.',
           ),
           action: cameraStatus.isPermanentlyDenied
-              ? SnackBarAction(
-                  label: 'Settings',
-                  onPressed: openAppSettings,
-                )
+              ? SnackBarAction(label: 'Settings', onPressed: openAppSettings)
               : null,
         ),
       );
@@ -201,7 +194,7 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
       builder: (context) {
         return AlertDialog(
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(14),
           ),
           title: const Text(
             'Captured area',
@@ -255,112 +248,6 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
     );
 
     return result;
-  }
-
-  Future<void> _showEntryAlerts() async {
-    if (_didShowEntryAlerts || !mounted) {
-      return;
-    }
-
-    _didShowEntryAlerts = true;
-    final alerts = FieldManager().buildInsightsForMeasurement(
-      _field,
-      _measurement,
-    );
-
-    for (final alert in alerts) {
-      if (!mounted) {
-        return;
-      }
-      await _showInsightDialog(alert);
-    }
-  }
-
-  Future<void> _showInsightDialog(InsightAlert alert) {
-    final (accent, background, icon) = switch (alert.severity) {
-      AlertSeverity.critical => (
-        const Color(0xFFBE4D4D),
-        const Color(0xFFFFF2F2),
-        Icons.warning_amber_rounded,
-      ),
-      AlertSeverity.warning => (
-        const Color(0xFFAF7328),
-        const Color(0xFFFFF6EA),
-        Icons.tips_and_updates_outlined,
-      ),
-      AlertSeverity.info => (
-        const Color(0xFF2E7655),
-        const Color(0xFFF1F7F3),
-        Icons.check_circle_outline_rounded,
-      ),
-    };
-
-    return showDialog<void>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
-          ),
-          titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-          contentPadding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-          actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-          title: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: background,
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Icon(icon, color: accent, size: 22),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Text(
-                    alert.title,
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.4,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          content: Text(
-            alert.message,
-            style: const TextStyle(
-              color: AppTheme.textSecondary,
-              height: 1.5,
-              fontSize: 15,
-            ),
-          ),
-          actions: [
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: accent,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                ),
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Dismiss'),
-              ),
-            ),
-          ],
-        );
-      },
-    );
   }
 
   Future<void> _analyzeBuds() async {
@@ -505,7 +392,7 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
             padding: const EdgeInsets.all(24),
             decoration: const BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(14)),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -536,7 +423,7 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
                     filled: true,
                     fillColor: const Color(0xFFF5F7F6),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(14),
                       borderSide: BorderSide.none,
                     ),
                   ),
@@ -857,6 +744,29 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
     return '${displayHour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')} $suffix';
   }
 
+  ButtonStyle _primaryActionButtonStyle() {
+    return ElevatedButton.styleFrom(
+      backgroundColor: AppTheme.primaryButton,
+      foregroundColor: Colors.white,
+      disabledBackgroundColor: AppTheme.primaryButton.withValues(alpha: 0.62),
+      disabledForegroundColor: Colors.white.withValues(alpha: 0.72),
+      padding: const EdgeInsets.symmetric(vertical: 14),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+    );
+  }
+
+  ButtonStyle _primaryOutlinedActionButtonStyle() {
+    return OutlinedButton.styleFrom(
+      backgroundColor: AppTheme.primaryButton,
+      foregroundColor: Colors.white,
+      disabledBackgroundColor: AppTheme.primaryButton.withValues(alpha: 0.62),
+      disabledForegroundColor: Colors.white.withValues(alpha: 0.72),
+      side: BorderSide.none,
+      padding: const EdgeInsets.symmetric(vertical: 14),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final selected = _selectedItem;
@@ -869,8 +779,12 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
         }
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFFF3F4F6),
+        backgroundColor: Colors.white,
         appBar: AppBar(
+          backgroundColor: Colors.white,
+          surfaceTintColor: Colors.transparent,
+          shadowColor: Colors.transparent,
+          scrolledUnderElevation: 0,
           leading: IconButton(
             onPressed: () {
               _cleanupDraftIfNeeded();
@@ -907,21 +821,24 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildDecisionHero(),
-              const SizedBox(height: 24),
-              _buildCapturePanel(),
-              const SizedBox(height: 18),
+              if (!_measurement.isCompleted) ...[
+                const SizedBox(height: 24),
+                _buildCapturePanel(),
+                const SizedBox(height: 18),
+              ] else
+                const SizedBox(height: 18),
               if (_galleryItems.isEmpty) ...[
                 _EmptyGalleryState(minimumImages: _minimumImages),
-                const SizedBox(height: 18),
-                _buildAnalyzeSection(),
+                if (!_measurement.isCompleted) ...[
+                  const SizedBox(height: 18),
+                  _buildAnalyzeSection(),
+                ],
               ] else ...[
-                _buildImageCarousel(),
-                const SizedBox(height: 16),
-                if (_galleryItems.length > 1) _buildThumbnailRail(),
-                const SizedBox(height: 16),
-                _buildSelectedImageStats(selected),
-                const SizedBox(height: 16),
-                _buildAnalyzeSection(),
+                _buildImageReviewSection(selected),
+                if (!_measurement.isCompleted) ...[
+                  const SizedBox(height: 16),
+                  _buildAnalyzeSection(),
+                ],
                 const SizedBox(height: 16),
                 _buildSummaryCard(),
               ],
@@ -934,6 +851,7 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
                         onPressed: _measurement.isCompleted
                             ? null
                             : _showPredictYieldSheet,
+                        style: _primaryActionButtonStyle(),
                         icon: const Icon(Icons.insights_outlined),
                         label: Text(
                           _measurement.predictedYieldKg == null
@@ -948,6 +866,7 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
                         onPressed: _measurement.predictedYieldKg == null
                             ? null
                             : _showActualYieldSheet,
+                        style: _primaryOutlinedActionButtonStyle(),
                         icon: const Icon(Icons.scale_outlined),
                         label: Text(
                           _measurement.actualYieldKg == null
@@ -969,6 +888,7 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
                             _measurement.isCompleted
                         ? null
                         : _scheduleCrewAndSendSms,
+                    style: _primaryOutlinedActionButtonStyle(),
                     icon: const Icon(Icons.group_add_outlined),
                     label: const Text('Plan Labour & Send SMS'),
                   ),
@@ -984,7 +904,6 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
   }
 
   Widget _buildDecisionHero() {
-    final weather = _measurement.weather;
     final predicted = _measurement.predictedYieldKg;
     final ratio = _measurement.analyzedImages.isEmpty
         ? '--'
@@ -992,16 +911,15 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+      padding: const EdgeInsets.all(6),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(30),
-        border: Border.all(color: const Color(0xFFE4E7EB)),
+        borderRadius: BorderRadius.circular(9),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 18,
-            offset: const Offset(0, 10),
+            color: AppTheme.primaryButton.withValues(alpha: 0.07),
+            blurRadius: 24,
+            offset: const Offset(0, 12),
           ),
         ],
       ),
@@ -1019,66 +937,6 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
             ),
             const SizedBox(height: 10),
           ],
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF6F7F8),
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: const Color(0xFFE7EAEE)),
-            ),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.place_outlined,
-                  color: Color(0xFF7B8794),
-                  size: 16,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    '${_field.subtitle} in rotation',
-                    style: const TextStyle(
-                      color: Color(0xFF6E7E8B),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 14),
-          Text(
-            'Pre-plucking decision',
-            style: const TextStyle(
-              color: Color(0xFF7B8794),
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            _measurement.readinessLabel,
-            style: const TextStyle(
-              color: AppTheme.textPrimary,
-              fontSize: 29,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -1,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            weather == null
-                ? 'Weather-based timing will appear after support data is prepared.'
-                : '${weather.summary} • ${weather.temperatureC.toStringAsFixed(1)}°C • ${weather.rainChance}% rain chance',
-            style: const TextStyle(
-              color: AppTheme.textSecondary,
-              fontSize: 14,
-              height: 1.45,
-            ),
-          ),
-          const SizedBox(height: 16),
           Row(
             children: [
               Expanded(
@@ -1103,15 +961,15 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
   Widget _buildCapturePanel() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.fromLTRB(6, 14, 6, 6),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(5),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 18,
-            offset: const Offset(0, 10),
+            color: AppTheme.primaryButton.withValues(alpha: 0.06),
+            blurRadius: 22,
+            offset: const Offset(0, 12),
           ),
         ],
       ),
@@ -1139,6 +997,21 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
                   onPressed: _isAnalyzing || _measurement.isCompleted
                       ? null
                       : _captureWithAr,
+                  style: OutlinedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryButton,
+                    foregroundColor: Colors.white,
+                    disabledBackgroundColor: AppTheme.primaryButton.withValues(
+                      alpha: 0.62,
+                    ),
+                    disabledForegroundColor: Colors.white.withValues(
+                      alpha: 0.72,
+                    ),
+                    side: BorderSide.none,
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
                   icon: const Icon(Icons.photo_camera_outlined),
                   label: const Text('Camera'),
                 ),
@@ -1149,6 +1022,21 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
                   onPressed: _isAnalyzing || _measurement.isCompleted
                       ? null
                       : () => _pickImage(ImageSource.gallery),
+                  style: OutlinedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryButton,
+                    foregroundColor: Colors.white,
+                    disabledBackgroundColor: AppTheme.primaryButton.withValues(
+                      alpha: 0.62,
+                    ),
+                    disabledForegroundColor: Colors.white.withValues(
+                      alpha: 0.72,
+                    ),
+                    side: BorderSide.none,
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
                   icon: const Icon(Icons.upload_file_outlined),
                   label: const Text('Upload Image'),
                 ),
@@ -1161,19 +1049,17 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
   }
 
   Widget _buildAnalyzeSection() {
-    final totalImages = _galleryItems.length;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.fromLTRB(6, 14, 6, 6),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFE4E7EB)),
+        borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 18,
-            offset: const Offset(0, 10),
+            color: AppTheme.primaryButton.withValues(alpha: 0.06),
+            blurRadius: 22,
+            offset: const Offset(0, 12),
           ),
         ],
       ),
@@ -1185,13 +1071,15 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
             child: ElevatedButton(
               onPressed: _canAnalyze ? _analyzeBuds : null,
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFF1F3F5),
-                foregroundColor: AppTheme.textPrimary,
-                disabledBackgroundColor: const Color(0xFFF1F3F5),
-                disabledForegroundColor: const Color(0xFF9AA5B1),
-                padding: const EdgeInsets.symmetric(vertical: 16),
+                backgroundColor: AppTheme.primaryButton,
+                foregroundColor: Colors.white,
+                disabledBackgroundColor: AppTheme.primaryButton.withValues(
+                  alpha: 0.62,
+                ),
+                disabledForegroundColor: Colors.white.withValues(alpha: 0.72),
+                padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(18),
+                  borderRadius: BorderRadius.circular(14),
                 ),
               ),
               child: _isAnalyzing
@@ -1209,31 +1097,6 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
                     ),
             ),
           ),
-          const SizedBox(height: 14),
-          Text(
-            totalImages >= _minimumImages
-                ? 'Ready to analyze. Results will feed yield prediction, labor planning, and plucking alerts.'
-                : 'Add at least $_minimumImages images before analysis. Current count: $totalImages',
-            style: const TextStyle(color: AppTheme.textSecondary, height: 1.5),
-          ),
-          const SizedBox(height: 10),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF6F7F8),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFFE7EAEE)),
-            ),
-            child: Text(
-              'Sampling note: use more than 3 images from separate rows or corners to stabilize the average maturity result.',
-              style: const TextStyle(
-                color: AppTheme.textSecondary,
-                fontSize: 13,
-                height: 1.45,
-              ),
-            ),
-          ),
           if (_analysisStatus != null) ...[
             const SizedBox(height: 12),
             Text(
@@ -1249,11 +1112,42 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
     );
   }
 
+  Widget _buildImageReviewSection(_GalleryItem? selected) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.primaryButton.withValues(alpha: 0.06),
+            blurRadius: 18,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildImageCarousel(),
+          const SizedBox(height: 12),
+          if (_galleryItems.length > 1) ...[
+            _buildThumbnailRail(),
+            const SizedBox(height: 12),
+          ],
+          _buildSelectedImageStats(selected),
+        ],
+      ),
+    );
+  }
+
   Widget _buildImageCarousel() {
     return SizedBox(
-      height: 286,
+      height: 340,
       child: PageView.builder(
         controller: _pageController,
+        padEnds: false,
         itemCount: _galleryItems.length,
         onPageChanged: (index) {
           setState(() {
@@ -1271,7 +1165,7 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
               bottom: index == _currentIndex ? 0 : 8,
             ),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(28),
+              borderRadius: BorderRadius.circular(14),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.08),
@@ -1281,59 +1175,62 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
               ],
             ),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(28),
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  _buildImageSurface(item),
-                  Positioned(
-                    left: 16,
-                    top: 16,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.5),
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Text(
-                        item.analysis == null
-                            ? 'Pending'
-                            : item.analysis!.sourceLabel,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ),
-                  if (_selectedItemId == item.id && _canDeleteSelectedImage)
+              borderRadius: BorderRadius.circular(14),
+              child: GestureDetector(
+                onTap: () => _openFullScreenImage(index),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    _buildImageSurface(item),
                     Positioned(
-                      right: 16,
+                      left: 16,
                       top: 16,
-                      child: Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          onTap: _removeSelectedImage,
-                          borderRadius: BorderRadius.circular(999),
-                          child: Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withValues(alpha: 0.5),
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.delete_outline_rounded,
-                              color: Colors.white,
-                              size: 20,
-                            ),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.5),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Text(
+                          item.analysis == null
+                              ? 'Pending'
+                              : item.analysis!.sourceLabel,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
                       ),
                     ),
-                ],
+                    if (_selectedItemId == item.id && _canDeleteSelectedImage)
+                      Positioned(
+                        right: 16,
+                        top: 16,
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: _removeSelectedImage,
+                            borderRadius: BorderRadius.circular(999),
+                            child: Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withValues(alpha: 0.5),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.delete_outline_rounded,
+                                color: Colors.white,
+                                size: 20,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
           );
@@ -1342,20 +1239,122 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
     );
   }
 
-  Widget _buildImageSurface(_GalleryItem item) {
+  void _openFullScreenImage(int initialIndex) {
+    final items = List<_GalleryItem>.from(_galleryItems);
+    final safeInitialIndex = initialIndex.clamp(0, items.length - 1).toInt();
+
+    Navigator.of(context).push(
+      PageRouteBuilder<void>(
+        opaque: false,
+        barrierColor: Colors.black,
+        pageBuilder: (context, animation, secondaryAnimation) {
+          final fullScreenController = PageController(
+            initialPage: safeInitialIndex,
+          );
+          var fullScreenIndex = safeInitialIndex;
+
+          return FadeTransition(
+            opacity: animation,
+            child: StatefulBuilder(
+              builder: (context, setViewerState) {
+                return Scaffold(
+                  backgroundColor: Colors.black,
+                  body: SafeArea(
+                    child: Stack(
+                      children: [
+                        Positioned.fill(
+                          child: PageView.builder(
+                            controller: fullScreenController,
+                            itemCount: items.length,
+                            onPageChanged: (index) {
+                              setViewerState(() {
+                                fullScreenIndex = index;
+                              });
+                              setState(() {
+                                _currentIndex = index;
+                              });
+                              _pageController.animateToPage(
+                                index,
+                                duration: const Duration(milliseconds: 220),
+                                curve: Curves.easeOutCubic,
+                              );
+                            },
+                            itemBuilder: (context, index) {
+                              final item = items[index];
+                              return InteractiveViewer(
+                                minScale: 1,
+                                maxScale: 4,
+                                child: Center(
+                                  child: _buildImageSurface(
+                                    item,
+                                    fit: BoxFit.contain,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                        if (items.length > 1)
+                          Positioned(
+                            left: 18,
+                            bottom: 22,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.14),
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              child: Text(
+                                '${fullScreenIndex + 1}/${items.length}',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ),
+                          ),
+                        Positioned(
+                          right: 16,
+                          top: 16,
+                          child: Material(
+                            color: Colors.white.withValues(alpha: 0.14),
+                            shape: const CircleBorder(),
+                            child: IconButton(
+                              onPressed: () => Navigator.of(context).pop(),
+                              icon: const Icon(Icons.close_rounded),
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildImageSurface(_GalleryItem item, {BoxFit fit = BoxFit.cover}) {
     if (item.imagePath != null) {
       if (item.imagePath!.startsWith('data:image')) {
         try {
           final base64Data = item.imagePath!.split(',').last;
-          return Image.memory(base64Decode(base64Data), fit: BoxFit.cover);
+          return Image.memory(base64Decode(base64Data), fit: fit);
         } catch (_) {}
       }
       if (item.imagePath!.startsWith('http')) {
-        return Image.network(item.imagePath!, fit: BoxFit.cover);
+        return Image.network(item.imagePath!, fit: fit);
       }
       return Image.file(
         File(item.imagePath!),
-        fit: BoxFit.cover,
+        fit: fit,
         errorBuilder: (context, _, __) => _buildPlaceholderSurface(item),
       );
     }
@@ -1413,7 +1412,7 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
               duration: const Duration(milliseconds: 220),
               width: 76,
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(18),
+                borderRadius: BorderRadius.circular(14),
                 border: Border.all(
                   color: isActive ? AppTheme.primaryDark : Colors.transparent,
                   width: 2,
@@ -1429,7 +1428,7 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
                     : null,
               ),
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(14),
                 child: _buildImageSurface(item),
               ),
             ),
@@ -1441,13 +1440,10 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
 
   Widget _buildSelectedImageStats(_GalleryItem? selected) {
     final analysis = selected?.analysis;
+    final capturedArea = selected?.capturedArea;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-      ),
+      padding: EdgeInsets.zero,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1456,18 +1452,34 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
             children: [
               const Text(
                 'Selected image counts',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                style: TextStyle(
+                  color: AppTheme.textPrimary,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: -0.2,
+                ),
               ),
-              Text(
-                '${_currentIndex + 1}/${_galleryItems.length}',
-                style: const TextStyle(
-                  color: AppTheme.textSecondary,
-                  fontWeight: FontWeight.w700,
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 5,
+                ),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryButton,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Text(
+                  '${_currentIndex + 1}/${_galleryItems.length}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 8),
           Row(
             children: [
               Expanded(
@@ -1476,20 +1488,20 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
                   value: analysis?.arimbuCount.toString() ?? '--',
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 8),
               Expanded(
                 child: _CountBox(
                   title: 'Pluckable count',
                   value: analysis?.pluckableCount.toString() ?? '--',
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 8),
               Expanded(
                 child: _CountBox(
-                  title: 'Ratio',
-                  value: analysis == null
+                  title: 'Image area',
+                  value: capturedArea == null
                       ? '--'
-                      : '${(analysis.pluckableRatio * 100).toStringAsFixed(1)}%',
+                      : '${capturedArea.toStringAsFixed(1)} sq.m',
                 ),
               ),
             ],
@@ -1501,70 +1513,108 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
 
   Widget _buildSummaryCard() {
     final measurement = _measurement;
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: const Color(0xFFEEF2EC),
-        borderRadius: BorderRadius.circular(24),
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: AppTheme.primaryButton,
+          image: DecorationImage(
+            image: const AssetImage('assets/images/summary_card_bg.png'),
+            fit: BoxFit.cover,
+            colorFilter: ColorFilter.mode(
+              Colors.black.withValues(alpha: 0.58),
+              BlendMode.darken,
+            ),
+          ),
+        ),
+        child: Stack(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.only(right: 126),
+                    child: Text(
+                      'Average output summary',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -0.4,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  _buildSummaryStatGrid(measurement),
+                ],
+              ),
+            ),
+            if (measurement.analyzedImages.isNotEmpty)
+              Positioned(
+                top: 0,
+                right: 0,
+                child: _ReadinessTag(isReady: measurement.isReadyToPluck),
+              ),
+          ],
+        ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+    );
+  }
+
+  Widget _buildSummaryStatGrid(FieldMeasurement measurement) {
+    final stats = [
+      (label: 'Total Arimbu count', value: '${measurement.totalArimbuCount}'),
+      (
+        label: 'Total Pluckable count',
+        value: '${measurement.totalPluckableCount}',
+      ),
+      (
+        label: 'Avg pluckable ratio',
+        value: measurement.analyzedImages.isEmpty
+            ? '--'
+            : '${(measurement.averagePluckableRatio * 100).toStringAsFixed(1)}%',
+      ),
+      (
+        label: 'Captured area',
+        value: measurement.analyzedImages.isEmpty
+            ? '--'
+            : '${measurement.totalCapturedArea.toStringAsFixed(1)} sq.m',
+      ),
+      (label: 'Labor priority', value: measurement.laborPriorityLabel),
+      (
+        label: 'Predicted yield',
+        value: measurement.predictedYieldKg == null
+            ? 'Not predicted yet'
+            : '${measurement.predictedYieldKg!.toStringAsFixed(1)} kg',
+      ),
+    ];
+
+    return Column(
+      children: [
+        for (var index = 0; index < stats.length; index += 2) ...[
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'Average output summary',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.4,
+              Expanded(
+                child: _SummaryStat(
+                  label: stats[index].label,
+                  value: stats[index].value,
                 ),
               ),
-              if (measurement.analyzedImages.isNotEmpty)
-                _ReadinessTag(isReady: measurement.isReadyToPluck),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: [
-              _SummaryStat(
-                label: 'Total Arimbu count',
-                value: '${measurement.totalArimbuCount}',
-              ),
-              _SummaryStat(
-                label: 'Total Pluckable count',
-                value: '${measurement.totalPluckableCount}',
-              ),
-              _SummaryStat(
-                label: 'Avg pluckable ratio',
-                value: measurement.analyzedImages.isEmpty
-                    ? '--'
-                    : '${(measurement.averagePluckableRatio * 100).toStringAsFixed(1)}%',
-              ),
-              _SummaryStat(
-                label: 'Captured area',
-                value: measurement.analyzedImages.isEmpty
-                    ? '--'
-                    : '${measurement.totalCapturedArea.toStringAsFixed(1)} sq.m',
-              ),
-              _SummaryStat(
-                label: 'Labor priority',
-                value: measurement.laborPriorityLabel,
-              ),
-              _SummaryStat(
-                label: 'Predicted yield',
-                value: measurement.predictedYieldKg == null
-                    ? 'Not predicted yet'
-                    : '${measurement.predictedYieldKg!.toStringAsFixed(1)} kg',
+              const SizedBox(width: 12),
+              Expanded(
+                child: _SummaryStat(
+                  label: stats[index + 1].label,
+                  value: stats[index + 1].value,
+                ),
               ),
             ],
           ),
+          if (index < stats.length - 2) const SizedBox(height: 12),
         ],
-      ),
+      ],
     );
   }
 
@@ -1574,10 +1624,10 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.zero,
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(14),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1585,15 +1635,20 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
           const Text(
             'Pre and post plucking comparison',
             style: TextStyle(
+              color: AppTheme.textPrimary,
               fontSize: 18,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w900,
               letterSpacing: -0.4,
             ),
           ),
           const SizedBox(height: 8),
           const Text(
             'Compare predicted yield with actual harvested weight to detect quota dilution and over-plucking.',
-            style: TextStyle(color: AppTheme.textSecondary, height: 1.45),
+            style: TextStyle(
+              color: Color(0xFF56616B),
+              height: 1.45,
+              fontWeight: FontWeight.w600,
+            ),
           ),
           const SizedBox(height: 16),
           Row(
@@ -1634,7 +1689,13 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
               color: _measurement.hasOverPluckingRisk
                   ? const Color(0xFFFCEAEA)
                   : const Color(0xFFF4F7F5),
-              borderRadius: BorderRadius.circular(18),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: _measurement.hasOverPluckingRisk
+                    ? const Color(0xFFC04B4B)
+                    : const Color(0xFF2E7655),
+                width: 1.2,
+              ),
             ),
             child: Text(
               variancePercent == null
@@ -1668,18 +1729,7 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
               ? Icons.check_circle_outline_rounded
               : Icons.task_alt_rounded,
         ),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: isCompleted
-              ? const Color(0xFFE9EDF1)
-              : AppTheme.textPrimary,
-          foregroundColor: isCompleted ? const Color(0xFF5F6C7B) : Colors.white,
-          disabledBackgroundColor: const Color(0xFFE9EDF1),
-          disabledForegroundColor: const Color(0xFF5F6C7B),
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
-          ),
-        ),
+        style: _primaryActionButtonStyle(),
         label: Text(
           isCompleted ? 'Round Completed' : 'Complete Round',
           style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
@@ -1701,7 +1751,7 @@ class _EmptyGalleryState extends StatelessWidget {
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(14),
       ),
       child: Column(
         children: [
@@ -1740,28 +1790,50 @@ class _CountBox extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      height: 84,
+      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: const Color(0xFFF6F8F7),
-        borderRadius: BorderRadius.circular(16),
+        gradient: const LinearGradient(
+          colors: [Color(0xFF4A4A4A), Color(0xFF2F2F2F)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.white24),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 11,
-              color: AppTheme.textSecondary,
-              fontWeight: FontWeight.w600,
+          Container(
+            width: 24,
+            height: 3,
+            decoration: BoxDecoration(
+              color: AppTheme.brandGreen,
+              borderRadius: BorderRadius.circular(14),
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
+          SizedBox(
+            height: 22,
+            child: Text(
+              title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 10.5,
+                color: Colors.white.withValues(alpha: 0.78),
+                fontWeight: FontWeight.w800,
+                height: 1.18,
+              ),
+            ),
+          ),
+          const Spacer(),
           Text(
             value,
             style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
+              color: Colors.white,
+              fontSize: 21,
+              fontWeight: FontWeight.w900,
               letterSpacing: -0.4,
             ),
           ),
@@ -1780,21 +1852,21 @@ class _SummaryStat extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 156,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
+        color: Colors.white.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 11,
-              color: AppTheme.textSecondary,
-              fontWeight: FontWeight.w600,
+              color: Colors.white.withValues(alpha: 0.72),
+              fontWeight: FontWeight.w700,
               height: 1.35,
             ),
           ),
@@ -1802,8 +1874,9 @@ class _SummaryStat extends StatelessWidget {
           Text(
             value,
             style: const TextStyle(
+              color: Colors.white,
               fontSize: 16,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w900,
               letterSpacing: -0.4,
             ),
           ),
@@ -1820,26 +1893,21 @@ class _ReadinessTag extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final background = isReady
-        ? const Color(0xFFF1F3F5)
-        : const Color(0xFFF7EDE5);
-    final foreground = isReady
-        ? const Color(0xFF52606D)
-        : const Color(0xFFB0601B);
-
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(999),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: const BoxDecoration(
+        color: AppTheme.brandGreen,
+        borderRadius: BorderRadius.only(
+          topRight: Radius.circular(14),
+          bottomLeft: Radius.circular(14),
+        ),
       ),
       child: Text(
         isReady ? 'Ready to pluck' : 'Review maturity',
-        style: TextStyle(
-          color: foreground,
+        style: const TextStyle(
+          color: Colors.white,
           fontWeight: FontWeight.w800,
           fontSize: 12,
-          letterSpacing: 0.2,
         ),
       ),
     );
@@ -1863,7 +1931,7 @@ class _RiskTag extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: background,
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: BorderRadius.circular(14),
       ),
       child: Text(
         label,
@@ -1886,31 +1954,45 @@ class _HeroMetricTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      height: 84,
+      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: const Color(0xFFF6F7F8),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFE7EAEE)),
+        gradient: const LinearGradient(
+          colors: [Color(0xFF4A4A4A), Color(0xFF2F2F2F)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white24),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            label,
-            style: const TextStyle(
-              color: Color(0xFF7B8794),
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.3,
+          Container(
+            width: 24,
+            height: 3,
+            decoration: BoxDecoration(
+              color: AppTheme.brandGreen,
+              borderRadius: BorderRadius.circular(14),
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 6),
+          Text(
+            label,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.78),
+              fontSize: 11.5,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.4,
+            ),
+          ),
+          const Spacer(),
           Text(
             value,
             style: const TextStyle(
-              color: AppTheme.textPrimary,
-              fontWeight: FontWeight.w800,
-              fontSize: 22,
+              color: Colors.white,
+              fontWeight: FontWeight.w900,
+              fontSize: 20,
               letterSpacing: -0.6,
             ),
           ),
@@ -1929,26 +2011,46 @@ class _ComparisonMetric extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      height: 78,
+      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: const Color(0xFFF5F7F6),
-        borderRadius: BorderRadius.circular(16),
+        gradient: const LinearGradient(
+          colors: [Color(0xFF4A4A4A), Color(0xFF2F2F2F)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white24),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            label,
-            style: const TextStyle(
-              color: AppTheme.textSecondary,
-              fontWeight: FontWeight.w700,
-              fontSize: 12,
+          Container(
+            width: 24,
+            height: 3,
+            decoration: BoxDecoration(
+              color: AppTheme.brandGreen,
+              borderRadius: BorderRadius.circular(14),
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
+          Text(
+            label,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.78),
+              fontWeight: FontWeight.w800,
+              fontSize: 11.5,
+            ),
+          ),
+          const Spacer(),
           Text(
             value,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 15.5,
+              fontWeight: FontWeight.w900,
+              height: 1.16,
+            ),
           ),
         ],
       ),
@@ -1990,4 +2092,5 @@ class _GalleryItem {
 
   String get id => analysis?.id ?? pending!.id;
   String? get imagePath => analysis?.imagePath ?? pending?.imagePath;
+  double? get capturedArea => analysis?.capturedArea ?? pending?.capturedArea;
 }

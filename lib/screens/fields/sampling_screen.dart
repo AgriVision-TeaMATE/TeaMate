@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../theme.dart';
-import '../widgets/custom_button.dart';
+import '../../theme.dart';
+import '../../widgets/custom_button.dart';
 
 class SamplingScreen extends StatefulWidget {
   final int fieldNumber;
@@ -38,13 +38,14 @@ class _SamplingScreenState extends State<SamplingScreen> {
 
   @override
   Widget build(BuildContext context) {
-    int totalPluckable = _samples.fold(0, (sum, sample) => sum + (sample['pluckable'] as int));
+    int totalPluckable = _samples.fold(
+      0,
+      (sum, sample) => sum + (sample['pluckable'] as int),
+    );
     double avgDensity = _samples.isEmpty ? 0 : totalPluckable / _samples.length;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Edge-Sampling: Field ${widget.fieldNumber}'),
-      ),
+      appBar: AppBar(title: Text('Edge-Sampling: Field ${widget.fieldNumber}')),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24.0),
@@ -56,7 +57,9 @@ class _SamplingScreenState extends State<SamplingScreen> {
                 decoration: BoxDecoration(
                   color: AppTheme.primaryColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.3)),
+                  border: Border.all(
+                    color: AppTheme.primaryColor.withValues(alpha: 0.3),
+                  ),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -64,35 +67,62 @@ class _SamplingScreenState extends State<SamplingScreen> {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Avg. Bud Density', style: TextStyle(color: AppTheme.textSecondary)),
-                        Text('${avgDensity.toStringAsFixed(1)} buds/sqft', 
-                          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
+                        const Text(
+                          'Avg. Bud Density',
+                          style: TextStyle(color: AppTheme.textSecondary),
+                        ),
+                        Text(
+                          '${avgDensity.toStringAsFixed(1)} buds/sqft',
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.primaryColor,
+                          ),
+                        ),
                       ],
                     ),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        const Text('Samples', style: TextStyle(color: AppTheme.textSecondary)),
-                        Text('${_samples.length}', 
-                          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
+                        const Text(
+                          'Samples',
+                          style: TextStyle(color: AppTheme.textSecondary),
+                        ),
+                        Text(
+                          '${_samples.length}',
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.primaryColor,
+                          ),
+                        ),
                       ],
-                    )
+                    ),
                   ],
                 ),
               ),
               const SizedBox(height: 24),
-              const Text('Captured Samples', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const Text(
+                'Captured Samples',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
               const SizedBox(height: 16),
               Expanded(
                 child: _samples.isEmpty
-                    ? const Center(child: Text('No samples yet. Capture a 1x1 sqft top-view image.'))
+                    ? const Center(
+                        child: Text(
+                          'No samples yet. Capture a 1x1 sqft top-view image.',
+                        ),
+                      )
                     : ListView.builder(
                         itemCount: _samples.length,
                         itemBuilder: (context, index) {
                           final sample = _samples[index];
                           return Card(
                             margin: const EdgeInsets.only(bottom: 12),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                             child: ListTile(
                               leading: Container(
                                 width: 50,
@@ -101,11 +131,19 @@ class _SamplingScreenState extends State<SamplingScreen> {
                                   color: Colors.grey.shade200,
                                   borderRadius: BorderRadius.circular(8),
                                 ),
-                                child: Icon(sample['image'] as IconData, color: Colors.grey.shade500),
+                                child: Icon(
+                                  sample['image'] as IconData,
+                                  color: Colors.grey.shade500,
+                                ),
                               ),
                               title: Text('Sample #${sample['id']}'),
-                              subtitle: Text('Pluckable: ${sample['pluckable']} | Arimbu: ${sample['arimbu']}'),
-                              trailing: const Icon(Icons.check_circle, color: Colors.green),
+                              subtitle: Text(
+                                'Pluckable: ${sample['pluckable']} | Arimbu: ${sample['arimbu']}',
+                              ),
+                              trailing: const Icon(
+                                Icons.check_circle,
+                                color: Colors.green,
+                              ),
                             ),
                           );
                         },
@@ -128,9 +166,18 @@ class _SamplingScreenState extends State<SamplingScreen> {
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       side: const BorderSide(color: AppTheme.primaryColor),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
-                    child: const Text('Complete Sampling', style: TextStyle(color: AppTheme.primaryColor, fontSize: 16, fontWeight: FontWeight.bold)),
+                    child: const Text(
+                      'Complete Sampling',
+                      style: TextStyle(
+                        color: AppTheme.primaryColor,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
                 ),
             ],

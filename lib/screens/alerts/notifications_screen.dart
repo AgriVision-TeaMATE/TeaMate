@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../models/field_model.dart';
-import '../services/api_service.dart';
-import '../theme.dart';
+import '../../models/field_model.dart';
+import '../../services/api_service.dart';
+import '../../theme.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -15,7 +15,14 @@ class _NotificationsScreenState extends State<NotificationsScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
-  static const _categories = ['All', 'Weather', 'Labor', 'Quality', 'Schedule', 'Reminder'];
+  static const _categories = [
+    'All',
+    'Weather',
+    'Labor',
+    'Quality',
+    'Schedule',
+    'Reminder',
+  ];
 
   @override
   void initState() {
@@ -33,7 +40,8 @@ class _NotificationsScreenState extends State<NotificationsScreen>
   }
 
   List<AppNotificationItem> _filterNotifications(
-      List<AppNotificationItem> all) {
+    List<AppNotificationItem> all,
+  ) {
     if (_tabController.index == 0) return all;
     final category = _categories[_tabController.index];
     return all.where((n) => n.category == category).toList();
@@ -99,8 +107,8 @@ class _NotificationsScreenState extends State<NotificationsScreen>
                     final count = index == 0
                         ? allNotifications.length
                         : allNotifications
-                            .where((n) => n.category == category)
-                            .length;
+                              .where((n) => n.category == category)
+                              .length;
 
                     return GestureDetector(
                       onTap: () {
@@ -108,7 +116,9 @@ class _NotificationsScreenState extends State<NotificationsScreen>
                       },
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 8),
+                          horizontal: 14,
+                          vertical: 8,
+                        ),
                         decoration: BoxDecoration(
                           color: isSelected
                               ? const Color(0xFF0B4F3F)
@@ -132,7 +142,9 @@ class _NotificationsScreenState extends State<NotificationsScreen>
                               const SizedBox(width: 6),
                               Container(
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 6, vertical: 2),
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
                                 decoration: BoxDecoration(
                                   color: isSelected
                                       ? Colors.white.withValues(alpha: 0.2)
@@ -236,8 +248,9 @@ class _SummaryStrip extends StatelessWidget {
         .where((item) => item.category == 'Labor')
         .length;
     final reminders = notifications
-        .where((item) =>
-            item.category == 'Reminder' || item.category == 'Schedule')
+        .where(
+          (item) => item.category == 'Reminder' || item.category == 'Schedule',
+        )
         .length;
 
     return Container(
@@ -340,11 +353,7 @@ class _NotificationCard extends StatelessWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
-                      _categoryIcon(item.category),
-                      size: 12,
-                      color: color,
-                    ),
+                    Icon(_categoryIcon(item.category), size: 12, color: color),
                     const SizedBox(width: 4),
                     Text(
                       item.category,
@@ -405,11 +414,7 @@ class _NotificationCard extends StatelessWidget {
             ),
             child: Row(
               children: [
-                Icon(
-                  _actionIcon(item.category),
-                  size: 18,
-                  color: color,
-                ),
+                Icon(_actionIcon(item.category), size: 18, color: color),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(

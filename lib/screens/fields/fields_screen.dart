@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../models/field_model.dart';
-import '../theme.dart';
+import '../../models/field_model.dart';
+import '../../theme.dart';
 import 'field_analysis_screen.dart';
 
 class FieldsScreen extends StatefulWidget {
@@ -12,6 +12,15 @@ class FieldsScreen extends StatefulWidget {
 }
 
 class _FieldsScreenState extends State<FieldsScreen> {
+  final _searchController = TextEditingController();
+  String _searchQuery = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
   Future<void> _refreshFields() async {
     await FieldManager().syncFromServer();
   }
@@ -27,15 +36,19 @@ class _FieldsScreenState extends State<FieldsScreen> {
           builder: (context, setDialogState) {
             Future<void> handleSave() async {
               final name = nameController.text.trim();
-              final area = double.tryParse(areaController.text.trim());
-              if (name.isEmpty || area == null || area <= 0) {
+              final areaSquareMeters = double.tryParse(
+                areaController.text.trim(),
+              );
+              if (name.isEmpty ||
+                  areaSquareMeters == null ||
+                  areaSquareMeters <= 0) {
                 return;
               }
 
               setDialogState(() => isSaving = true);
               final created = await FieldManager().addField(
                 name: name,
-                areaHectares: area,
+                areaHectares: areaSquareMeters / 10000,
               );
               if (!context.mounted) return;
               setDialogState(() => isSaving = false);
@@ -55,8 +68,14 @@ class _FieldsScreenState extends State<FieldsScreen> {
             }
 
             return AlertDialog(
+              insetPadding: const EdgeInsets.symmetric(
+                horizontal: 24,
+                vertical: 24,
+              ),
+              contentPadding: const EdgeInsets.fromLTRB(22, 18, 22, 8),
+              actionsPadding: const EdgeInsets.fromLTRB(22, 0, 22, 18),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(18),
               ),
               title: const Text(
                 'Add new field',
@@ -66,47 +85,74 @@ class _FieldsScreenState extends State<FieldsScreen> {
                   letterSpacing: -0.4,
                 ),
               ),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: nameController,
-                    autofocus: true,
-                    decoration: InputDecoration(
-                      hintText: 'Field name',
-                      filled: true,
-                      fillColor: const Color(0xFFF3F4F6),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        borderSide: BorderSide.none,
+              content: SizedBox(
+                width: MediaQuery.of(context).size.width * 0.78,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      height: 48,
+                      child: TextField(
+                        controller: nameController,
+                        autofocus: true,
+                        textAlignVertical: TextAlignVertical.center,
+                        decoration: InputDecoration(
+                          hintText: 'Field name',
+                          filled: true,
+                          fillColor: const Color(0xFFF3F4F6),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: areaController,
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                    decoration: InputDecoration(
-                      hintText: 'Field area (ha)',
-                      filled: true,
-                      fillColor: const Color(0xFFF3F4F6),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        borderSide: BorderSide.none,
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      height: 48,
+                      child: TextField(
+                        controller: areaController,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        textAlignVertical: TextAlignVertical.center,
+                        decoration: InputDecoration(
+                          hintText: 'Field area (m²)',
+                          filled: true,
+                          fillColor: const Color(0xFFF3F4F6),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
               actions: [
                 TextButton(
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppTheme.primaryButton,
+                  ),
                   onPressed: isSaving ? null : () => Navigator.pop(context),
                   child: const Text('Cancel'),
                 ),
                 ElevatedButton(
                   onPressed: isSaving ? null : handleSave,
+                  style: ElevatedButton.styleFrom(
+                    minimumSize: const Size(64, 42),
+                    padding: const EdgeInsets.symmetric(horizontal: 18),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
                   child: isSaving
                       ? const SizedBox(
                           width: 18,
@@ -153,8 +199,15 @@ class _FieldsScreenState extends State<FieldsScreen> {
       listenable: FieldManager(),
       builder: (context, _) {
         final fields = FieldManager().fields;
+        final filteredFields = _searchQuery.isEmpty
+            ? fields
+            : fields
+                  .where(
+                    (field) => field.name.toLowerCase().contains(_searchQuery),
+                  )
+                  .toList();
         return Scaffold(
-          backgroundColor: const Color(0xFFF3F4F6),
+          backgroundColor: AppTheme.backgroundLight,
           appBar: AppBar(
             centerTitle: true,
             title: const Text(
@@ -174,12 +227,15 @@ class _FieldsScreenState extends State<FieldsScreen> {
                     width: 42,
                     height: 42,
                     decoration: BoxDecoration(
-                      color: const Color(0xFFE5F4EA),
-                      borderRadius: BorderRadius.circular(12),
+                      color: AppTheme.primaryButton,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: AppTheme.primaryButton.withValues(alpha: 0.16),
+                      ),
                     ),
                     child: const Icon(
                       Icons.add_rounded,
-                      color: Color(0xFF0B4F3F),
+                      color: Colors.white,
                       size: 22,
                     ),
                   ),
@@ -193,22 +249,60 @@ class _FieldsScreenState extends State<FieldsScreen> {
                 ? ListView(
                     physics: const AlwaysScrollableScrollPhysics(),
                     children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                        child: _FieldSearchBar(
+                          controller: _searchController,
+                          onChanged: _updateSearch,
+                        ),
+                      ),
                       SizedBox(
                         height: MediaQuery.of(context).size.height * 0.7,
                         child: _EmptyFieldState(onTap: _showAddFieldDialog),
                       ),
                     ],
                   )
+                : filteredFields.isEmpty
+                ? ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+                    children: [
+                      _FieldSearchBar(
+                        controller: _searchController,
+                        onChanged: _updateSearch,
+                      ),
+                      const SizedBox(height: 28),
+                      const Center(
+                        child: Text(
+                          'No matching fields found',
+                          style: TextStyle(
+                            color: AppTheme.textSecondary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  )
                 : ListView.builder(
                     physics: const AlwaysScrollableScrollPhysics(),
                     padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
-                    itemCount: fields.length,
+                    itemCount: filteredFields.length + 1,
                     itemBuilder: (context, index) {
-                      final field = fields[index];
+                      if (index == 0) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 16),
+                          child: _FieldSearchBar(
+                            controller: _searchController,
+                            onChanged: _updateSearch,
+                          ),
+                        );
+                      }
+
+                      final field = filteredFields[index - 1];
                       return _FieldCard(
                         key: ValueKey(field.id),
                         field: field,
-                        initiallyExpanded: index == 0,
+                        initiallyExpanded: index == 1,
                         onAnalyze: () => _openNewAnalysis(field),
                         onHistoryTap: (measurement) =>
                             _openHistory(field, measurement),
@@ -218,6 +312,56 @@ class _FieldsScreenState extends State<FieldsScreen> {
           ),
         );
       },
+    );
+  }
+
+  void _updateSearch(String value) {
+    setState(() {
+      _searchQuery = value.trim().toLowerCase();
+    });
+  }
+}
+
+class _FieldSearchBar extends StatelessWidget {
+  final TextEditingController controller;
+  final ValueChanged<String> onChanged;
+
+  const _FieldSearchBar({required this.controller, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 48,
+      child: TextField(
+        controller: controller,
+        onChanged: onChanged,
+        textAlignVertical: TextAlignVertical.center,
+        decoration: InputDecoration(
+          hintText: 'Search fields',
+          hintStyle: const TextStyle(
+            color: AppTheme.inputHint,
+            fontWeight: FontWeight.w600,
+          ),
+          prefixIcon: const Icon(
+            Icons.search_rounded,
+            color: AppTheme.textSecondary,
+          ),
+          filled: true,
+          fillColor: Colors.white,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(color: Color(0xFFDDE4D8), width: 1.1),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(
+              color: AppTheme.primaryButton,
+              width: 1.2,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -355,15 +499,41 @@ class _FieldCardState extends State<_FieldCard> {
     FieldManager().deleteField(widget.field.id);
   }
 
+  Color _priorityColor(FieldMeasurement? latest) {
+    if (latest == null) {
+      return const Color(0xFFF2F3F0);
+    }
+
+    final ratio = latest.averagePluckableRatio;
+    if (ratio > 0.70) {
+      return const Color(0xFFD94A4A);
+    }
+    if (ratio >= 0.60) {
+      return const Color(0xFFE69A2E);
+    }
+    if (ratio >= 0.50) {
+      return AppTheme.brandGreen;
+    }
+    return const Color(0xFF87919A);
+  }
+
   @override
   Widget build(BuildContext context) {
     final field = widget.field;
     final latest = field.latestMeasurement;
     final allowSwipeDelete = !_isExpanded;
+    final hasLatestStatus = latest != null;
+    final priorityColor = _priorityColor(latest);
     final cardSurface = Container(
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        color: AppTheme.cardWhite,
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Colors.white, Color(0xFFFBFDF8)],
+        ),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE4E9DE)),
       ),
       child: Stack(
         children: [
@@ -373,22 +543,20 @@ class _FieldCardState extends State<_FieldCard> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               decoration: BoxDecoration(
-                color: latest?.isReadyToPluck == true
-                    ? const Color(0xFFE6F2EB)
-                    : const Color(0xFFF1F3F5),
+                color: priorityColor,
                 borderRadius: const BorderRadius.only(
-                  topRight: Radius.circular(16),
-                  bottomLeft: Radius.circular(12),
+                  topRight: Radius.circular(14),
+                  bottomLeft: Radius.circular(14),
                 ),
               ),
               child: Text(
-                latest?.readinessLabel ?? 'No analysis yet',
+                latest?.laborPriorityLabel ?? 'No analysis yet',
                 style: TextStyle(
-                  color: latest?.isReadyToPluck == true
-                      ? const Color(0xFF2E7655)
-                      : const Color(0xFF74817B),
+                  color: hasLatestStatus
+                      ? Colors.white
+                      : AppTheme.textSecondary,
                   fontSize: 13,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
             ),
@@ -398,7 +566,7 @@ class _FieldCardState extends State<_FieldCard> {
             child: Column(
               children: [
                 InkWell(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(14),
                   onTap: () {
                     setState(() {
                       _isExpanded = !_isExpanded;
@@ -420,7 +588,8 @@ class _FieldCardState extends State<_FieldCard> {
                                 field.name,
                                 style: const TextStyle(
                                   fontSize: 17,
-                                  fontWeight: FontWeight.w500,
+                                  color: AppTheme.textPrimary,
+                                  fontWeight: FontWeight.w800,
                                   letterSpacing: -0.2,
                                 ),
                               ),
@@ -441,12 +610,14 @@ class _FieldCardState extends State<_FieldCard> {
                                   width: 42,
                                   height: 42,
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFFF1F3F5),
+                                    color: AppTheme.primaryButton.withValues(
+                                      alpha: 0.10,
+                                    ),
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: const Icon(
                                     Icons.schedule_rounded,
-                                    color: Color(0xFF0B4F3F),
+                                    color: Colors.black,
                                     size: 20,
                                   ),
                                 ),
@@ -468,10 +639,10 @@ class _FieldCardState extends State<_FieldCard> {
                                       Text(
                                         latest == null
                                             ? 'No records yet'
-                                            : '${formatDateTime(latest.date)} • ${latest.laborPriorityLabel}',
+                                            : formatDateTime(latest.date),
                                         style: const TextStyle(
                                           fontSize: 13,
-                                          color: Color(0xFF4C5E57),
+                                          color: AppTheme.textPrimary,
                                           fontWeight: FontWeight.w700,
                                         ),
                                       ),
@@ -490,7 +661,7 @@ class _FieldCardState extends State<_FieldCard> {
                           _isExpanded
                               ? Icons.keyboard_arrow_down_rounded
                               : Icons.chevron_right_rounded,
-                          color: const Color(0xFFB6C2CB),
+                          color: AppTheme.textSecondary.withValues(alpha: 0.55),
                           size: 24,
                         ),
                       ),
@@ -534,13 +705,13 @@ class _FieldCardState extends State<_FieldCard> {
                                   child: ElevatedButton.icon(
                                     onPressed: widget.onAnalyze,
                                     style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color(0xFF0B4F3F),
+                                      backgroundColor: AppTheme.primaryButton,
                                       foregroundColor: Colors.white,
                                       padding: const EdgeInsets.symmetric(
                                         vertical: 14,
                                       ),
                                       shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12),
+                                        borderRadius: BorderRadius.circular(14),
                                       ),
                                     ),
                                     icon: const Icon(
@@ -566,8 +737,8 @@ class _FieldCardState extends State<_FieldCard> {
                                     width: double.infinity,
                                     padding: const EdgeInsets.all(16),
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFFF3F4F6),
-                                      borderRadius: BorderRadius.circular(12),
+                                      color: const Color(0xFFF6F7F5),
+                                      borderRadius: BorderRadius.circular(14),
                                     ),
                                     child: const Text(
                                       'No history records yet. Start the first analysis from the button above.',
@@ -577,13 +748,11 @@ class _FieldCardState extends State<_FieldCard> {
                                     ),
                                   )
                                 else
-                                  ...field.measurements.reversed.map(
-                                    (measurement) => _HistoryTile(
-                                      fieldId: field.id,
-                                      measurement: measurement,
-                                      onTap: () =>
-                                          widget.onHistoryTap(measurement),
-                                    ),
+                                  _HistoryList(
+                                    fieldId: field.id,
+                                    measurements: field.measurements.reversed
+                                        .toList(),
+                                    onHistoryTap: widget.onHistoryTap,
                                   ),
                               ],
                             ),
@@ -600,12 +769,12 @@ class _FieldCardState extends State<_FieldCard> {
     return Container(
       margin: const EdgeInsets.only(bottom: 18),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF9CA3AF).withValues(alpha: 0.14),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
+            color: AppTheme.primaryButton.withValues(alpha: 0.07),
+            blurRadius: 24,
+            offset: const Offset(0, 12),
           ),
         ],
       ),
@@ -619,12 +788,12 @@ class _FieldCardState extends State<_FieldCard> {
                     child: Container(
                       width: _deletePaneWidth,
                       decoration: BoxDecoration(
-                        color: const Color(0xFFD95C5C),
-                        borderRadius: BorderRadius.circular(16),
+                        color: const Color(0xFFB54848),
+                        borderRadius: BorderRadius.circular(14),
                       ),
                       child: InkWell(
                         onTap: _deleteField,
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: BorderRadius.circular(14),
                         child: const Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
@@ -674,30 +843,44 @@ class _MetricTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       height: 76,
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: const Color(0xFFF3F4F6),
-        borderRadius: BorderRadius.circular(12),
+        gradient: const LinearGradient(
+          colors: [Color(0xFF4A4A4A), Color(0xFF2F2F2F)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.white24),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
+          Container(
+            width: 24,
+            height: 3,
+            decoration: BoxDecoration(
+              color: AppTheme.brandGreen,
+              borderRadius: BorderRadius.circular(14),
+            ),
+          ),
+          const SizedBox(height: 6),
           Text(
             title.toUpperCase(),
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 10,
-              fontWeight: FontWeight.w700,
-              color: AppTheme.textSecondary,
+              fontWeight: FontWeight.w800,
+              color: Colors.white.withValues(alpha: 0.78),
               letterSpacing: 0.8,
             ),
           ),
-          const SizedBox(height: 8),
+          const Spacer(),
           Text(
             value,
             style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
+              fontSize: 19,
+              fontWeight: FontWeight.w900,
+              color: Colors.white,
               letterSpacing: -0.3,
             ),
           ),
@@ -707,14 +890,55 @@ class _MetricTile extends StatelessWidget {
   }
 }
 
+class _HistoryList extends StatelessWidget {
+  static const double _historyTileHeight = 84;
+
+  final String fieldId;
+  final List<FieldMeasurement> measurements;
+  final ValueChanged<FieldMeasurement> onHistoryTap;
+
+  const _HistoryList({
+    required this.fieldId,
+    required this.measurements,
+    required this.onHistoryTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final visibleCount = measurements.length > 3 ? 3 : measurements.length;
+
+    return SizedBox(
+      height: visibleCount * _historyTileHeight,
+      child: ListView.builder(
+        padding: EdgeInsets.zero,
+        physics: measurements.length > 3
+            ? const BouncingScrollPhysics()
+            : const NeverScrollableScrollPhysics(),
+        itemCount: measurements.length,
+        itemBuilder: (context, index) {
+          final measurement = measurements[index];
+          return _HistoryTile(
+            fieldId: fieldId,
+            measurement: measurement,
+            roundNumber: index + 1,
+            onTap: () => onHistoryTap(measurement),
+          );
+        },
+      ),
+    );
+  }
+}
+
 class _HistoryTile extends StatefulWidget {
   final String fieldId;
   final FieldMeasurement measurement;
+  final int roundNumber;
   final VoidCallback onTap;
 
   const _HistoryTile({
     required this.fieldId,
     required this.measurement,
+    required this.roundNumber,
     required this.onTap,
   });
 
@@ -724,6 +948,7 @@ class _HistoryTile extends StatefulWidget {
 
 class _HistoryTileState extends State<_HistoryTile> {
   static const double _deletePaneWidth = 88;
+  static const double _historyRadius = 14;
 
   double _slideOffset = 0;
 
@@ -760,60 +985,102 @@ class _HistoryTileState extends State<_HistoryTile> {
   Widget build(BuildContext context) {
     final tileSurface = InkWell(
       onTap: _slideOffset == 0 ? widget.onTap : _closeDeletePane,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(_historyRadius),
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFE5E7EB)),
+          color: const Color(0xFFFCFDF9),
+          borderRadius: BorderRadius.circular(_historyRadius),
+          border: Border.all(color: const Color(0xFFDDE4D8), width: 1.1),
         ),
-        child: Row(
+        child: Stack(
           children: [
-            Container(
-              width: 54,
-              height: 54,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                color: const Color(0xFFF3F4F6),
-              ),
-              child: Center(
-                child: Text(
-                  widget.measurement.date.day.toString().padLeft(2, '0'),
-                  style: const TextStyle(
-                    color: Color(0xFF0B4F3F),
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            Padding(
+              padding: const EdgeInsets.all(6),
+              child: Row(
                 children: [
-                  Text(
-                    _formatDate(widget.measurement.date),
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
+                  Container(
+                    width: 58,
+                    height: 58,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(_historyRadius),
+                      color: AppTheme.primaryButton.withValues(alpha: 0.10),
+                    ),
+                    child: Center(
+                      child: Text(
+                        widget.roundNumber.toString().padLeft(2, '0'),
+                        style: const TextStyle(
+                          color: Colors.black,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${widget.measurement.imageCount} images | ${(widget.measurement.averagePluckableRatio * 100).toStringAsFixed(1)}% avg pluckable',
-                    style: const TextStyle(
-                      color: Color(0xFF4E6259),
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.only(right: 82),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _formatDate(widget.measurement.date),
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${(widget.measurement.averagePluckableRatio * 100).toStringAsFixed(1)}% avg pluckable',
+                            style: const TextStyle(
+                              color: AppTheme.textSecondary,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right_rounded),
+            Positioned(
+              right: 12,
+              bottom: 8,
+              child: Icon(
+                Icons.chevron_right_rounded,
+                color: AppTheme.textSecondary.withValues(alpha: 0.65),
+              ),
+            ),
+            if (widget.measurement.isCompleted)
+              Positioned(
+                top: 0,
+                right: 0,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 7,
+                  ),
+                  decoration: const BoxDecoration(
+                    color: AppTheme.brandGreen,
+                    borderRadius: BorderRadius.only(
+                      topRight: Radius.circular(_historyRadius),
+                      bottomLeft: Radius.circular(_historyRadius),
+                    ),
+                  ),
+                  child: const Text(
+                    'Completed',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
       ),
@@ -828,12 +1095,12 @@ class _HistoryTileState extends State<_HistoryTile> {
               width: _deletePaneWidth,
               margin: const EdgeInsets.only(bottom: 12),
               decoration: BoxDecoration(
-                color: const Color(0xFFD95C5C),
-                borderRadius: BorderRadius.circular(12),
+                color: const Color(0xFFB54848),
+                borderRadius: BorderRadius.circular(14),
               ),
               child: InkWell(
                 onTap: _deleteMeasurement,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(14),
                 child: const Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [

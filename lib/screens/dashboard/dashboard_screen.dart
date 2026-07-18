@@ -2,12 +2,12 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-import '../models/field_model.dart';
-import '../services/auth_service.dart';
-import '../services/weather_service.dart';
-import '../theme.dart';
-import 'fields_screen.dart';
-import 'profile_screen.dart';
+import '../../models/field_model.dart';
+import '../../services/auth_service.dart';
+import '../../services/weather_service.dart';
+import '../../theme.dart';
+import '../fields/fields_screen.dart';
+import '../settings/profile_screen.dart';
 import 'weather_screen.dart';
 
 class DashboardScreen extends StatefulWidget {

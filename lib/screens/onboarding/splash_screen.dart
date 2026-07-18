@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'welcome_screen.dart';
+import '../auth/welcome_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -22,13 +22,15 @@ class _SplashScreenState extends State<SplashScreen>
       duration: const Duration(milliseconds: 1400),
     );
 
-    _scaleAnimation = Tween<double>(begin: 0.6, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOutBack),
-    );
+    _scaleAnimation = Tween<double>(
+      begin: 0.6,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutBack));
 
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeIn),
-    );
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeIn));
 
     _controller.forward();
 
@@ -63,9 +65,8 @@ class _SplashScreenState extends State<SplashScreen>
           Image.asset(
             'assets/images/tea_splash_background.png',
             fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) => Container(
-              color: Colors.white,
-            ),
+            errorBuilder: (context, error, stackTrace) =>
+                Container(color: Colors.white),
           ),
           // Animated Logo, Title, and Loader
           Center(
@@ -130,7 +131,9 @@ class _SplashScreenState extends State<SplashScreen>
                           height: 32,
                           child: CircularProgressIndicator(
                             strokeWidth: 2.5,
-                            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF2E7D32)),
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Color(0xFF2E7D32),
+                            ),
                           ),
                         ),
                         const SizedBox(height: 12),
