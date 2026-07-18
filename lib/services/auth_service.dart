@@ -41,6 +41,13 @@ class AuthService {
   AuthUser? get currentUser => _currentUser;
   bool get isLoggedIn => _token != null && _currentUser != null;
 
+  Map<String, String> get _authHeaders {
+    final token = _token;
+    return {
+      if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+    };
+  }
+
   Future<AuthUser?> register({
     required String fullName,
     required String email,
@@ -173,6 +180,31 @@ class AuthService {
     } catch (e) {
       debugPrint('AuthService resetPassword error: $e');
       rethrow;
+    }
+  }
+
+  Future<AuthUser?> fetchProfile() async {
+    final token = _token;
+    if (token == null || token.isEmpty) return _currentUser;
+
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/me'), headers: _authHeaders)
+          .timeout(const Duration(seconds: 12));
+
+      if (response.statusCode == 200) {
+        _currentUser = AuthUser.fromJson(jsonDecode(response.body));
+        return _currentUser;
+      }
+
+      if (response.statusCode == 401 || response.statusCode == 403) {
+        logout();
+      }
+
+      return _currentUser;
+    } catch (e) {
+      debugPrint('AuthService fetchProfile error: $e');
+      return _currentUser;
     }
   }
 

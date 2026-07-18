@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 
 import '../models/field_model.dart';
 import '../services/app_settings_service.dart';
+import '../services/auth_service.dart';
 import '../theme.dart';
 import '../widgets/labour_widgets.dart';
+import 'login_screen.dart';
+import 'profile_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -963,13 +966,81 @@ class _LabourManagementTab extends StatelessWidget {
 }
 
 class _GeneralSettingsTab extends StatelessWidget {
+  void _openProfile(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const ProfileScreen()),
+    );
+  }
+
+  Future<void> _confirmLogout(BuildContext context) async {
+    final shouldLogout = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
+          title: const Text('Log out?'),
+          content: const Text('You will need to sign in again to use TeaMate.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Log Out'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldLogout != true || !context.mounted) return;
+
+    AuthService().logout();
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      (_) => false,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final user = AuthService().currentUser;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          _SettingsSection(
+            title: 'Account',
+            children: [
+              _SettingsTile(
+                icon: Icons.person_outline_rounded,
+                title: user?.fullName ?? 'User Profile',
+                subtitle: user?.email ?? 'View account details',
+                onTap: () => _openProfile(context),
+                trailing: const Icon(
+                  Icons.chevron_right_rounded,
+                  color: AppTheme.textSecondary,
+                ),
+              ),
+              _SettingsTile(
+                icon: Icons.logout_rounded,
+                title: 'Log Out',
+                subtitle: 'Sign out from this device',
+                onTap: () => _confirmLogout(context),
+                trailing: const Icon(
+                  Icons.chevron_right_rounded,
+                  color: AppTheme.textSecondary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
           _SettingsSection(
             title: 'Notifications',
             children: [
@@ -1171,55 +1242,61 @@ class _SettingsTile extends StatelessWidget {
   final String title;
   final String subtitle;
   final Widget? trailing;
+  final VoidCallback? onTap;
 
   const _SettingsTile({
     required this.icon,
     required this.title,
     required this.subtitle,
     this.trailing,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      child: Row(
-        children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: const Color(0xFFF3F4F6),
-              borderRadius: BorderRadius.circular(10),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: const Color(0xFFF3F4F6),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, size: 18, color: AppTheme.textPrimary),
             ),
-            child: Icon(icon, size: 18, color: AppTheme.textPrimary),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  style: const TextStyle(
-                    color: AppTheme.textSecondary,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      color: AppTheme.textSecondary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          if (trailing != null) trailing!,
-        ],
+            if (trailing != null) trailing!,
+          ],
+        ),
       ),
     );
   }

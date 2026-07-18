@@ -39,9 +39,10 @@ class _LoginScreenState extends State<LoginScreen> {
             behavior: SnackBarBehavior.floating,
           ),
         );
-        Navigator.pushReplacement(
+        Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(builder: (context) => const MainScreen()),
+          (_) => false,
         );
       }
     } catch (e) {

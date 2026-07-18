@@ -29,67 +29,76 @@ class _MainScreenState extends State<MainScreen> {
       builder: (context, _) {
         final unreadCount = FieldManager().unreadNotificationCount;
 
-        return Scaffold(
-          body: _screens[_currentIndex],
-          bottomNavigationBar: Container(
-            decoration: BoxDecoration(
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, -5),
-                ),
-              ],
-            ),
-            child: BottomNavigationBar(
-              currentIndex: _currentIndex,
-              onTap: (index) {
-                setState(() {
-                  _currentIndex = index;
-                });
-              },
-              items: [
-                const BottomNavigationBarItem(
-                  icon: Icon(Icons.home_outlined),
-                  activeIcon: Icon(Icons.home),
-                  label: 'Home',
-                ),
-                const BottomNavigationBarItem(
-                  icon: Icon(Icons.agriculture_outlined),
-                  activeIcon: Icon(Icons.agriculture),
-                  label: 'Fields',
-                ),
-                BottomNavigationBarItem(
-                  icon: Badge(
-                    isLabelVisible: unreadCount > 0,
-                    label: Text(
-                      '$unreadCount',
-                      style: const TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    child: const Icon(Icons.notifications_none_rounded),
+        return PopScope(
+          canPop: false,
+          onPopInvokedWithResult: (didPop, _) {
+            if (didPop || _currentIndex == 0) return;
+            setState(() {
+              _currentIndex = 0;
+            });
+          },
+          child: Scaffold(
+            body: _screens[_currentIndex],
+            bottomNavigationBar: Container(
+              decoration: BoxDecoration(
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, -5),
                   ),
-                  activeIcon: Badge(
-                    isLabelVisible: unreadCount > 0,
-                    label: Text(
-                      '$unreadCount',
-                      style: const TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    child: const Icon(Icons.notifications),
+                ],
+              ),
+              child: BottomNavigationBar(
+                currentIndex: _currentIndex,
+                onTap: (index) {
+                  setState(() {
+                    _currentIndex = index;
+                  });
+                },
+                items: [
+                  const BottomNavigationBarItem(
+                    icon: Icon(Icons.home_outlined),
+                    activeIcon: Icon(Icons.home),
+                    label: 'Home',
                   ),
-                  label: 'Alerts',
-                ),
-                const BottomNavigationBarItem(
-                  icon: Icon(Icons.settings_outlined),
-                  activeIcon: Icon(Icons.settings),
-                  label: 'Settings',
-                ),
-              ],
+                  const BottomNavigationBarItem(
+                    icon: Icon(Icons.agriculture_outlined),
+                    activeIcon: Icon(Icons.agriculture),
+                    label: 'Fields',
+                  ),
+                  BottomNavigationBarItem(
+                    icon: Badge(
+                      isLabelVisible: unreadCount > 0,
+                      label: Text(
+                        '$unreadCount',
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      child: const Icon(Icons.notifications_none_rounded),
+                    ),
+                    activeIcon: Badge(
+                      isLabelVisible: unreadCount > 0,
+                      label: Text(
+                        '$unreadCount',
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      child: const Icon(Icons.notifications),
+                    ),
+                    label: 'Alerts',
+                  ),
+                  const BottomNavigationBarItem(
+                    icon: Icon(Icons.settings_outlined),
+                    activeIcon: Icon(Icons.settings),
+                    label: 'Settings',
+                  ),
+                ],
+              ),
             ),
           ),
         );

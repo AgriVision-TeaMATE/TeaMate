@@ -42,9 +42,10 @@ class _SignupScreenState extends State<SignupScreen> {
             behavior: SnackBarBehavior.floating,
           ),
         );
-        Navigator.pushReplacement(
+        Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(builder: (context) => const MainScreen()),
+          (_) => false,
         );
       }
     } catch (e) {
