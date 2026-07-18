@@ -3,9 +3,11 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../models/field_model.dart';
+import '../services/auth_service.dart';
 import '../services/weather_service.dart';
 import '../theme.dart';
 import 'fields_screen.dart';
+import 'profile_screen.dart';
 import 'weather_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -79,7 +81,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     },
                   ),
                   const SizedBox(height: 22),
-                  _SectionHeader(title: 'AI / ML Modules', compact: true),
+                  _SectionHeader(title: 'Explore Features', compact: true),
                   const SizedBox(height: 12),
                   Row(
                     children: [
@@ -106,18 +108,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         child: _ModuleTile(
                           eyebrow: 'DISEASE',
                           title: 'Detection',
-                          colors: const [
-                            AppTheme.primaryButton,
-                            Color(0xFF1F1F1F),
-                          ],
-                          onTap: () {},
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: _ModuleTile(
-                          eyebrow: 'QUALITY',
-                          title: 'Grading',
                           colors: const [
                             AppTheme.primaryButton,
                             Color(0xFF1F1F1F),
@@ -173,6 +163,8 @@ class _DashboardHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final displayName = AuthService().currentUser?.fullName.split(' ').first;
+
     return Container(
       padding: const EdgeInsets.only(bottom: 16),
       decoration: const BoxDecoration(
@@ -183,15 +175,15 @@ class _DashboardHeader extends StatelessWidget {
         children: [
           Expanded(
             child: RichText(
-              text: const TextSpan(
-                style: TextStyle(
+              text: TextSpan(
+                style: const TextStyle(
                   color: AppTheme.textPrimary,
                   fontSize: 22,
                   fontWeight: FontWeight.w800,
                   letterSpacing: -0.4,
                 ),
                 children: [
-                  TextSpan(
+                  const TextSpan(
                     text: 'Good morning, ',
                     style: TextStyle(
                       color: AppTheme.textSecondary,
@@ -199,7 +191,7 @@ class _DashboardHeader extends StatelessWidget {
                       fontWeight: FontWeight.w700,
                     ),
                   ),
-                  TextSpan(text: 'Arjun'),
+                  TextSpan(text: displayName ?? 'Arjun'),
                 ],
               ),
             ),
@@ -230,18 +222,26 @@ class _DashboardHeader extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  image: const DecorationImage(
-                    image: AssetImage('assets/images/tea_background.png'),
-                    fit: BoxFit.cover,
-                  ),
-                  border: Border.all(
-                    color: const Color(0xFFE7ECE7),
-                    width: 1.5,
+              GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const ProfileScreen()),
+                  );
+                },
+                child: Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    image: const DecorationImage(
+                      image: AssetImage('assets/images/tea_background.png'),
+                      fit: BoxFit.cover,
+                    ),
+                    border: Border.all(
+                      color: const Color(0xFFE7ECE7),
+                      width: 1.5,
+                    ),
                   ),
                 ),
               ),

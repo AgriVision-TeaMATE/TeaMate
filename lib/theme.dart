@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 class AppTheme {
   static const Color brandGreen = Color.fromARGB(255, 116, 195, 19);
-  static const Color primaryButton = Color.fromARGB(255, 48, 48, 48);
+  static const Color primaryButton = Color.fromARGB(255, 0, 0, 0);
   static const Color screenBackground = Color.fromARGB(255, 254, 255, 253);
 
   // Brand Colors from the mockups
