@@ -23,12 +23,6 @@ class WorkerAvatar extends StatelessWidget {
       WorkerStatus.onLeave => const Color(0xFFB97922),
     };
 
-    final bgColor = switch (worker.status) {
-      WorkerStatus.available => const Color(0xFFE8F5EC),
-      WorkerStatus.assigned => const Color(0xFFE8F0FE),
-      WorkerStatus.onLeave => const Color(0xFFFFF2E8),
-    };
-
     return SizedBox(
       width: size + 4,
       height: size + 4,
@@ -38,14 +32,14 @@ class WorkerAvatar extends StatelessWidget {
             width: size,
             height: size,
             decoration: BoxDecoration(
-              color: bgColor,
+              color: AppTheme.brandGreen,
               borderRadius: BorderRadius.circular(size * 0.35),
             ),
             child: Center(
               child: Text(
                 worker.initials,
                 style: TextStyle(
-                  color: statusColor,
+                  color: Colors.white,
                   fontSize: size * 0.34,
                   fontWeight: FontWeight.w800,
                 ),
@@ -116,61 +110,19 @@ class WorkerAssignmentTile extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 3),
-                  Row(
-                    children: [
-                      SkillBadge(skillLevel: worker.skillLevel, mini: true),
-                      const SizedBox(width: 8),
-                      Text(
-                        fieldName ?? worker.statusLabel,
-                        style: const TextStyle(
-                          color: AppTheme.textSecondary,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
+                  Text(
+                    fieldName ?? worker.statusLabel,
+                    style: const TextStyle(
+                      color: AppTheme.textSecondary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ],
               ),
             ),
             if (trailing != null) trailing!,
           ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Skill level badge
-class SkillBadge extends StatelessWidget {
-  final SkillLevel skillLevel;
-  final bool mini;
-
-  const SkillBadge({super.key, required this.skillLevel, this.mini = false});
-
-  @override
-  Widget build(BuildContext context) {
-    final (label, color) = switch (skillLevel) {
-      SkillLevel.senior => ('Senior', const Color(0xFF2E7655)),
-      SkillLevel.experienced => ('Exp', const Color(0xFF3B82F6)),
-      SkillLevel.junior => ('Junior', const Color(0xFFB97922)),
-    };
-
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: mini ? 6 : 10,
-        vertical: mini ? 2 : 4,
-      ),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: color,
-          fontSize: mini ? 10 : 12,
-          fontWeight: FontWeight.w700,
         ),
       ),
     );

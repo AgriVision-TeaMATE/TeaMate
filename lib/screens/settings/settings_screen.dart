@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../models/field_model.dart';
 import '../../services/app_settings_service.dart';
@@ -37,7 +38,7 @@ class _SettingsScreenState extends State<SettingsScreen>
       listenable: FieldManager(),
       builder: (context, _) {
         return Scaffold(
-          backgroundColor: const Color(0xFFF3F4F6),
+          backgroundColor: AppTheme.backgroundLight,
           appBar: AppBar(
             title: const Text(
               'Settings',
@@ -55,7 +56,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                 fontWeight: FontWeight.w700,
                 fontSize: 14,
               ),
-              indicatorColor: const Color(0xFF0B4F3F),
+              indicatorColor: AppTheme.primaryButton,
               indicatorWeight: 3,
               tabs: const [
                 Tab(text: 'Labour Management'),
@@ -93,9 +94,9 @@ class _LabourManagementTab extends StatelessWidget {
             width: double.infinity,
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(24),
+              borderRadius: BorderRadius.circular(14),
               gradient: const LinearGradient(
-                colors: [Color(0xFF173730), Color(0xFF0E221D)],
+                colors: [Color(0xFF4A4A4A), Color(0xFF2F2F2F)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -143,7 +144,7 @@ class _LabourManagementTab extends StatelessWidget {
               icon: const Icon(Icons.person_add_outlined),
               label: const Text('Add New Worker'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF0B4F3F),
+                backgroundColor: AppTheme.primaryButton,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(
@@ -154,35 +155,6 @@ class _LabourManagementTab extends StatelessWidget {
           ),
           const SizedBox(height: 24),
 
-          // Field Assignments Section
-          const Text(
-            'Field Assignments',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.4,
-            ),
-          ),
-          const SizedBox(height: 6),
-          const Text(
-            'Assign available workers to fields based on plucking priority.',
-            style: TextStyle(color: AppTheme.textSecondary, height: 1.4),
-          ),
-          const SizedBox(height: 14),
-          ...manager.prioritizedFields.map((field) {
-            final fieldWorkers = manager.workersForField(field.id);
-            final recommended =
-                field.latestMeasurement?.laborPlan?.recommendedWorkers ?? 5;
-            return FieldAssignmentCard(
-              field: field,
-              assignedWorkers: fieldWorkers,
-              recommendedWorkers: recommended,
-              onAssignTap: () => _showAssignWorkersSheet(context, field),
-            );
-          }),
-
-          const SizedBox(height: 24),
-
           ListenableBuilder(
             listenable: settings,
             builder: (context, _) {
@@ -191,8 +163,8 @@ class _LabourManagementTab extends StatelessWidget {
                 padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: const Color(0xFFE5E7EB)),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFE8ECEF)),
                 ),
                 child: Row(
                   children: [
@@ -230,10 +202,29 @@ class _LabourManagementTab extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 8),
-                        OutlinedButton(
-                          onPressed: () =>
-                              _showKgSettingSheet(context, settings),
-                          child: const Text('Change'),
+                        SizedBox(
+                          width: 78,
+                          height: 36,
+                          child: ElevatedButton(
+                            onPressed: () =>
+                                _showKgSettingSheet(context, settings),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.primaryButton,
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              padding: EdgeInsets.zero,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: const Text(
+                              'Change',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
                         ),
                       ],
                     ),
@@ -450,7 +441,6 @@ class _LabourManagementTab extends StatelessWidget {
   void _showAddWorkerSheet(BuildContext context) {
     final nameController = TextEditingController();
     final phoneController = TextEditingController();
-    SkillLevel selectedSkill = SkillLevel.experienced;
 
     showModalBottomSheet<void>(
       context: context,
@@ -479,12 +469,14 @@ class _LabourManagementTab extends StatelessWidget {
                           width: 48,
                           height: 48,
                           decoration: BoxDecoration(
-                            color: const Color(0xFFE8F5EC),
+                            color: AppTheme.primaryButton.withValues(
+                              alpha: 0.08,
+                            ),
                             borderRadius: BorderRadius.circular(14),
                           ),
-                          child: const Icon(
+                          child: Icon(
                             Icons.person_add_outlined,
-                            color: Color(0xFF0B4F3F),
+                            color: AppTheme.primaryButton,
                           ),
                         ),
                         const SizedBox(width: 14),
@@ -531,64 +523,6 @@ class _LabourManagementTab extends StatelessWidget {
                         prefixIcon: const Icon(Icons.phone_outlined),
                       ),
                     ),
-                    const SizedBox(height: 18),
-                    const Text(
-                      'Skill Level',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: AppTheme.textSecondary,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: SkillLevel.values.map((skill) {
-                        final isSelected = selectedSkill == skill;
-                        final label = switch (skill) {
-                          SkillLevel.junior => 'Junior',
-                          SkillLevel.experienced => 'Experienced',
-                          SkillLevel.senior => 'Senior',
-                        };
-                        return Expanded(
-                          child: GestureDetector(
-                            onTap: () {
-                              setSheetState(() {
-                                selectedSkill = skill;
-                              });
-                            },
-                            child: Container(
-                              margin: EdgeInsets.only(
-                                right: skill != SkillLevel.senior ? 8 : 0,
-                              ),
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              decoration: BoxDecoration(
-                                color: isSelected
-                                    ? const Color(0xFF0B4F3F)
-                                    : const Color(0xFFF5F7F6),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: isSelected
-                                      ? const Color(0xFF0B4F3F)
-                                      : const Color(0xFFE0E5E9),
-                                ),
-                              ),
-                              child: Center(
-                                child: Text(
-                                  label,
-                                  style: TextStyle(
-                                    color: isSelected
-                                        ? Colors.white
-                                        : AppTheme.textPrimary,
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
                     const SizedBox(height: 24),
                     SizedBox(
                       width: double.infinity,
@@ -597,15 +531,11 @@ class _LabourManagementTab extends StatelessWidget {
                           final name = nameController.text.trim();
                           final phone = phoneController.text.trim();
                           if (name.isEmpty || phone.isEmpty) return;
-                          FieldManager().addWorker(
-                            name: name,
-                            phone: phone,
-                            skillLevel: selectedSkill,
-                          );
+                          FieldManager().addWorker(name: name, phone: phone);
                           Navigator.pop(context);
                         },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF0B4F3F),
+                          backgroundColor: AppTheme.primaryButton,
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           shape: RoundedRectangleBorder(
@@ -631,193 +561,6 @@ class _LabourManagementTab extends StatelessWidget {
     );
   }
 
-  void _showAssignWorkersSheet(BuildContext context, Field field) {
-    final manager = FieldManager();
-
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setSheetState) {
-            final available = manager.availableWorkers;
-            final fieldWorkers = manager.workersForField(field.id);
-
-            return DraggableScrollableSheet(
-              initialChildSize: 0.7,
-              maxChildSize: 0.9,
-              minChildSize: 0.4,
-              builder: (context, scrollController) {
-                return Container(
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.vertical(
-                      top: Radius.circular(28),
-                    ),
-                  ),
-                  child: Column(
-                    children: [
-                      // Handle
-                      Container(
-                        margin: const EdgeInsets.only(top: 12),
-                        width: 40,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFD1D5DB),
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.all(20),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Assign Workers to ${field.name}',
-                              style: const TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: -0.4,
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              field.subtitle,
-                              style: const TextStyle(
-                                color: AppTheme.textSecondary,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      if (fieldWorkers.isNotEmpty) ...[
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Currently Assigned',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppTheme.textSecondary,
-                                ),
-                              ),
-                              const SizedBox(height: 10),
-                              ...fieldWorkers.map(
-                                (w) => Padding(
-                                  padding: const EdgeInsets.only(bottom: 8),
-                                  child: WorkerAssignmentTile(
-                                    worker: w,
-                                    trailing: TextButton(
-                                      onPressed: () {
-                                        manager.unassignWorker(w.id);
-                                        setSheetState(() {});
-                                      },
-                                      child: const Text(
-                                        'Remove',
-                                        style: TextStyle(
-                                          color: Color(0xFFD95C5C),
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const Divider(height: 24),
-                      ],
-                      Expanded(
-                        child: ListView(
-                          controller: scrollController,
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
-                          children: [
-                            Text(
-                              'Available Workers (${available.length})',
-                              style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w700,
-                                color: AppTheme.textSecondary,
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            if (available.isEmpty)
-                              Container(
-                                padding: const EdgeInsets.all(20),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFF5F7F6),
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                                child: const Text(
-                                  'No available workers. Set workers as Available from the roster to assign them.',
-                                  style: TextStyle(
-                                    color: AppTheme.textSecondary,
-                                    height: 1.4,
-                                  ),
-                                ),
-                              )
-                            else
-                              ...available.map(
-                                (w) => Padding(
-                                  padding: const EdgeInsets.only(bottom: 8),
-                                  child: WorkerAssignmentTile(
-                                    worker: w,
-                                    trailing: ElevatedButton(
-                                      onPressed: () {
-                                        manager.assignWorkerToField(
-                                          w.id,
-                                          field.id,
-                                        );
-                                        setSheetState(() {});
-                                      },
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: const Color(
-                                          0xFF0B4F3F,
-                                        ),
-                                        foregroundColor: Colors.white,
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 16,
-                                          vertical: 8,
-                                        ),
-                                        minimumSize: Size.zero,
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            10,
-                                          ),
-                                        ),
-                                      ),
-                                      child: const Text(
-                                        'Assign',
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.w700,
-                                          fontSize: 13,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            const SizedBox(height: 20),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            );
-          },
-        );
-      },
-    );
-  }
-
   void _showWorkerDetailSheet(BuildContext context, Worker worker) {
     final manager = FieldManager();
     String? fieldName;
@@ -833,80 +576,128 @@ class _LabourManagementTab extends StatelessWidget {
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
+      isScrollControlled: true,
       builder: (context) {
-        return Container(
-          padding: const EdgeInsets.all(24),
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              WorkerAvatar(worker: worker, size: 64),
-              const SizedBox(height: 16),
-              Text(
-                worker.name,
-                style: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.5,
-                ),
-              ),
-              const SizedBox(height: 6),
-              SkillBadge(skillLevel: worker.skillLevel),
-              const SizedBox(height: 20),
-              _DetailRow(
-                icon: Icons.phone_outlined,
-                label: 'Phone',
-                value: worker.phone,
-              ),
-              const SizedBox(height: 12),
-              _DetailRow(
-                icon: Icons.circle,
-                label: 'Status',
-                value: worker.statusLabel,
-              ),
-              const SizedBox(height: 12),
-              _DetailRow(
-                icon: Icons.landscape_outlined,
-                label: 'Assigned Field',
-                value: fieldName ?? 'Not assigned',
-              ),
-              const SizedBox(height: 12),
-              _DetailRow(
-                icon: Icons.calendar_today_outlined,
-                label: 'Joined',
-                value: _formatDate(worker.createdAt),
-              ),
-              const SizedBox(height: 24),
-              if (worker.status == WorkerStatus.assigned && fieldName != null)
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: () {
-                      manager.unassignWorker(worker.id);
-                      Navigator.pop(context);
-                    },
-                    icon: const Icon(Icons.person_remove_outlined, size: 18),
-                    label: const Text('Unassign from Field'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFFD95C5C),
-                      side: const BorderSide(
-                        color: Color(0xFFD95C5C),
-                        width: 1.5,
-                      ),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
+        return SafeArea(
+          top: false,
+          child: Container(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.72,
+            ),
+            padding: const EdgeInsets.fromLTRB(22, 10, 22, 14),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 44,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFD7DDE2),
+                      borderRadius: BorderRadius.circular(99),
                     ),
                   ),
-                ),
-            ],
+                  const SizedBox(height: 16),
+                  WorkerAvatar(worker: worker, size: 64),
+                  const SizedBox(height: 12),
+                  Text(
+                    worker.name,
+                    style: const TextStyle(
+                      color: AppTheme.textPrimary,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    worker.statusLabel,
+                    style: const TextStyle(
+                      color: AppTheme.brandGreen,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  _DetailRow(
+                    icon: Icons.phone_outlined,
+                    label: 'Phone',
+                    value: worker.phone,
+                    actionIcon: Icons.call_rounded,
+                    onTap: () => _callWorker(context, worker.phone),
+                  ),
+                  const SizedBox(height: 9),
+                  _DetailRow(
+                    icon: Icons.circle,
+                    label: 'Status',
+                    value: worker.statusLabel,
+                    iconColor: AppTheme.brandGreen,
+                  ),
+                  const SizedBox(height: 9),
+                  _DetailRow(
+                    icon: Icons.landscape_outlined,
+                    label: 'Assigned Field',
+                    value: fieldName ?? 'Not assigned',
+                  ),
+                  const SizedBox(height: 9),
+                  _DetailRow(
+                    icon: Icons.calendar_today_outlined,
+                    label: 'Joined',
+                    value: _formatDate(worker.createdAt),
+                  ),
+                  const SizedBox(height: 14),
+                  if (worker.status == WorkerStatus.assigned &&
+                      fieldName != null)
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          manager.unassignWorker(worker.id);
+                          Navigator.pop(context);
+                        },
+                        icon: const Icon(
+                          Icons.person_remove_outlined,
+                          size: 18,
+                        ),
+                        label: const Text('Unassign from Field'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFFD95C5C),
+                          side: const BorderSide(
+                            color: Color(0xFFD95C5C),
+                            width: 1.5,
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
           ),
         );
       },
+    );
+  }
+
+  Future<void> _callWorker(BuildContext context, String phone) async {
+    final cleaned = phone.replaceAll(RegExp(r'\s+'), '');
+    final uri = Uri(scheme: 'tel', path: cleaned);
+    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (opened) {
+      return;
+    }
+    if (!context.mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Unable to open phone dialer.')),
     );
   }
 
@@ -1051,7 +842,7 @@ class _GeneralSettingsTab extends StatelessWidget {
                 trailing: Switch(
                   value: true,
                   onChanged: (_) {},
-                  activeThumbColor: const Color(0xFF0B4F3F),
+                  activeThumbColor: AppTheme.primaryButton,
                 ),
               ),
               _SettingsTile(
@@ -1061,7 +852,7 @@ class _GeneralSettingsTab extends StatelessWidget {
                 trailing: Switch(
                   value: true,
                   onChanged: (_) {},
-                  activeThumbColor: const Color(0xFF0B4F3F),
+                  activeThumbColor: AppTheme.primaryButton,
                 ),
               ),
             ],
@@ -1157,41 +948,92 @@ class _DetailRow extends StatelessWidget {
   final IconData icon;
   final String label;
   final String value;
+  final IconData? actionIcon;
+  final Color? iconColor;
+  final VoidCallback? onTap;
 
   const _DetailRow({
     required this.icon,
     required this.label,
     required this.value,
+    this.actionIcon,
+    this.iconColor,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF5F7F6),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, size: 18, color: AppTheme.textSecondary),
-          const SizedBox(width: 12),
-          Text(
-            label,
-            style: const TextStyle(
-              color: AppTheme.textSecondary,
-              fontWeight: FontWeight.w600,
-            ),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 56),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF7F8F9),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFFE8ECEF)),
           ),
-          const Spacer(),
-          Flexible(
-            child: Text(
-              value,
-              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
-              overflow: TextOverflow.ellipsis,
-            ),
+          child: Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(11),
+                  border: Border.all(color: const Color(0xFFE2E7EA)),
+                ),
+                child: Icon(
+                  icon,
+                  size: 17,
+                  color: iconColor ?? AppTheme.brandGreen,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      label,
+                      style: const TextStyle(
+                        color: AppTheme.textSecondary,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      value,
+                      style: const TextStyle(
+                        color: AppTheme.textPrimary,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 14,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              if (actionIcon != null) ...[
+                const SizedBox(width: 12),
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: AppTheme.brandGreen,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(actionIcon, size: 18, color: Colors.white),
+                ),
+              ],
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
