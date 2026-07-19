@@ -118,9 +118,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ],
                   ),
                   const SizedBox(height: 22),
-                  _TrendCard(
-                    points: _buildTrendPoints(manager.fields, _forecast),
-                  ),
+                  _TrendCard(points: _buildTrendPoints(manager.fields)),
                   const SizedBox(height: 22),
                   _SectionHeader(
                     title: 'Critical Fields',
@@ -278,6 +276,16 @@ class _WeatherCard extends StatelessWidget {
     final windText = forecast == null
         ? '--'
         : '${forecast!.currentWindSpeed.toStringAsFixed(0)} km/h';
+    final outlookTitle = forecast?.hasStormRisk == true
+        ? 'High harvest risk'
+        : rainChance >= 40
+        ? 'Rain watch'
+        : 'Good plucking window';
+    final outlookAction = forecast?.hasStormRisk == true
+        ? 'Wait for supervisor confirmation'
+        : rainChance >= 40
+        ? 'Pluck before noon if safe'
+        : 'Prioritize ready fields';
 
     return InkWell(
       onTap: onTap,
@@ -391,83 +399,66 @@ class _WeatherCard extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(width: 8),
-                          // Right side: Compact Weather Alert if shown
-                          if (showAlert)
-                            Container(
-                              width: 165,
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(12),
-                                color: Colors.black.withValues(alpha: 0.4),
-                                border: Border.all(
-                                  color: Colors.white.withValues(alpha: 0.1),
-                                ),
-                              ),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 5,
-                                    ),
-                                    decoration: const BoxDecoration(
-                                      color: Color(0xFFC04B4B),
-                                      borderRadius: BorderRadius.vertical(
-                                        top: Radius.circular(11),
-                                      ),
-                                    ),
-                                    child: Row(
-                                      children: const [
-                                        Icon(
-                                          Icons.warning_amber_rounded,
-                                          color: Colors.white,
-                                          size: 12,
-                                        ),
-                                        SizedBox(width: 4),
-                                        Text(
-                                          'Weather Alert',
-                                          style: TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.w700,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  const Padding(
-                                    padding: EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 6,
-                                    ),
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          'Heavy rain expected',
-                                          style: TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                        SizedBox(height: 2),
-                                        Text(
-                                          'Tomorrow, 6 AM - 12 PM',
-                                          style: TextStyle(
-                                            color: Colors.white70,
-                                            fontSize: 8,
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
+                          Container(
+                            width: 168,
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(12),
+                              color: Colors.black.withValues(alpha: 0.42),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.12),
                               ),
                             ),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(
+                                      showAlert
+                                          ? Icons.warning_amber_rounded
+                                          : Icons.eco_outlined,
+                                      color: showAlert
+                                          ? const Color(0xFFFFD7D7)
+                                          : AppTheme.brandGreen,
+                                      size: 14,
+                                    ),
+                                    const SizedBox(width: 5),
+                                    const Expanded(
+                                      child: Text(
+                                        'Harvest Outlook',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 10.5,
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  outlookTitle,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  outlookAction,
+                                  style: TextStyle(
+                                    color: Colors.white.withValues(alpha: 0.78),
+                                    fontSize: 9.5,
+                                    height: 1.25,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -490,8 +481,8 @@ class _WeatherCard extends StatelessWidget {
                           children: [
                             _WeatherInfoChip(
                               icon: Icons.cloud_outlined,
-                              label: 'Rainfall',
-                              value: '18.6 mm',
+                              label: 'Rain',
+                              value: '$rainChance%',
                               showDivider: true,
                             ),
                             _WeatherInfoChip(
@@ -726,15 +717,19 @@ class _TrendCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Text(
-                'Yield vs Risk',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.5,
+              Flexible(
+                child: Text(
+                  'Actual Yield & Readiness',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.5,
+                  ),
                 ),
               ),
-              const Spacer(),
+              const SizedBox(width: 12),
               Container(
                 decoration: BoxDecoration(
                   color: const Color(0xFFF4F6F5),
@@ -743,6 +738,7 @@ class _TrendCard extends StatelessWidget {
                 child: const Padding(
                   padding: EdgeInsets.all(4),
                   child: Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       _RangePill(label: '7D', active: true),
                       _RangePill(label: '30D'),
@@ -754,17 +750,17 @@ class _TrendCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          const Wrap(
-            spacing: 18,
-            runSpacing: 8,
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _LegendDot(
+              const _LegendDot(
                 color: AppTheme.brandGreen,
-                label: 'Estimated Yield (kg)',
+                label: 'Actual Yield (kg)',
               ),
-              _LegendDot(
+              const SizedBox(height: 8),
+              const _LegendDot(
                 color: AppTheme.primaryButton,
-                label: 'Risk Index (%)',
+                label: 'Pluckable Ratio (%)',
               ),
             ],
           ),
@@ -772,7 +768,7 @@ class _TrendCard extends StatelessWidget {
           if (points.isEmpty)
             const _EmptyStateCard(
               text:
-                  'Add analyzed rounds with predicted yield to populate the trend view.',
+                  'Log actual yield after completed rounds to populate the estate readiness trend.',
             )
           else
             SizedBox(
@@ -830,12 +826,16 @@ class _LegendDot extends StatelessWidget {
           decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
         const SizedBox(width: 8),
-        Text(
-          label,
-          style: const TextStyle(
-            color: AppTheme.textSecondary,
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
+        Flexible(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: AppTheme.textSecondary,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
       ],
@@ -1231,25 +1231,22 @@ class _CriticalFieldInfo {
 
 class _TrendPoint {
   final String label;
-  final double yieldKg;
-  final double riskPct;
+  final double actualYieldKg;
+  final double pluckableRatioPct;
 
   const _TrendPoint({
     required this.label,
-    required this.yieldKg,
-    required this.riskPct,
+    required this.actualYieldKg,
+    required this.pluckableRatioPct,
   });
 }
 
-List<_TrendPoint> _buildTrendPoints(
-  List<Field> fields,
-  WeatherForecast? forecast,
-) {
-  final grouped = <DateTime, List<FieldMeasurement>>{};
+List<_TrendPoint> _buildTrendPoints(List<Field> fields) {
+  final grouped = <DateTime, Map<String, FieldMeasurement>>{};
 
   for (final field in fields) {
     for (final measurement in field.measurements) {
-      if (measurement.predictedYieldKg == null) {
+      if (!measurement.hasActualYield || measurement.analyzedImages.isEmpty) {
         continue;
       }
       final key = DateTime(
@@ -1257,7 +1254,11 @@ List<_TrendPoint> _buildTrendPoints(
         measurement.date.month,
         measurement.date.day,
       );
-      grouped.putIfAbsent(key, () => []).add(measurement);
+      final fieldRecords = grouped.putIfAbsent(key, () => {});
+      final existing = fieldRecords[field.id];
+      if (existing == null || measurement.date.isAfter(existing.date)) {
+        fieldRecords[field.id] = measurement;
+      }
     }
   }
 
@@ -1268,27 +1269,28 @@ List<_TrendPoint> _buildTrendPoints(
       : entries;
 
   return recent.map((entry) {
-    final yieldKg = entry.value.fold<double>(
+    final records = entry.value.values.toList(growable: false);
+    final actualYieldKg = records.fold<double>(
       0,
-      (sum, measurement) => sum + (measurement.predictedYieldKg ?? 0),
+      (sum, measurement) => sum + (measurement.actualYieldKg ?? 0),
     );
-    final riskPct = entry.value.isEmpty
+    final totalPluckable = records.fold<int>(
+      0,
+      (sum, measurement) => sum + measurement.totalPluckableCount,
+    );
+    final totalBuds = records.fold<int>(
+      0,
+      (sum, measurement) =>
+          sum + measurement.totalPluckableCount + measurement.totalArimbuCount,
+    );
+    final pluckableRatioPct = totalBuds == 0
         ? 0.0
-        : entry.value
-                  .map((measurement) {
-                    final readiness = measurement.averagePluckableRatio * 100;
-                    final weatherBoost = forecast?.hasStormRisk == true
-                        ? 18.0
-                        : 0.0;
-                    return (100 - readiness).clamp(0, 100) + weatherBoost;
-                  })
-                  .reduce((a, b) => a + b) /
-              entry.value.length;
+        : (totalPluckable / totalBuds) * 100;
 
     return _TrendPoint(
       label: '${_monthName(entry.key.month)} ${entry.key.day}',
-      yieldKg: yieldKg,
-      riskPct: riskPct.clamp(0, 100),
+      actualYieldKg: actualYieldKg,
+      pluckableRatioPct: pluckableRatioPct.clamp(0, 100),
     );
   }).toList();
 }
@@ -1327,8 +1329,11 @@ class _TrendPainter extends CustomPainter {
     final chartWidth = size.width - leftPad - rightPad;
     final chartHeight = size.height - topPad - bottomPad;
 
-    // We assume max values for rendering axes labels
-    const double maxYield = 1600.0;
+    final highestYield = points.fold<double>(
+      0,
+      (max, point) => math.max(max, point.actualYieldKg),
+    );
+    final maxYield = math.max(1.0, highestYield * 1.18);
     const double maxRisk = 100.0;
 
     final gridPaint = Paint()
@@ -1341,7 +1346,7 @@ class _TrendPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
 
-    final riskPaint = Paint()
+    final ratioPaint = Paint()
       ..color = AppTheme.primaryButton
       ..strokeWidth = 2.5
       ..style = PaintingStyle.stroke
@@ -1358,7 +1363,7 @@ class _TrendPainter extends CustomPainter {
 
     final yieldFillPaint = Paint()..shader = yieldFillShader;
 
-    final riskFillShader = LinearGradient(
+    final ratioFillShader = LinearGradient(
       colors: [
         AppTheme.primaryButton.withValues(alpha: 0.1),
         AppTheme.primaryButton.withValues(alpha: 0.0),
@@ -1367,7 +1372,7 @@ class _TrendPainter extends CustomPainter {
       end: Alignment.bottomCenter,
     ).createShader(Rect.fromLTWH(leftPad, topPad, chartWidth, chartHeight));
 
-    final riskFillPaint = Paint()..shader = riskFillShader;
+    final ratioFillPaint = Paint()..shader = ratioFillShader;
 
     const axisStyle = TextStyle(
       color: Color(0xFF8A948D),
@@ -1376,7 +1381,13 @@ class _TrendPainter extends CustomPainter {
     );
 
     // Draw horizontal grid lines and Y-axis labels
-    final yLabelsLeft = ['1.6k', '1.2k', '800', '400', '0'];
+    final yLabelsLeft = List.generate(5, (index) {
+      final value = maxYield * (1 - index / 4);
+      if (value >= 1000) {
+        return '${(value / 1000).toStringAsFixed(1)}k';
+      }
+      return value.toStringAsFixed(0);
+    });
     final yLabelsRight = ['100', '75', '50', '25', '0'];
 
     for (var i = 0; i < 5; i++) {
@@ -1411,7 +1422,7 @@ class _TrendPainter extends CustomPainter {
         ? 0.0
         : chartWidth / (points.length - 1);
     final yieldOffsets = <Offset>[];
-    final riskOffsets = <Offset>[];
+    final ratioOffsets = <Offset>[];
 
     for (var i = 0; i < points.length; i++) {
       final point = points[i];
@@ -1419,14 +1430,14 @@ class _TrendPainter extends CustomPainter {
           ? leftPad + (chartWidth / 2)
           : leftPad + (slotWidth * i);
 
-      final yValue = (point.yieldKg).clamp(0.0, maxYield);
-      final rValue = (point.riskPct).clamp(0.0, maxRisk);
+      final yValue = (point.actualYieldKg).clamp(0.0, maxYield);
+      final rValue = (point.pluckableRatioPct).clamp(0.0, maxRisk);
 
       final yieldDy = topPad + chartHeight - (yValue / maxYield) * chartHeight;
       final riskDy = topPad + chartHeight - (rValue / maxRisk) * chartHeight;
 
       yieldOffsets.add(Offset(dx, yieldDy));
-      riskOffsets.add(Offset(dx, riskDy));
+      ratioOffsets.add(Offset(dx, riskDy));
 
       final labelPainter = TextPainter(
         text: TextSpan(text: point.label, style: axisStyle),
@@ -1486,15 +1497,15 @@ class _TrendPainter extends CustomPainter {
     if (yieldOffsets.length >= 2) {
       final bottomY = topPad + chartHeight;
       canvas.drawPath(getBezierFillPath(yieldOffsets, bottomY), yieldFillPaint);
-      canvas.drawPath(getBezierFillPath(riskOffsets, bottomY), riskFillPaint);
+      canvas.drawPath(getBezierFillPath(ratioOffsets, bottomY), ratioFillPaint);
       canvas.drawPath(getBezierPath(yieldOffsets), yieldPaint);
-      canvas.drawPath(getBezierPath(riskOffsets), riskPaint);
+      canvas.drawPath(getBezierPath(ratioOffsets), ratioPaint);
     }
 
     final selectedIdx = points.length > 4 ? 4 : points.length - 1;
     if (selectedIdx >= 0 && selectedIdx < points.length) {
       final selectedYieldOffset = yieldOffsets[selectedIdx];
-      final selectedRiskOffset = riskOffsets[selectedIdx];
+      final selectedRatioOffset = ratioOffsets[selectedIdx];
       final selectedX = selectedYieldOffset.dx;
 
       final dottedPaint = Paint()
@@ -1521,12 +1532,12 @@ class _TrendPainter extends CustomPainter {
       canvas.drawCircle(selectedYieldOffset, 6.0, yDotOuter);
       canvas.drawCircle(selectedYieldOffset, 3.0, whitePaint);
 
-      final rDotOuter = Paint()..color = AppTheme.primaryButton;
-      canvas.drawCircle(selectedRiskOffset, 6.0, rDotOuter);
-      canvas.drawCircle(selectedRiskOffset, 3.0, whitePaint);
+      final ratioDotOuter = Paint()..color = AppTheme.primaryButton;
+      canvas.drawCircle(selectedRatioOffset, 6.0, ratioDotOuter);
+      canvas.drawCircle(selectedRatioOffset, 3.0, whitePaint);
 
       final tooltipY =
-          math.min(selectedYieldOffset.dy, selectedRiskOffset.dy) - 45;
+          math.min(selectedYieldOffset.dy, selectedRatioOffset.dy) - 45;
       final tooltipRect = RRect.fromRectAndRadius(
         Rect.fromCenter(
           center: Offset(selectedX, tooltipY),
@@ -1578,20 +1589,20 @@ class _TrendPainter extends CustomPainter {
       titlePainter.paint(canvas, Offset(selectedX - 48, tooltipY - 20));
 
       final yieldValText =
-          '● Yield: ${selectedPoint.yieldKg.toStringAsFixed(0)} kg';
+          'Actual: ${selectedPoint.actualYieldKg.toStringAsFixed(0)} kg';
       final yieldValPainter = TextPainter(
         text: TextSpan(text: yieldValText, style: tooltipBodyGreen),
         textDirection: TextDirection.ltr,
       )..layout();
       yieldValPainter.paint(canvas, Offset(selectedX - 48, tooltipY - 6));
 
-      final riskValText =
-          '● Risk: ${selectedPoint.riskPct.toStringAsFixed(0)}%';
-      final riskValPainter = TextPainter(
-        text: TextSpan(text: riskValText, style: tooltipBodyOrange),
+      final ratioValText =
+          'Ratio: ${selectedPoint.pluckableRatioPct.toStringAsFixed(0)}%';
+      final ratioValPainter = TextPainter(
+        text: TextSpan(text: ratioValText, style: tooltipBodyOrange),
         textDirection: TextDirection.ltr,
       )..layout();
-      riskValPainter.paint(canvas, Offset(selectedX - 48, tooltipY + 6));
+      ratioValPainter.paint(canvas, Offset(selectedX - 48, tooltipY + 6));
     }
   }
 

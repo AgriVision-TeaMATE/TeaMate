@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/field_model.dart';
 import '../../theme.dart';
+import 'field_analytics_screen.dart';
 import 'field_analysis_screen.dart';
 
 class FieldsScreen extends StatefulWidget {
@@ -192,6 +193,15 @@ class _FieldsScreenState extends State<FieldsScreen> {
     );
   }
 
+  void _openAnalytics(Field field) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => FieldAnalyticsScreen(fieldId: field.id),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
@@ -303,6 +313,7 @@ class _FieldsScreenState extends State<FieldsScreen> {
                         field: field,
                         initiallyExpanded: index == 1,
                         onAnalyze: () => _openNewAnalysis(field),
+                        onAnalytics: () => _openAnalytics(field),
                         onHistoryTap: (measurement) =>
                             _openHistory(field, measurement),
                       );
@@ -428,6 +439,7 @@ class _FieldCard extends StatefulWidget {
   final Field field;
   final bool initiallyExpanded;
   final VoidCallback onAnalyze;
+  final VoidCallback onAnalytics;
   final ValueChanged<FieldMeasurement> onHistoryTap;
 
   const _FieldCard({
@@ -435,6 +447,7 @@ class _FieldCard extends StatefulWidget {
     required this.field,
     this.initiallyExpanded = false,
     required this.onAnalyze,
+    required this.onAnalytics,
     required this.onHistoryTap,
   });
 
@@ -699,25 +712,61 @@ class _FieldCardState extends State<_FieldCard> {
                                   ),
                                   const SizedBox(height: 18),
                                 ],
-                                SizedBox(
-                                  width: double.infinity,
-                                  child: ElevatedButton.icon(
-                                    onPressed: widget.onAnalyze,
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: AppTheme.primaryButton,
-                                      foregroundColor: Colors.white,
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 14,
-                                      ),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(14),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: ElevatedButton.icon(
+                                        onPressed: widget.onAnalyze,
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor:
+                                              AppTheme.primaryButton,
+                                          foregroundColor: Colors.white,
+                                          padding: const EdgeInsets.symmetric(
+                                            vertical: 12,
+                                          ),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
+                                          ),
+                                        ),
+                                        icon: const Icon(
+                                          Icons.auto_awesome_motion_outlined,
+                                          size: 17,
+                                        ),
+                                        label: const Text(
+                                          'New Analysis',
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
                                       ),
                                     ),
-                                    icon: const Icon(
-                                      Icons.auto_awesome_motion_outlined,
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: ElevatedButton.icon(
+                                        onPressed: widget.onAnalytics,
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: AppTheme.brandGreen,
+                                          foregroundColor: Colors.white,
+                                          padding: const EdgeInsets.symmetric(
+                                            vertical: 12,
+                                          ),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
+                                          ),
+                                        ),
+                                        icon: const Icon(
+                                          Icons.analytics_outlined,
+                                          size: 17,
+                                        ),
+                                        label: const Text(
+                                          'Analytics',
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
                                     ),
-                                    label: const Text('New Field Analysis'),
-                                  ),
+                                  ],
                                 ),
                                 const SizedBox(height: 22),
                                 const Align(

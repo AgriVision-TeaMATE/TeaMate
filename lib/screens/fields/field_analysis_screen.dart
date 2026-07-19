@@ -770,9 +770,9 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
             shiftEnd: plan.shiftEnd,
             recommendedWorkers: plan.laborPlan.recommendedWorkers,
             assignedWorkerIds: selectedWorkerIds,
-            notes: plan.weather?.stormRisk == true
-                ? 'Weather caution: ${plan.weather!.summary}'
-                : 'AI plucking schedule',
+            notes: plan.weatherAction == null
+                ? 'AI plucking schedule'
+                : 'Weather: ${plan.weatherAction}',
           )
         : await api.updateScheduleWorkers(
             scheduleId: existingSchedule.id,
@@ -875,6 +875,10 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
                         fontWeight: FontWeight.w700,
                       ),
                     ),
+                    if (plan.weather != null || plan.weatherAction != null) ...[
+                      const SizedBox(height: 12),
+                      _WeatherSmsPreview(plan: plan, fieldName: _field.name),
+                    ],
                     const SizedBox(height: 14),
                     if (workers.isEmpty)
                       const Padding(
@@ -2435,6 +2439,107 @@ class _ComparisonMetric extends StatelessWidget {
               fontSize: 15.5,
               fontWeight: FontWeight.w900,
               height: 1.16,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WeatherSmsPreview extends StatelessWidget {
+  final RoundPlanResult plan;
+  final String fieldName;
+
+  const _WeatherSmsPreview({required this.plan, required this.fieldName});
+
+  @override
+  Widget build(BuildContext context) {
+    final weather = plan.weather;
+    final action = plan.weatherAction ?? 'Follow supervisor instructions.';
+    final summary = weather?.summary ?? 'Weather update pending';
+    final riskLabel = weather?.stormRisk == true
+        ? 'High risk'
+        : (weather?.rainChance ?? 0) >= 40
+        ? 'Rain watch'
+        : 'Good conditions';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF7F8F9),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE0E5E9)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: AppTheme.brandGreen.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(11),
+                ),
+                child: const Icon(
+                  Icons.cloud_outlined,
+                  color: AppTheme.brandGreen,
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  riskLabel,
+                  style: const TextStyle(
+                    color: AppTheme.textPrimary,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              if (weather != null)
+                Text(
+                  '${weather.rainChance}% rain',
+                  style: const TextStyle(
+                    color: AppTheme.textSecondary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            '$summary. $action',
+            style: const TextStyle(
+              color: AppTheme.textSecondary,
+              fontWeight: FontWeight.w700,
+              height: 1.35,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'SMS preview',
+            style: TextStyle(
+              color: AppTheme.textPrimary.withValues(alpha: 0.72),
+              fontSize: 12,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            'TeaMate: You are assigned to Field $fieldName today.\n'
+            'Weather: $action\n'
+            'Please report to the field supervisor.',
+            style: const TextStyle(
+              color: AppTheme.textPrimary,
+              fontSize: 12.5,
+              fontWeight: FontWeight.w700,
+              height: 1.35,
             ),
           ),
         ],

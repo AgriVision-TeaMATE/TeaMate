@@ -220,6 +220,7 @@ class RoundPlanResult {
   final double? predictedYieldKg;
   final LaborPlan laborPlan;
   final WeatherSnapshot? weather;
+  final String? weatherAction;
   final bool canSchedule;
   final DateTime scheduledDate;
   final String shiftEnd;
@@ -231,6 +232,7 @@ class RoundPlanResult {
     required this.predictedYieldKg,
     required this.laborPlan,
     required this.weather,
+    this.weatherAction,
     required this.canSchedule,
     required this.scheduledDate,
     required this.shiftEnd,

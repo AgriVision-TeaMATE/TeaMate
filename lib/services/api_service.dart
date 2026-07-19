@@ -671,6 +671,7 @@ class ApiService {
         focusZones: const [],
       ),
       weather: weather,
+      weatherAction: json['weather_action']?.toString(),
       canSchedule: json['can_schedule'] as bool? ?? false,
       scheduledDate: scheduledDate,
       shiftEnd: json['shift_end']?.toString() ?? '14:00:00',
