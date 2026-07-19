@@ -8,8 +8,6 @@ enum AlertSeverity { info, warning, critical }
 
 enum WorkerStatus { available, assigned, onLeave }
 
-enum SkillLevel { junior, experienced, senior }
-
 enum ScheduleStatus { scheduled, inProgress, completed, cancelled }
 
 class WeatherSnapshot {
@@ -139,7 +137,6 @@ class Worker {
   String name;
   String phone;
   WorkerStatus status;
-  SkillLevel skillLevel;
   String? assignedFieldId;
   final DateTime createdAt;
 
@@ -148,7 +145,6 @@ class Worker {
     required this.name,
     required this.phone,
     this.status = WorkerStatus.available,
-    this.skillLevel = SkillLevel.experienced,
     this.assignedFieldId,
     DateTime? createdAt,
   }) : createdAt = createdAt ?? DateTime.now();
@@ -169,17 +165,6 @@ class Worker {
         return 'Assigned';
       case WorkerStatus.onLeave:
         return 'On Leave';
-    }
-  }
-
-  String get skillLabel {
-    switch (skillLevel) {
-      case SkillLevel.junior:
-        return 'Junior';
-      case SkillLevel.experienced:
-        return 'Experienced';
-      case SkillLevel.senior:
-        return 'Senior';
     }
   }
 }
@@ -403,6 +388,12 @@ class FieldMeasurement {
 
   bool get hasActualYield => actualYieldKg != null && actualYieldKg! > 0;
 
+  bool get isEmptyDraft =>
+      analyzedImages.isEmpty &&
+      predictedYieldKg == null &&
+      actualYieldKg == null &&
+      !isCompleted;
+
   double? get yieldVarianceKg {
     if (predictedYieldKg == null || actualYieldKg == null) {
       return null;
@@ -516,7 +507,14 @@ class FieldManager extends ChangeNotifier {
     try {
       final fields = await _api.fetchFields();
       for (final field in fields) {
-        field.measurements = await _api.fetchFieldRounds(field.id);
+        final rounds = await _api.fetchFieldRounds(field.id);
+        final emptyDrafts = rounds.where((round) => round.isEmptyDraft);
+        for (final draft in emptyDrafts) {
+          _api.deleteRound(draft.id);
+        }
+        field.measurements = rounds
+            .where((round) => !round.isEmptyDraft)
+            .toList();
       }
       final workers = await _api.fetchWorkers();
       final schedules = await _api.fetchSchedules();
@@ -554,37 +552,26 @@ class FieldManager extends ChangeNotifier {
   List<Worker> workersForField(String fieldId) =>
       _workers.where((w) => w.assignedFieldId == fieldId).toList();
 
-  void addWorker({
-    required String name,
-    required String phone,
-    SkillLevel skillLevel = SkillLevel.experienced,
-  }) {
+  void addWorker({required String name, required String phone}) {
     final tempId = 'w${DateTime.now().millisecondsSinceEpoch}';
     _workers.add(
       Worker(
         id: tempId,
         name: name,
         phone: phone,
-        skillLevel: skillLevel,
         status: WorkerStatus.available,
       ),
     );
     notifyListeners();
-    _api.addWorker(name: name, phone: phone, skillLevel: skillLevel).then((w) {
+    _api.addWorker(name: name, phone: phone).then((w) {
       if (w != null) syncFromServer();
     });
   }
 
-  void updateWorker(
-    String workerId, {
-    String? name,
-    String? phone,
-    SkillLevel? skillLevel,
-  }) {
+  void updateWorker(String workerId, {String? name, String? phone}) {
     final worker = _workers.firstWhere((w) => w.id == workerId);
     if (name != null) worker.name = name;
     if (phone != null) worker.phone = phone;
-    if (skillLevel != null) worker.skillLevel = skillLevel;
     notifyListeners();
   }
 
@@ -680,15 +667,12 @@ class FieldManager extends ChangeNotifier {
     await _api.deleteField(fieldId);
   }
 
-  Future<FieldMeasurement> createDraftMeasurement(String fieldId) async {
+  Future<FieldMeasurement> createDraftMeasurement(
+    String fieldId, {
+    bool notify = true,
+  }) async {
     final field = _findField(fieldId);
-    final serverRound = await _api.createDraftRound(fieldId);
-    if (serverRound != null) {
-      field.measurements.add(serverRound);
-      notifyListeners();
-      return serverRound;
-    }
-    final tempId = DateTime.now().microsecondsSinceEpoch.toString();
+    final tempId = 'draft-${DateTime.now().microsecondsSinceEpoch}';
     final measurement = FieldMeasurement(
       id: tempId,
       date: DateTime.now(),
@@ -697,7 +681,9 @@ class FieldManager extends ChangeNotifier {
       weather: _buildWeatherForField(field),
     );
     field.measurements.add(measurement);
-    notifyListeners();
+    if (notify) {
+      notifyListeners();
+    }
     return measurement;
   }
 
@@ -880,10 +866,9 @@ class FieldManager extends ChangeNotifier {
           (item) => AppNotificationItem(
             id: item.id,
             fieldId: item.fieldId,
-            fieldName:
-                item.fieldName.isNotEmpty
-                    ? item.fieldName
-                    : fieldNames[item.fieldId] ?? 'System',
+            fieldName: item.fieldName.isNotEmpty
+                ? item.fieldName
+                : fieldNames[item.fieldId] ?? 'System',
             title: item.title,
             message: item.message,
             category: item.category,

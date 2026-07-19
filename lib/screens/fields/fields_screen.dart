@@ -169,14 +169,13 @@ class _FieldsScreenState extends State<FieldsScreen> {
     );
   }
 
-  void _openNewAnalysis(Field field) async {
-    final draft = await FieldManager().createDraftMeasurement(field.id);
-    if (!mounted) return;
+  void _openNewAnalysis(Field field) {
+    final draftId = 'draft-${DateTime.now().microsecondsSinceEpoch}';
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) =>
-            FieldAnalysisScreen(fieldId: field.id, measurementId: draft.id),
+            FieldAnalysisScreen(fieldId: field.id, measurementId: draftId),
       ),
     );
   }

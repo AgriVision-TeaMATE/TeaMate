@@ -145,23 +145,13 @@ class ApiService {
   Future<Worker?> addWorker({
     required String name,
     required String phone,
-    SkillLevel skillLevel = SkillLevel.experienced,
   }) async {
     try {
-      final skillStr = switch (skillLevel) {
-        SkillLevel.junior => 'junior',
-        SkillLevel.experienced => 'experienced',
-        SkillLevel.senior => 'senior',
-      };
       final response = await http
           .post(
             Uri.parse('$baseUrl/workers'),
             headers: _headers(json: true),
-            body: jsonEncode({
-              'name': name,
-              'phone': phone,
-              'skill_level': skillStr,
-            }),
+            body: jsonEncode({'name': name, 'phone': phone}),
           )
           .timeout(_timeout);
       if (response.statusCode != 201 && response.statusCode != 200) return null;
@@ -489,6 +479,26 @@ class ApiService {
     }
   }
 
+  Future<PluckingSchedule?> updateScheduleWorkers({
+    required String scheduleId,
+    required List<String> assignedWorkerIds,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/schedules/$scheduleId/workers'),
+            headers: _headers(json: true),
+            body: jsonEncode(assignedWorkerIds),
+          )
+          .timeout(_timeout);
+      if (response.statusCode != 200) return null;
+      return _parseSchedule(jsonDecode(response.body));
+    } catch (e) {
+      debugPrint('ApiService updateScheduleWorkers error: $e');
+      return null;
+    }
+  }
+
   Future<void> markAllNotificationsRead() async {
     try {
       await http
@@ -533,19 +543,11 @@ class ApiService {
       _ => WorkerStatus.available,
     };
 
-    final skillStr = json['skill_level']?.toString() ?? 'experienced';
-    final skill = switch (skillStr) {
-      'junior' => SkillLevel.junior,
-      'senior' => SkillLevel.senior,
-      _ => SkillLevel.experienced,
-    };
-
     return Worker(
       id: json['id'].toString(),
       name: json['name'] ?? 'Worker',
       phone: json['phone'] ?? '',
       status: status,
-      skillLevel: skill,
       assignedFieldId: json['assigned_field_id']?.toString(),
       createdAt: DateTime.tryParse(json['created_at'] ?? '') ?? DateTime.now(),
     );

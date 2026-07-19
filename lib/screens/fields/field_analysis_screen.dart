@@ -35,6 +35,7 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
 
   late Field _field;
   late FieldMeasurement _measurement;
+  late String _measurementId;
   final List<_PendingImage> _pendingImages = [];
 
   int _currentIndex = 0;
@@ -46,9 +47,16 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
   void initState() {
     super.initState();
     final manager = FieldManager();
+    _measurementId = widget.measurementId;
     _field = manager.fields.firstWhere((field) => field.id == widget.fieldId);
     _measurement = _field.measurements.firstWhere(
-      (measurement) => measurement.id == widget.measurementId,
+      (measurement) => measurement.id == _measurementId,
+      orElse: () => FieldMeasurement(
+        id: _measurementId,
+        date: DateTime.now(),
+        analyzedImages: [],
+        fieldArea: _field.areaHectares,
+      ),
     );
     _measurement = manager.hydrateMeasurementSupportData(
       widget.fieldId,
@@ -263,13 +271,28 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
     final pendingCopy = List<_PendingImage>.from(_pendingImages);
     final api = ApiService();
 
+    final hasServerRound = await _ensureServerRoundForAnalysis(api);
+    if (!mounted) {
+      return;
+    }
+    if (!hasServerRound) {
+      setState(() {
+        _isAnalyzing = false;
+        _analysisStatus = null;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to create harvest round.')),
+      );
+      return;
+    }
+
     for (var index = 0; index < pendingCopy.length; index++) {
       setState(() {
         _analysisStatus =
             'Uploading image ${index + 1} of ${pendingCopy.length}...';
       });
       final uploaded = await api.uploadImageToRound(
-        roundId: widget.measurementId,
+        roundId: _measurementId,
         imagePathOrUrl: pendingCopy[index].imagePath,
         capturedArea: pendingCopy[index].capturedArea,
       );
@@ -292,7 +315,7 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
       _analysisStatus = 'Analyzing uploaded images...';
     });
 
-    final serverRound = await api.analyzeRound(widget.measurementId);
+    final serverRound = await api.analyzeRound(_measurementId);
     if (serverRound == null) {
       if (!mounted) return;
       setState(() {
@@ -323,6 +346,32 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
     });
   }
 
+  Future<bool> _ensureServerRoundForAnalysis(ApiService api) async {
+    if (!_measurementId.startsWith('draft-')) {
+      return true;
+    }
+
+    setState(() {
+      _analysisStatus = 'Creating harvest round...';
+    });
+
+    final serverRound = await api.createDraftRound(widget.fieldId);
+    if (serverRound == null) {
+      return false;
+    }
+
+    final manager = FieldManager();
+    final localDraftId = _measurementId;
+    _measurementId = serverRound.id;
+    _measurement = manager.hydrateMeasurementSupportData(
+      widget.fieldId,
+      serverRound,
+    );
+    manager.removeMeasurement(widget.fieldId, localDraftId);
+    manager.saveMeasurement(widget.fieldId, _measurement);
+    return true;
+  }
+
   Future<void> _showPredictYieldSheet() async {
     if (_measurement.isCompleted) {
       return;
@@ -337,7 +386,7 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
     });
 
     final api = ApiService();
-    final predictedRound = await api.predictRoundYield(widget.measurementId);
+    final predictedRound = await api.predictRoundYield(_measurementId);
     if (!mounted) {
       return;
     }
@@ -353,7 +402,7 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
     }
 
     final plan = await api.planRound(
-      roundId: widget.measurementId,
+      roundId: _measurementId,
       kgPerWorkerPerDay: AppSettingsService().kgPerWorkerPerDay,
     );
     final manager = FieldManager();
@@ -459,7 +508,7 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
     });
     manager.saveMeasurement(widget.fieldId, _measurement);
     if (_measurement.isCompleted) {
-      await ApiService().updateActualYield(widget.measurementId, result);
+      await ApiService().updateActualYield(_measurementId, result);
       if (!mounted) {
         return false;
       }
@@ -480,15 +529,29 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
     }
 
     await ApiService().saveActualYield(
-      widget.measurementId,
+      _measurementId,
       _measurement.actualYieldKg!,
     );
     if (!mounted) {
       return;
     }
     final manager = FieldManager();
-    _measurement = _measurement.copyWith(isCompleted: true);
-    manager.saveMeasurement(widget.fieldId, _measurement);
+    await manager.syncFromServer();
+    if (!mounted) {
+      return;
+    }
+    final refreshedField = manager.fields.firstWhere(
+      (field) => field.id == widget.fieldId,
+      orElse: () => _field,
+    );
+    final refreshedMeasurement = refreshedField.measurements.firstWhere(
+      (measurement) => measurement.id == _measurementId,
+      orElse: () => _measurement.copyWith(isCompleted: true),
+    );
+    setState(() {
+      _field = refreshedField;
+      _measurement = refreshedMeasurement;
+    });
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
@@ -526,8 +589,12 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
     if (_didCleanupDraft) {
       return;
     }
-    if (_measurement.analyzedImages.isEmpty) {
-      FieldManager().removeMeasurement(widget.fieldId, widget.measurementId);
+    if (_measurement.isEmptyDraft) {
+      if (_measurementId.startsWith('draft-')) {
+        FieldManager().removeMeasurement(widget.fieldId, _measurementId);
+      } else {
+        FieldManager().deleteMeasurement(widget.fieldId, _measurementId);
+      }
       _didCleanupDraft = true;
     }
   }
@@ -624,29 +691,38 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
     });
   }
 
+  PluckingSchedule? get _roundSchedule {
+    for (final schedule in FieldManager().schedules) {
+      if (schedule.harvestRoundId == _measurementId) {
+        return schedule;
+      }
+    }
+    return null;
+  }
+
+  List<Worker> _workersForSchedule(PluckingSchedule? schedule) {
+    if (schedule == null) {
+      return const [];
+    }
+    final ids = schedule.assignedWorkerIds.toSet();
+    return FieldManager().workers
+        .where((worker) => ids.contains(worker.id))
+        .toList(growable: false);
+  }
+
   Future<void> _scheduleCrewAndSendSms() async {
     if (_measurement.isCompleted || _measurement.predictedYieldKg == null) {
-      return;
-    }
-
-    final assignedWorkers = FieldManager().workersForField(widget.fieldId);
-    if (assignedWorkers.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Assign workers to this field before scheduling SMS.'),
-        ),
-      );
       return;
     }
 
     final api = ApiService();
     setState(() {
       _isAnalyzing = true;
-      _analysisStatus = 'Preparing labour plan...';
+      _analysisStatus = 'Preparing labour allocation...';
     });
 
     final plan = await api.planRound(
-      roundId: widget.measurementId,
+      roundId: _measurementId,
       kgPerWorkerPerDay: AppSettingsService().kgPerWorkerPerDay,
     );
     if (!mounted) {
@@ -663,22 +739,45 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
       return;
     }
 
-    final workerIds = assignedWorkers
-        .take(plan.laborPlan.recommendedWorkers)
-        .map((worker) => worker.id)
-        .toList();
-    final schedule = await api.createSchedule(
-      fieldId: widget.fieldId,
-      roundId: widget.measurementId,
-      scheduledDate: plan.scheduledDate,
-      shiftStart: plan.laborPlan.shiftStart,
-      shiftEnd: plan.shiftEnd,
-      recommendedWorkers: plan.laborPlan.recommendedWorkers,
-      assignedWorkerIds: workerIds,
-      notes: plan.weather?.stormRisk == true
-          ? 'Weather caution: ${plan.weather!.summary}'
-          : 'AI plucking schedule',
-    );
+    setState(() {
+      _isAnalyzing = false;
+      _analysisStatus = null;
+    });
+
+    final selectedWorkerIds = await _showLabourAllocationSheet(plan);
+    if (!mounted || selectedWorkerIds == null) {
+      return;
+    }
+    if (selectedWorkerIds.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Select at least one labour.')),
+      );
+      return;
+    }
+
+    setState(() {
+      _isAnalyzing = true;
+      _analysisStatus = 'Saving labour allocation...';
+    });
+
+    final existingSchedule = _roundSchedule;
+    final schedule = existingSchedule == null
+        ? await api.createSchedule(
+            fieldId: widget.fieldId,
+            roundId: _measurementId,
+            scheduledDate: plan.scheduledDate,
+            shiftStart: plan.laborPlan.shiftStart,
+            shiftEnd: plan.shiftEnd,
+            recommendedWorkers: plan.laborPlan.recommendedWorkers,
+            assignedWorkerIds: selectedWorkerIds,
+            notes: plan.weather?.stormRisk == true
+                ? 'Weather caution: ${plan.weather!.summary}'
+                : 'AI plucking schedule',
+          )
+        : await api.updateScheduleWorkers(
+            scheduleId: existingSchedule.id,
+            assignedWorkerIds: selectedWorkerIds,
+          );
     if (!mounted) {
       return;
     }
@@ -688,14 +787,12 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
         _analysisStatus = null;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to save plucking schedule.')),
+        const SnackBar(content: Text('Failed to save labour allocation.')),
       );
       return;
     }
 
-    final smsSent = workerIds.isNotEmpty
-        ? await api.sendScheduleSms(schedule.id)
-        : false;
+    final smsSent = await api.sendScheduleSms(schedule.id);
 
     await FieldManager().syncFromServer();
     if (!mounted) {
@@ -706,7 +803,7 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
       (field) => field.id == widget.fieldId,
     );
     final refreshedMeasurement = refreshedField.measurements.firstWhere(
-      (measurement) => measurement.id == widget.measurementId,
+      (measurement) => measurement.id == _measurementId,
       orElse: () => _measurement,
     );
 
@@ -721,10 +818,133 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
       SnackBar(
         content: Text(
           smsSent
-              ? 'Schedule saved and SMS sent to ${workerIds.length} workers.'
-              : 'Schedule saved. SMS not sent.',
+              ? 'Allocation saved and mock SMS sent to ${selectedWorkerIds.length} labourers.'
+              : 'Allocation saved. SMS not sent.',
         ),
       ),
+    );
+  }
+
+  Future<List<String>?> _showLabourAllocationSheet(RoundPlanResult plan) {
+    final schedule = _roundSchedule;
+    final selectedIds = <String>{...?schedule?.assignedWorkerIds};
+    final workers = FieldManager().workers
+        .where(
+          (worker) =>
+              worker.status == WorkerStatus.available ||
+              worker.assignedFieldId == widget.fieldId ||
+              selectedIds.contains(worker.id),
+        )
+        .toList(growable: false);
+
+    return showModalBottomSheet<List<String>>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return SafeArea(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(
+                  20,
+                  18,
+                  20,
+                  20 + MediaQuery.of(context).viewInsets.bottom,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Allocate labour',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -0.4,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Suggested labour count: ${plan.laborPlan.recommendedWorkers}',
+                      style: const TextStyle(
+                        color: AppTheme.textSecondary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    if (workers.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 18),
+                        child: Text(
+                          'No available labourers. Add labourers or mark them available from Settings.',
+                          style: TextStyle(color: AppTheme.textSecondary),
+                        ),
+                      )
+                    else
+                      Flexible(
+                        child: ListView.separated(
+                          shrinkWrap: true,
+                          itemCount: workers.length,
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(height: 8),
+                          itemBuilder: (context, index) {
+                            final worker = workers[index];
+                            final selected = selectedIds.contains(worker.id);
+                            return CheckboxListTile(
+                              value: selected,
+                              onChanged: (checked) {
+                                setSheetState(() {
+                                  if (checked == true) {
+                                    selectedIds.add(worker.id);
+                                  } else {
+                                    selectedIds.remove(worker.id);
+                                  }
+                                });
+                              },
+                              title: Text(
+                                worker.name,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              subtitle: Text(worker.phone),
+                              activeColor: AppTheme.primaryButton,
+                              checkColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                                side: const BorderSide(
+                                  color: Color(0xFFE8ECEF),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () =>
+                            Navigator.pop(context, selectedIds.toList()),
+                        style: _primaryActionButtonStyle(),
+                        child: Text(
+                          selectedIds.isEmpty
+                              ? 'Save Allocation'
+                              : 'Save & Send Mock SMS (${selectedIds.length})',
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -820,9 +1040,10 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildDecisionHero(),
+              if (_measurement.analyzedImages.isNotEmpty) ...[
+                _buildDecisionHero(),
+              ],
               if (!_measurement.isCompleted) ...[
-                const SizedBox(height: 24),
                 _buildCapturePanel(),
                 const SizedBox(height: 18),
               ] else
@@ -880,6 +1101,10 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
                 const SizedBox(height: 18),
                 _buildComparisonCard(),
                 const SizedBox(height: 18),
+                if (_roundSchedule != null) ...[
+                  _buildLabourAllocationCard(),
+                  const SizedBox(height: 18),
+                ],
                 SizedBox(
                   width: double.infinity,
                   child: OutlinedButton.icon(
@@ -890,7 +1115,11 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
                         : _scheduleCrewAndSendSms,
                     style: _primaryOutlinedActionButtonStyle(),
                     icon: const Icon(Icons.group_add_outlined),
-                    label: const Text('Plan Labour & Send SMS'),
+                    label: Text(
+                      _roundSchedule == null
+                          ? 'Allocate Labour & Send SMS'
+                          : 'Change Labour Allocation',
+                    ),
                   ),
                 ),
                 const SizedBox(height: 18),
@@ -958,6 +1187,148 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
     );
   }
 
+  Widget _buildLabourAllocationCard() {
+    final schedule = _roundSchedule;
+    if (schedule == null) {
+      return const SizedBox.shrink();
+    }
+    final workers = _workersForSchedule(schedule);
+    final hasShortage = workers.length < schedule.recommendedWorkers;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE8ECEF), width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.primaryButton.withValues(alpha: 0.05),
+            blurRadius: 18,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Allocated labour',
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.3,
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: hasShortage
+                      ? const Color(0xFFFCEAEA)
+                      : const Color(0xFFF4F7F5),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  '${workers.length}/${schedule.recommendedWorkers}',
+                  style: TextStyle(
+                    color: hasShortage
+                        ? const Color(0xFFC04B4B)
+                        : const Color(0xFF2E7655),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          if (workers.isEmpty)
+            const Text(
+              'No labourers allocated yet.',
+              style: TextStyle(color: AppTheme.textSecondary),
+            )
+          else
+            ...workers.map(
+              (worker) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryButton,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Center(
+                        child: Text(
+                          worker.initials,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            worker.name,
+                            style: const TextStyle(
+                              color: AppTheme.textPrimary,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            worker.phone,
+                            style: const TextStyle(
+                              color: AppTheme.textSecondary,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          if (!_measurement.isCompleted) ...[
+            const SizedBox(height: 6),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: _measurement.predictedYieldKg == null
+                    ? null
+                    : _scheduleCrewAndSendSms,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppTheme.primaryButton,
+                  side: const BorderSide(color: Color(0xFFE0E5E9)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                child: const Text('Change allocation'),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   Widget _buildCapturePanel() {
     return Container(
       width: double.infinity,
@@ -965,6 +1336,7 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(5),
+        border: Border.all(color: const Color(0xFFE8ECEF), width: 1),
         boxShadow: [
           BoxShadow(
             color: AppTheme.primaryButton.withValues(alpha: 0.06),
@@ -1130,6 +1502,18 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          const Padding(
+            padding: EdgeInsets.fromLTRB(2, 2, 2, 10),
+            child: Text(
+              'Analyzed images',
+              style: TextStyle(
+                color: AppTheme.textPrimary,
+                fontSize: 17,
+                fontWeight: FontWeight.w900,
+                letterSpacing: -0.3,
+              ),
+            ),
+          ),
           _buildImageCarousel(),
           const SizedBox(height: 12),
           if (_galleryItems.length > 1) ...[
@@ -1628,6 +2012,7 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE8ECEF), width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
