@@ -1,0 +1,760 @@
+import 'package:flutter/material.dart';
+
+import '../../models/field_model.dart';
+import '../../theme.dart';
+import 'scan_disease_screen.dart';
+
+class DiseaseDetectionScreen extends StatefulWidget {
+  const DiseaseDetectionScreen({super.key});
+
+  @override
+  State<DiseaseDetectionScreen> createState() => _DiseaseDetectionScreenState();
+}
+
+class _DiseaseDetectionScreenState extends State<DiseaseDetectionScreen> {
+  final _searchController = TextEditingController();
+  String _searchQuery = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _refreshFields() async {
+    await FieldManager().syncFromServer();
+  }
+
+  void _showAddFieldDialog() {
+    final nameController = TextEditingController();
+    final areaController = TextEditingController();
+    var isSaving = false;
+    showDialog<void>(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            Future<void> handleSave() async {
+              final name = nameController.text.trim();
+              final areaSquareMeters = double.tryParse(
+                areaController.text.trim(),
+              );
+              if (name.isEmpty ||
+                  areaSquareMeters == null ||
+                  areaSquareMeters <= 0) {
+                return;
+              }
+
+              setDialogState(() => isSaving = true);
+              final created = await FieldManager().addField(
+                name: name,
+                areaHectares: areaSquareMeters / 10000,
+              );
+              if (!context.mounted) return;
+              setDialogState(() => isSaving = false);
+
+              if (created) {
+                Navigator.pop(context);
+                return;
+              }
+
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text(
+                    'Unable to save field. Check login and backend.',
+                  ),
+                ),
+              );
+            }
+
+            return AlertDialog(
+              insetPadding: const EdgeInsets.symmetric(
+                horizontal: 24,
+                vertical: 24,
+              ),
+              contentPadding: const EdgeInsets.fromLTRB(22, 18, 22, 8),
+              actionsPadding: const EdgeInsets.fromLTRB(22, 0, 22, 18),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(18),
+              ),
+              title: const Text(
+                'Add new field',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.4,
+                ),
+              ),
+              content: SizedBox(
+                width: MediaQuery.of(context).size.width * 0.78,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      height: 48,
+                      child: TextField(
+                        controller: nameController,
+                        autofocus: true,
+                        textAlignVertical: TextAlignVertical.center,
+                        decoration: InputDecoration(
+                          hintText: 'Field name',
+                          filled: true,
+                          fillColor: const Color(0xFFF3F4F6),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      height: 48,
+                      child: TextField(
+                        controller: areaController,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        textAlignVertical: TextAlignVertical.center,
+                        decoration: InputDecoration(
+                          hintText: 'Field area (m²)',
+                          filled: true,
+                          fillColor: const Color(0xFFF3F4F6),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppTheme.primaryButton,
+                  ),
+                  onPressed: isSaving ? null : () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: isSaving ? null : handleSave,
+                  style: ElevatedButton.styleFrom(
+                    minimumSize: const Size(64, 42),
+                    padding: const EdgeInsets.symmetric(horizontal: 18),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  child: isSaving
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Save'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _openScanDisease(Field field) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ScanDiseaseScreen(fieldId: field.id),
+      ),
+    );
+  }
+
+  void _openDetectionHistory(Field field) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const DetectionHistoryPlaceholder(fieldId: ''),
+      ),
+    );
+  }
+
+  void _updateSearch(String value) {
+    setState(() {
+      _searchQuery = value.trim().toLowerCase();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: FieldManager(),
+      builder: (context, _) {
+        final fields = FieldManager().fields;
+        final filteredFields = _searchQuery.isEmpty
+            ? fields
+            : fields
+                  .where(
+                    (field) => field.name.toLowerCase().contains(_searchQuery),
+                  )
+                  .toList();
+        return Scaffold(
+          backgroundColor: AppTheme.backgroundLight,
+          appBar: AppBar(
+            centerTitle: true,
+            title: const Text(
+              'Disease Detection',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.4,
+              ),
+            ),
+            actions: [
+              Padding(
+                padding: const EdgeInsets.only(right: 16),
+                child: GestureDetector(
+                  onTap: _showAddFieldDialog,
+                  child: Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryButton,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: AppTheme.primaryButton.withValues(alpha: 0.16),
+                      ),
+                    ),
+                    child: const Icon(
+                      Icons.add_rounded,
+                      color: Colors.white,
+                      size: 22,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          body: RefreshIndicator(
+            onRefresh: _refreshFields,
+            child: fields.isEmpty
+                ? ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                        child: _FieldSearchBar(
+                          controller: _searchController,
+                          onChanged: _updateSearch,
+                        ),
+                      ),
+                      SizedBox(
+                        height: MediaQuery.of(context).size.height * 0.7,
+                        child: _EmptyFieldState(onTap: _showAddFieldDialog),
+                      ),
+                    ],
+                  )
+                : filteredFields.isEmpty
+                ? ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+                    children: [
+                      _FieldSearchBar(
+                        controller: _searchController,
+                        onChanged: _updateSearch,
+                      ),
+                      const SizedBox(height: 28),
+                      const Center(
+                        child: Text(
+                          'No matching fields found',
+                          style: TextStyle(
+                            color: AppTheme.textSecondary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  )
+                : ListView.builder(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+                    itemCount: filteredFields.length + 1,
+                    itemBuilder: (context, index) {
+                      if (index == 0) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 16),
+                          child: _FieldSearchBar(
+                            controller: _searchController,
+                            onChanged: _updateSearch,
+                          ),
+                        );
+                      }
+
+                      final field = filteredFields[index - 1];
+                      return _FieldCard(
+                        key: ValueKey(field.id),
+                        field: field,
+                        initiallyExpanded: index == 1,
+                        onScan: () => _openScanDisease(field),
+                        onHistory: () => _openDetectionHistory(field),
+                      );
+                    },
+                  ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _FieldSearchBar extends StatelessWidget {
+  final TextEditingController controller;
+  final ValueChanged<String> onChanged;
+
+  const _FieldSearchBar({required this.controller, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 48,
+      child: TextField(
+        controller: controller,
+        onChanged: onChanged,
+        textAlignVertical: TextAlignVertical.center,
+        decoration: InputDecoration(
+          hintText: 'Search fields',
+          hintStyle: const TextStyle(
+            color: AppTheme.inputHint,
+            fontWeight: FontWeight.w600,
+          ),
+          prefixIcon: const Icon(
+            Icons.search_rounded,
+            color: AppTheme.textSecondary,
+          ),
+          filled: true,
+          fillColor: Colors.white,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(color: Color(0xFFDDE4D8), width: 1.1),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(
+              color: AppTheme.primaryButton,
+              width: 1.2,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyFieldState extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _EmptyFieldState({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF9AA3AF).withValues(alpha: 0.10),
+                    blurRadius: 22,
+                    offset: const Offset(0, 12),
+                  ),
+                ],
+              ),
+              child: const Icon(
+                Icons.medical_services_outlined,
+                size: 54,
+                color: AppTheme.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'No fields added yet',
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.4,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Start by creating a field. Each field can hold disease detection history records.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: AppTheme.textSecondary, height: 1.5),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: onTap,
+              child: const Text('Add First Field'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FieldCard extends StatefulWidget {
+  final Field field;
+  final bool initiallyExpanded;
+  final VoidCallback onScan;
+  final VoidCallback onHistory;
+
+  const _FieldCard({
+    super.key,
+    required this.field,
+    this.initiallyExpanded = false,
+    required this.onScan,
+    required this.onHistory,
+  });
+
+  @override
+  State<_FieldCard> createState() => _FieldCardState();
+}
+
+class _FieldCardState extends State<_FieldCard> {
+  late bool _isExpanded;
+
+  @override
+  void initState() {
+    super.initState();
+    _isExpanded = widget.initiallyExpanded;
+  }
+
+  @override
+  void didUpdateWidget(covariant _FieldCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.field.id != widget.field.id) {
+      _isExpanded = widget.initiallyExpanded;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final field = widget.field;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 18),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.primaryButton.withValues(alpha: 0.07),
+            blurRadius: 24,
+            offset: const Offset(0, 12),
+          ),
+        ],
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: () {
+          setState(() {
+            _isExpanded = !_isExpanded;
+          });
+        },
+        child: Ink(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFFE4E9DE)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                field.name,
+                style: const TextStyle(
+                  fontSize: 17,
+                  color: AppTheme.textPrimary,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.2,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                field.subtitle,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: AppTheme.textSecondary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              AnimatedSize(
+                duration: const Duration(milliseconds: 180),
+                curve: Curves.easeInOut,
+                child: _isExpanded
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 16),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  onPressed: widget.onScan,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFFB54848),
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 12,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                  icon: const Icon(
+                                    Icons.camera_alt_outlined,
+                                    size: 17,
+                                  ),
+                                  label: const Text(
+                                    'Scan Disease',
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  onPressed: widget.onHistory,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppTheme.brandGreen,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 12,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                  icon: const Icon(
+                                    Icons.history_outlined,
+                                    size: 17,
+                                  ),
+                                  label: const Text(
+                                    'Detection History',
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      )
+                    : const SizedBox.shrink(),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// Placeholder pages for disease detection features
+
+class DetectionHistoryPlaceholder extends StatelessWidget {
+  final String fieldId;
+
+  const DetectionHistoryPlaceholder({super.key, required this.fieldId});
+
+  static final List<DiseaseDetectionRecord> _dummyRecords = [
+    DiseaseDetectionRecord(
+      date: DateTime.now().subtract(const Duration(days: 3)),
+      disease: 'Tea Mosquito Bug',
+      severity: DetectionSeverity.high,
+      confidence: 92,
+      imageHint: 'Leaf with curled edges and yellow spots',
+    ),
+    DiseaseDetectionRecord(
+      date: DateTime.now().subtract(const Duration(days: 10)),
+      disease: 'Red Leaf Spot',
+      severity: DetectionSeverity.medium,
+      confidence: 78,
+      imageHint: 'Small reddish spots on young leaves',
+    ),
+    DiseaseDetectionRecord(
+      date: DateTime.now().subtract(const Duration(days: 18)),
+      disease: 'Healthy',
+      severity: DetectionSeverity.none,
+      confidence: 95,
+      imageHint: 'No disease detected - normal growth',
+    ),
+    DiseaseDetectionRecord(
+      date: DateTime.now().subtract(const Duration(days: 25)),
+      disease: 'Blister Blight',
+      severity: DetectionSeverity.low,
+      confidence: 65,
+      imageHint: 'Minor brown blisters on leaf surface',
+    ),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        title: const Text(
+          'Detection History',
+          style: TextStyle(
+            color: AppTheme.textPrimary,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded, color: AppTheme.textPrimary),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+      ),
+      body: _dummyRecords.isEmpty
+          ? const Center(
+              child: Text(
+                'No detection records yet',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: AppTheme.textSecondary,
+                ),
+              ),
+            )
+          : ListView.separated(
+              padding: const EdgeInsets.all(16),
+              itemCount: _dummyRecords.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 12),
+              itemBuilder: (context, index) {
+                final record = _dummyRecords[index];
+                return _DetectionRecordCard(record: record);
+              },
+            ),
+    );
+  }
+}
+
+enum DetectionSeverity { none, low, medium, high }
+
+class DiseaseDetectionRecord {
+  final DateTime date;
+  final String disease;
+  final DetectionSeverity severity;
+  final int confidence;
+  final String imageHint;
+
+  const DiseaseDetectionRecord({
+    required this.date,
+    required this.disease,
+    required this.severity,
+    required this.confidence,
+    required this.imageHint,
+  });
+}
+
+class _DetectionRecordCard extends StatelessWidget {
+  final DiseaseDetectionRecord record;
+
+  const _DetectionRecordCard({required this.record});
+
+  @override
+  Widget build(BuildContext context) {
+    final Color severityColor;
+    final IconData severityIcon;
+    switch (record.severity) {
+      case DetectionSeverity.none:
+        severityColor = AppTheme.brandGreen;
+        severityIcon = Icons.check_circle_rounded;
+      case DetectionSeverity.low:
+        severityColor = const Color(0xFFB97922);
+        severityIcon = Icons.info_rounded;
+      case DetectionSeverity.medium:
+        severityColor = const Color(0xFFE2574C);
+        severityIcon = Icons.warning_rounded;
+      case DetectionSeverity.high:
+        severityColor = const Color(0xFFD95C5C);
+        severityIcon = Icons.dangerous_rounded;
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE4E9DE)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(severityIcon, color: severityColor, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                record.disease,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: AppTheme.textPrimary,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                '${record.confidence}%',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: severityColor,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '${record.date.day}/${record.date.month}/${record.date.year}',
+            style: const TextStyle(
+              fontSize: 12,
+              color: AppTheme.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            record.imageHint,
+            style: const TextStyle(
+              fontSize: 13,
+              color: AppTheme.textSecondary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
