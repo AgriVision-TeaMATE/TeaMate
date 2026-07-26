@@ -52,6 +52,7 @@ class AuthService {
     required String fullName,
     required String email,
     required String password,
+    String role = 'estate_manager',
   }) async {
     try {
       final response = await http
@@ -62,7 +63,7 @@ class AuthService {
               'full_name': fullName,
               'email': email,
               'password': password,
-              'role': 'estate_manager',
+              'role': role,
             }),
           )
           .timeout(const Duration(seconds: 15));
