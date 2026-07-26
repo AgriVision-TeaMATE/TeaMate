@@ -24,6 +24,7 @@ class _SettingsScreenState extends State<SettingsScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    AppSettingsService().loadYieldSettings();
   }
 
   @override
@@ -757,6 +758,15 @@ class _LabourManagementTab extends StatelessWidget {
 }
 
 class _GeneralSettingsTab extends StatelessWidget {
+  static const List<String> _teaVariants = [
+    'TRI 2025',
+    'TRI 2026',
+    'TRI 2027',
+    'TRI 2023',
+    'Seedling Tea',
+    'Custom',
+  ];
+
   void _openProfile(BuildContext context) {
     Navigator.push(
       context,
@@ -797,9 +807,188 @@ class _GeneralSettingsTab extends StatelessWidget {
     );
   }
 
+  void _showYieldSettingsSheet(
+    BuildContext context,
+    AppSettingsService settings,
+  ) {
+    var selectedVariant = settings.teaVariant;
+    final pluckableController = TextEditingController(
+      text: settings.pluckable100BudWeightG?.toStringAsFixed(1) ?? '',
+    );
+    final arimbuController = TextEditingController(
+      text: settings.arimbu100BudWeightG?.toStringAsFixed(1) ?? '',
+    );
+    var isSaving = false;
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 20,
+                right: 20,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+              ),
+              child: Container(
+                padding: const EdgeInsets.all(24),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Yield prediction setup',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Choose the tea variant and enter the average fresh weight of 100 pluckable buds and 100 arimbu buds.',
+                      style: TextStyle(
+                        color: AppTheme.textSecondary,
+                        height: 1.45,
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    DropdownButtonFormField<String>(
+                      initialValue: selectedVariant,
+                      decoration: InputDecoration(
+                        labelText: 'Tea variant',
+                        filled: true,
+                        fillColor: const Color(0xFFF5F7F6),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                      items: _teaVariants
+                          .map(
+                            (variant) => DropdownMenuItem<String>(
+                              value: variant,
+                              child: Text(variant),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (value) {
+                        if (value == null) {
+                          return;
+                        }
+                        setSheetState(() {
+                          selectedVariant = value;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: pluckableController,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      decoration: InputDecoration(
+                        labelText: 'Average weight of 100 pluckable buds (g)',
+                        filled: true,
+                        fillColor: const Color(0xFFF5F7F6),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: arimbuController,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      decoration: InputDecoration(
+                        labelText: 'Average weight of 100 arimbu buds (g)',
+                        filled: true,
+                        fillColor: const Color(0xFFF5F7F6),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: isSaving
+                            ? null
+                            : () async {
+                                final pluckableWeight = double.tryParse(
+                                  pluckableController.text.trim(),
+                                );
+                                final arimbuWeight = double.tryParse(
+                                  arimbuController.text.trim(),
+                                );
+                                if (pluckableWeight == null ||
+                                    pluckableWeight <= 0 ||
+                                    arimbuWeight == null ||
+                                    arimbuWeight <= 0) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'Enter valid positive bud weights.',
+                                      ),
+                                    ),
+                                  );
+                                  return;
+                                }
+
+                                setSheetState(() {
+                                  isSaving = true;
+                                });
+                                final saved = await settings.saveYieldSettings(
+                                  teaVariant: selectedVariant,
+                                  pluckable100BudWeightG: pluckableWeight,
+                                  arimbu100BudWeightG: arimbuWeight,
+                                );
+                                if (!context.mounted) {
+                                  return;
+                                }
+                                setSheetState(() {
+                                  isSaving = false;
+                                });
+                                if (!saved) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'Failed to save yield settings.',
+                                      ),
+                                    ),
+                                  );
+                                  return;
+                                }
+                                Navigator.pop(context);
+                              },
+                        child: Text(isSaving ? 'Saving...' : 'Save'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = AuthService().currentUser;
+    final settings = AppSettingsService();
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
@@ -828,6 +1017,33 @@ class _GeneralSettingsTab extends StatelessWidget {
                   Icons.chevron_right_rounded,
                   color: AppTheme.textSecondary,
                 ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          _SettingsSection(
+            title: 'Yield Prediction',
+            children: [
+              ListenableBuilder(
+                listenable: settings,
+                builder: (context, _) {
+                  final subtitle = settings.yieldSettingsLoading
+                      ? 'Loading saved tea variant and bud weights...'
+                      : settings.hasConfiguredYieldSettings
+                      ? '${settings.teaVariant} • 100 pluckable buds: ${settings.pluckable100BudWeightG!.toStringAsFixed(1)} g • 100 arimbu: ${settings.arimbu100BudWeightG!.toStringAsFixed(1)} g'
+                      : 'Save tea variant and 100-bud weights before predicting yield.';
+
+                  return _SettingsTile(
+                    icon: Icons.science_outlined,
+                    title: 'Tea variant and bud weights',
+                    subtitle: subtitle,
+                    onTap: () => _showYieldSettingsSheet(context, settings),
+                    trailing: const Icon(
+                      Icons.chevron_right_rounded,
+                      color: AppTheme.textSecondary,
+                    ),
+                  );
+                },
               ),
             ],
           ),

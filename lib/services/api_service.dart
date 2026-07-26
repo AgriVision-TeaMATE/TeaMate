@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 
 import '../config/network_config.dart';
 import '../models/field_model.dart';
+import '../models/yield_settings_model.dart';
 import 'auth_service.dart';
 
 class ApiService {
@@ -314,10 +315,54 @@ class ApiService {
             headers: _headers(),
           )
           .timeout(_timeout);
-      if (response.statusCode != 200) return null;
+      if (response.statusCode != 200) {
+        debugPrint(
+          'ApiService predictRoundYield failed: '
+          '${response.statusCode} ${response.body}',
+        );
+        return null;
+      }
       return _parseRound(jsonDecode(response.body));
     } catch (e) {
       debugPrint('ApiService predictRoundYield error: $e');
+      return null;
+    }
+  }
+
+  Future<YieldSettingsModel?> fetchYieldSettings() async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/settings/yield'), headers: _headers())
+          .timeout(_timeout);
+      if (response.statusCode != 200) return null;
+      return _parseYieldSettings(jsonDecode(response.body));
+    } catch (e) {
+      debugPrint('ApiService fetchYieldSettings error: $e');
+      return null;
+    }
+  }
+
+  Future<YieldSettingsModel?> updateYieldSettings({
+    required String teaVariant,
+    required double pluckable100BudWeightG,
+    required double arimbu100BudWeightG,
+  }) async {
+    try {
+      final response = await http
+          .put(
+            Uri.parse('$baseUrl/settings/yield'),
+            headers: _headers(json: true),
+            body: jsonEncode({
+              'tea_variant': teaVariant,
+              'pluckable_100_bud_weight_g': pluckable100BudWeightG,
+              'arimbu_100_bud_weight_g': arimbu100BudWeightG,
+            }),
+          )
+          .timeout(_timeout);
+      if (response.statusCode != 200) return null;
+      return _parseYieldSettings(jsonDecode(response.body));
+    } catch (e) {
+      debugPrint('ApiService updateYieldSettings error: $e');
       return null;
     }
   }
@@ -675,6 +720,17 @@ class ApiService {
       canSchedule: json['can_schedule'] as bool? ?? false,
       scheduledDate: scheduledDate,
       shiftEnd: json['shift_end']?.toString() ?? '14:00:00',
+    );
+  }
+
+  YieldSettingsModel _parseYieldSettings(Map<String, dynamic> json) {
+    return YieldSettingsModel(
+      teaVariant: json['tea_variant']?.toString() ?? 'TRI 2025',
+      pluckable100BudWeightG: (json['pluckable_100_bud_weight_g'] as num?)
+          ?.toDouble(),
+      arimbu100BudWeightG: (json['arimbu_100_bud_weight_g'] as num?)
+          ?.toDouble(),
+      isConfigured: json['is_configured'] as bool? ?? false,
     );
   }
 
