@@ -4,7 +4,7 @@ import '../models/user_role.dart';
 import '../services/auth_service.dart';
 import 'factory_main_screen.dart';
 import 'login_screen.dart';
-import 'main_screen.dart';
+import 'shell/main_screen.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key, this.role = UserRole.estateManager});
