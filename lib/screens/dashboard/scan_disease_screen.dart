@@ -3,13 +3,21 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+import '../../models/environmental_data.dart';
 import '../../models/field_model.dart';
 import '../../theme.dart';
+import '../../widgets/disease_scan_widgets.dart';
+import 'disease_scan_result_screen.dart';
 
 class ScanDiseaseScreen extends StatefulWidget {
   final String fieldId;
+  final EnvironmentalData? environmentalData;
 
-  const ScanDiseaseScreen({super.key, required this.fieldId});
+  const ScanDiseaseScreen({
+    super.key,
+    required this.fieldId,
+    this.environmentalData,
+  });
 
   @override
   State<ScanDiseaseScreen> createState() => _ScanDiseaseScreenState();
@@ -94,6 +102,16 @@ class _ScanDiseaseScreenState extends State<ScanDiseaseScreen> {
     });
   }
 
+  void _retakeImage() {
+    setState(() {
+      _selectedImage = null;
+    });
+  }
+
+  void _proceedToScan() {
+    _scanDisease();
+  }
+
   Future<double?> _promptCapturedArea() async {
     final controller = TextEditingController(
       text: _capturedAreaPerImageSqm.toStringAsFixed(1),
@@ -172,7 +190,7 @@ class _ScanDiseaseScreenState extends State<ScanDiseaseScreen> {
       _isScanning = true;
     });
 
-    // TODO: Implement actual disease scanning API call
+    // Simulate API call delay
     await Future.delayed(const Duration(seconds: 2));
 
     setState(() {
@@ -180,8 +198,15 @@ class _ScanDiseaseScreenState extends State<ScanDiseaseScreen> {
     });
 
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Disease scan completed (demo).')),
+    // Navigate to results screen after scan
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => DiseaseScanResultScreen(
+          fieldId: widget.fieldId,
+          imagePath: _selectedImage?.path,
+        ),
+      ),
     );
   }
 
@@ -194,7 +219,7 @@ class _ScanDiseaseScreenState extends State<ScanDiseaseScreen> {
         .firstOrNull;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppTheme.backgroundLight,
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
@@ -251,198 +276,69 @@ class _ScanDiseaseScreenState extends State<ScanDiseaseScreen> {
               const SizedBox(height: 20),
             ],
 
-            // Image capture panel
-            _buildCapturePanel(),
-            const SizedBox(height: 20),
-
-            // Selected image preview
-            if (_selectedImage != null) ...[
-              _buildImagePreview(),
-              const SizedBox(height: 20),
-            ],
-
-            // Weather details section
-            _buildWeatherDetails(),
-            const SizedBox(height: 20),
-
-            // Scan button
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _isScanning ? null : _scanDisease,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFB54848),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                ),
-                child: _isScanning
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Text(
-                        'Scan for Diseases',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 15,
-                        ),
-                      ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCapturePanel() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(6, 14, 6, 6),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(5),
-        border: Border.all(color: const Color(0xFFE8ECEF), width: 1),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.primaryButton.withValues(alpha: 0.06),
-            blurRadius: 22,
-            offset: const Offset(0, 12),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Image capture',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.4,
-            ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Capture or upload images of tea leaves to detect diseases.',
-            style: TextStyle(color: AppTheme.textSecondary, height: 1.5),
-          ),
-          const SizedBox(height: 18),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
+            // Show instruction screen or image preview
+            if (_selectedImage == null) ...[
+              // Instructions screen with guidelines displayed BEFORE opening camera
+              ScanGuidelinesCard(),
+              const SizedBox(height: 24),
+              // Capture button - prominent, opens camera
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
                   onPressed: _isScanning ? null : _captureWithCamera,
-                  style: OutlinedButton.styleFrom(
+                  style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.primaryButton,
                     foregroundColor: Colors.white,
-                    disabledBackgroundColor: AppTheme.primaryButton.withValues(
-                      alpha: 0.62,
-                    ),
-                    disabledForegroundColor: Colors.white.withValues(
-                      alpha: 0.72,
-                    ),
-                    side: BorderSide.none,
-                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
                     ),
                   ),
-                  icon: const Icon(Icons.photo_camera_outlined),
-                  label: const Text('Camera'),
+                  icon: const Icon(Icons.camera_alt_outlined, size: 22),
+                  label: const Text(
+                    'Capture',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 16,
+                    ),
+                  ),
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
+              const SizedBox(height: 16),
+              // Alternative: Upload from gallery
+              SizedBox(
+                width: double.infinity,
                 child: OutlinedButton.icon(
                   onPressed: _isScanning ? null : () => _pickImage(ImageSource.gallery),
                   style: OutlinedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryButton,
-                    foregroundColor: Colors.white,
-                    disabledBackgroundColor: AppTheme.primaryButton.withValues(
-                      alpha: 0.62,
-                    ),
-                    disabledForegroundColor: Colors.white.withValues(
-                      alpha: 0.72,
-                    ),
-                    side: BorderSide.none,
-                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
                     ),
                   ),
-                  icon: const Icon(Icons.upload_file_outlined),
-                  label: const Text('Upload Image'),
+                  icon: const Icon(Icons.upload_file_outlined, size: 18),
+                  label: const Text(
+                    'Upload from Gallery',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
                 ),
               ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildImagePreview() {
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE8ECEF), width: 1),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Padding(
-            padding: EdgeInsets.fromLTRB(12, 12, 12, 8),
-            child: Text(
-              'Selected image',
-              style: TextStyle(
-                color: AppTheme.textPrimary,
-                fontSize: 16,
-                fontWeight: FontWeight.w900,
-                letterSpacing: -0.2,
+            ] else ...[
+              // Image preview with retake/scan options using reusable widget
+              DiseaseImagePreview(
+                imagePath: _selectedImage?.path,
+                onRetake: _retakeImage,
+                onScan: _proceedToScan,
+                isScanning: _isScanning,
               ),
-            ),
-          ),
-          ClipRRect(
-            borderRadius: const BorderRadius.vertical(
-              bottom: Radius.circular(14),
-            ),
-            child: _buildImageWidget(),
-          ),
-        ],
-      ),
-    );
-  }
+            ],
 
-  Widget _buildImageWidget() {
-    // XFile.path works for both mobile and web (web returns blob URL)
-    return Image.network(
-      _selectedImage!.path,
-      fit: BoxFit.cover,
-      height: 200,
-      width: double.infinity,
-      errorBuilder: (context, error, stackTrace) {
-        return Container(
-          height: 200,
-          color: const Color(0xFFF3F4F6),
-          child: const Center(
-            child: Icon(
-              Icons.broken_image_outlined,
-              size: 48,
-              color: AppTheme.textSecondary,
-            ),
-          ),
-        );
-      },
+            const SizedBox(height: 20),
+            _buildWeatherDetails(),
+            const SizedBox(height: 20),
+          ],
+        ),
+      ),
     );
   }
 

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/field_model.dart';
 import '../../theme.dart';
-import 'scan_disease_screen.dart';
+import 'environmental_data_screen.dart';
 
 class DiseaseDetectionScreen extends StatefulWidget {
   const DiseaseDetectionScreen({super.key});
@@ -173,7 +173,7 @@ class _DiseaseDetectionScreenState extends State<DiseaseDetectionScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => ScanDiseaseScreen(fieldId: field.id),
+        builder: (_) => EnvironmentalDataScreen(fieldId: field.id),
       ),
     );
   }
