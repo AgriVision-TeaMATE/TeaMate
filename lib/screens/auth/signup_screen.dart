@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import '../../models/user_role.dart';
 import '../../services/auth_service.dart';
 import '../../theme.dart';
+import '../../widgets/role_toggle.dart';
+import '../factory_main_screen.dart';
 import '../shell/main_screen.dart';
 import 'login_screen.dart';
 
@@ -21,6 +24,7 @@ class _SignupScreenState extends State<SignupScreen> {
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
   bool _isLoading = false;
+  String _role = UserRole.estateManager;
 
   Future<void> _handleSignup() async {
     if (!_formKey.currentState!.validate()) return;
@@ -31,6 +35,7 @@ class _SignupScreenState extends State<SignupScreen> {
         fullName: _nameController.text.trim(),
         email: _emailController.text.trim(),
         password: _passwordController.text,
+        role: _role,
       );
 
       if (!mounted) return;
@@ -42,9 +47,12 @@ class _SignupScreenState extends State<SignupScreen> {
             behavior: SnackBarBehavior.floating,
           ),
         );
+        final home = user.role == UserRole.factoryManager
+            ? const FactoryMainScreen()
+            : const MainScreen();
         Navigator.pushAndRemoveUntil(
           context,
-          MaterialPageRoute(builder: (context) => const MainScreen()),
+          MaterialPageRoute(builder: (context) => home),
           (_) => false,
         );
       }
@@ -111,6 +119,22 @@ class _SignupScreenState extends State<SignupScreen> {
                       ),
                     ),
                     const SizedBox(height: 18),
+                    // Role Field
+                    const Text(
+                      'I am a',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF334155),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    RoleToggle(
+                      selectedRole: _role,
+                      onChanged: (role) => setState(() => _role = role),
+                    ),
+                    const SizedBox(height: 12),
+
                     // Full Name Field
                     const Text(
                       'Full Name',

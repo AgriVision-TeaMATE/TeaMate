@@ -4,7 +4,7 @@ import '../models/tea_grade_model.dart';
 import '../models/user_role.dart';
 import '../services/auth_service.dart';
 import '../services/tea_grade_service.dart';
-import 'welcome_screen.dart';
+import 'auth/welcome_screen.dart';
 
 /// Minimal settings for the factory manager flow: account info and logout.
 class FactorySettingsScreen extends StatelessWidget {

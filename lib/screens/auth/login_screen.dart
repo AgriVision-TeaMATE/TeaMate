@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import '../../models/user_role.dart';
 import '../../services/auth_service.dart';
 import '../../theme.dart';
+import '../factory_main_screen.dart';
 import '../shell/main_screen.dart';
 import 'forgot_password_screen.dart';
 import 'signup_screen.dart';
@@ -39,9 +41,12 @@ class _LoginScreenState extends State<LoginScreen> {
             behavior: SnackBarBehavior.floating,
           ),
         );
+        final home = user.role == UserRole.factoryManager
+            ? const FactoryMainScreen()
+            : const MainScreen();
         Navigator.pushAndRemoveUntil(
           context,
-          MaterialPageRoute(builder: (context) => const MainScreen()),
+          MaterialPageRoute(builder: (context) => home),
           (_) => false,
         );
       }
