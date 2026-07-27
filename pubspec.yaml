@@ -36,6 +36,9 @@ dependencies:
   cupertino_icons: ^1.0.8
   image_picker: ^1.2.2
   http: ^1.6.0
+  # Already pulled in transitively by `http`; listed so we can import MediaType
+  # for multipart uploads (adds no new package to the resolution).
+  http_parser: ^4.1.2
   intl: ^0.20.3
   geolocator: ^13.0.0
   permission_handler: ^11.3.1
