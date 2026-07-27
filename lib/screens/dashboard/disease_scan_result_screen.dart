@@ -6,11 +6,13 @@ import '../../theme.dart';
 class DiseaseScanResultScreen extends StatefulWidget {
   final String fieldId;
   final String? imagePath;
+  final DiseaseScanResult? scanResult;
 
   const DiseaseScanResultScreen({
     super.key,
     required this.fieldId,
     this.imagePath,
+    this.scanResult,
   });
 
   @override
@@ -18,13 +20,12 @@ class DiseaseScanResultScreen extends StatefulWidget {
 }
 
 class _DiseaseScanResultScreenState extends State<DiseaseScanResultScreen> {
-  // Dummy scan result data (API not finalized yet)
   late final DiseaseScanResult _scanResult;
 
   @override
   void initState() {
     super.initState();
-    _scanResult = _generateDummyResult();
+    _scanResult = widget.scanResult ?? _generateDummyResult();
   }
 
   DiseaseScanResult _generateDummyResult() {

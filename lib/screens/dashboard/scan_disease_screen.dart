@@ -5,6 +5,7 @@ import 'package:permission_handler/permission_handler.dart';
 
 import '../../models/environmental_data.dart';
 import '../../models/field_model.dart';
+import '../../services/disease_scan_service.dart';
 import '../../theme.dart';
 import '../../widgets/disease_scan_widgets.dart';
 import 'disease_scan_result_screen.dart';
@@ -24,8 +25,6 @@ class ScanDiseaseScreen extends StatefulWidget {
 }
 
 class _ScanDiseaseScreenState extends State<ScanDiseaseScreen> {
-  static const double _capturedAreaPerImageSqm = 8.0;
-
   final ImagePicker _picker = ImagePicker();
   XFile? _selectedImage;
   bool _isScanning = false;
@@ -46,11 +45,6 @@ class _ScanDiseaseScreenState extends State<ScanDiseaseScreen> {
       imageQuality: 85,
     );
     if (pickedFile == null) {
-      return;
-    }
-
-    final capturedArea = await _promptCapturedArea();
-    if (capturedArea == null) {
       return;
     }
 
@@ -91,11 +85,6 @@ class _ScanDiseaseScreenState extends State<ScanDiseaseScreen> {
       return;
     }
 
-    final capturedArea = await _promptCapturedArea();
-    if (capturedArea == null) {
-      return;
-    }
-
     if (!mounted) return;
     setState(() {
       _selectedImage = pickedFile;
@@ -112,72 +101,6 @@ class _ScanDiseaseScreenState extends State<ScanDiseaseScreen> {
     _scanDisease();
   }
 
-  Future<double?> _promptCapturedArea() async {
-    final controller = TextEditingController(
-      text: _capturedAreaPerImageSqm.toStringAsFixed(1),
-    );
-
-    final result = await showDialog<double>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
-          title: const Text(
-            'Captured area',
-            style: TextStyle(fontWeight: FontWeight.w800),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Enter the sampled area covered by this image in square meters.',
-                style: TextStyle(color: AppTheme.textSecondary, height: 1.5),
-              ),
-              const SizedBox(height: 14),
-              TextField(
-                controller: controller,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                autofocus: true,
-                decoration: InputDecoration(
-                  labelText: 'Area (sq.m)',
-                  filled: true,
-                  fillColor: const Color(0xFFF3F4F6),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                final area = double.tryParse(controller.text.trim());
-                if (area == null || area <= 0) {
-                  return;
-                }
-                Navigator.pop(context, area);
-              },
-              child: const Text('Save'),
-            ),
-          ],
-        );
-      },
-    );
-
-    return result;
-  }
-
   Future<void> _scanDisease() async {
     if (_selectedImage == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -190,23 +113,78 @@ class _ScanDiseaseScreenState extends State<ScanDiseaseScreen> {
       _isScanning = true;
     });
 
-    // Simulate API call delay
-    await Future.delayed(const Duration(seconds: 2));
+    try {
+      // Read image bytes
+      final bytes = await _selectedImage!.readAsBytes();
 
-    setState(() {
-      _isScanning = false;
-    });
+      // Call disease scan API
+      final response = await DiseaseScanService.scanDisease(
+        imageBytes: bytes,
+        fileName: _selectedImage!.name,
+        environmentalData: widget.environmentalData ??
+            EnvironmentalData(
+              date: DateTime.now(),
+              time: DateTime.now(),
+            ),
+        fieldId: widget.fieldId,
+      );
 
-    if (!mounted) return;
-    // Navigate to results screen after scan
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => DiseaseScanResultScreen(
-          fieldId: widget.fieldId,
-          imagePath: _selectedImage?.path,
+      if (!mounted) return;
+
+      // Parse API response into DiseaseScanResult
+      final scanResult = _parseApiResponse(response);
+
+      setState(() {
+        _isScanning = false;
+      });
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => DiseaseScanResultScreen(
+            fieldId: widget.fieldId,
+            imagePath: _selectedImage?.path,
+            scanResult: scanResult,
+          ),
         ),
-      ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isScanning = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Scan failed: ${e.toString()}')),
+      );
+    }
+  }
+
+  DiseaseScanResult _parseApiResponse(Map<String, dynamic> response) {
+    final weatherData = response['weather'] as Map<String, dynamic>?;
+    final diseasesList = response['diseases'] as List<dynamic>? ?? [];
+
+    return DiseaseScanResult(
+      fieldId: widget.fieldId,
+      imagePath: _selectedImage?.path,
+      detectedAt: DateTime.now(),
+      weather: weatherData != null
+          ? WeatherSnapshot(
+              date: DateTime.now(),
+              summary: weatherData['summary'] as String? ?? 'Partly cloudy',
+              rainChance: (weatherData['rain_chance'] as num?)?.toInt() ?? 42,
+              humidity: (weatherData['humidity'] as num?)?.toInt() ?? 78,
+              temperatureC:
+                  (weatherData['temperature'] as num?)?.toDouble() ?? 24.5,
+              stormRisk: weatherData['storm_risk'] as bool? ?? false,
+            )
+          : null,
+      diseaseResults: diseasesList.map((d) => DiseaseResult(
+          name: d['name'] as String? ?? 'Unknown',
+          confidence: (d['confidence'] as num?)?.toInt() ?? 0,
+          description: d['description'] as String? ?? '',
+          symptoms: d['symptoms'] as String? ?? '',
+          treatment: d['treatment'] as String? ?? '',
+        )).toList(),
     );
   }
 
@@ -343,12 +321,22 @@ class _ScanDiseaseScreenState extends State<ScanDiseaseScreen> {
   }
 
   Widget _buildWeatherDetails() {
-    // Dummy weather data (API not connected yet)
-    const temperature = 24.5;
-    const humidity = 78;
-    const rainChance = 42;
-    const windSpeed = 12.0;
-    const weatherSummary = 'Partly cloudy';
+    final hasEnvironmentalData = widget.environmentalData != null;
+
+    // Use environmental data values or defaults
+    final avgTemperature = hasEnvironmentalData
+        ? widget.environmentalData!.avgTemperatureLast7
+        : 24.5;
+    final avgHumidity =
+        hasEnvironmentalData ? widget.environmentalData!.avgHumidityLast7 : 78;
+    final totalRainfall =
+        hasEnvironmentalData ? widget.environmentalData!.totalRainfallLast7 : 0.0;
+    final avgWindSpeed = hasEnvironmentalData
+        ? widget.environmentalData!.avgWindSpeedLast7
+        : 12.0;
+    final avgSunshineHours = hasEnvironmentalData
+        ? widget.environmentalData!.avgSunshineHoursLast7
+        : 8.0;
 
     return Container(
       width: double.infinity,
@@ -377,7 +365,7 @@ class _ScanDiseaseScreenState extends State<ScanDiseaseScreen> {
               ),
               SizedBox(width: 8),
               Text(
-                'Weather Details',
+                '7-Day Environmental Data',
                 style: TextStyle(
                   fontSize: 17,
                   fontWeight: FontWeight.w900,
@@ -386,30 +374,21 @@ class _ScanDiseaseScreenState extends State<ScanDiseaseScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 4),
-          Text(
-            'Current conditions for field scanning',
-            style: TextStyle(
-              color: AppTheme.textSecondary,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
           const SizedBox(height: 18),
           Row(
             children: [
               Expanded(
                 child: _WeatherMetric(
-                  label: 'Temperature',
-                  value: '${temperature.toStringAsFixed(1)}°C',
+                  label: 'Avg Temperature (7d)',
+                  value: '${avgTemperature.toStringAsFixed(1)}°C',
                   icon: Icons.thermostat_outlined,
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: _WeatherMetric(
-                  label: 'Humidity',
-                  value: '$humidity%',
+                  label: 'Avg Humidity (7d)',
+                  value: '$avgHumidity%',
                   icon: Icons.water_drop_outlined,
                 ),
               ),
@@ -420,36 +399,32 @@ class _ScanDiseaseScreenState extends State<ScanDiseaseScreen> {
             children: [
               Expanded(
                 child: _WeatherMetric(
-                  label: 'Rain chance',
-                  value: '$rainChance%',
+                  label: 'Total Rainfall (7d)',
+                  value: '${totalRainfall.toStringAsFixed(1)} mm',
                   icon: Icons.grain_outlined,
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: _WeatherMetric(
-                  label: 'Wind speed',
-                  value: '${windSpeed.toStringAsFixed(1)} km/h',
+                  label: 'Avg Wind Speed (7d)',
+                  value: '${avgWindSpeed.toStringAsFixed(1)} km/h',
                   icon: Icons.air_outlined,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF7F8F9),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(
-              weatherSummary,
-              style: const TextStyle(
-                color: AppTheme.textPrimary,
-                fontWeight: FontWeight.w700,
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _WeatherMetric(
+                  label: 'Avg Sunshine Hours (7d)',
+                  value: '${avgSunshineHours.toStringAsFixed(1)} h',
+                  icon: Icons.wb_sunny_outlined,
+                ),
               ),
-            ),
+            ],
           ),
         ],
       ),
