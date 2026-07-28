@@ -15,6 +15,11 @@ class ApiService {
   static String get modelBaseUrl => NetworkConfig.modelBaseUrl();
 
   static const Duration _timeout = Duration(seconds: 12);
+  String? _lastPredictYieldErrorDetail;
+  String? _lastPlanRoundErrorDetail;
+
+  String? get lastPredictYieldErrorDetail => _lastPredictYieldErrorDetail;
+  String? get lastPlanRoundErrorDetail => _lastPlanRoundErrorDetail;
 
   Map<String, String> _headers({bool json = false}) {
     final headers = <String, String>{};
@@ -238,12 +243,16 @@ class ApiService {
 
   Future<AnalysisImageResult?> uploadImageToRound({
     required String roundId,
-    required String imagePathOrUrl,
+    String? imagePathOrUrl,
+    Uint8List? imageBytes,
+    String? filename,
     required double capturedArea,
   }) async {
     try {
-      if (imagePathOrUrl.startsWith('http') ||
-          imagePathOrUrl.startsWith('data:')) {
+      if (imageBytes == null &&
+          imagePathOrUrl != null &&
+          (imagePathOrUrl.startsWith('http') ||
+              imagePathOrUrl.startsWith('data:'))) {
         return null;
       }
 
@@ -254,13 +263,25 @@ class ApiService {
       request.headers.addAll(_headers());
       request.fields['captured_area_sqm'] = capturedArea.toString();
 
-      final file = File(imagePathOrUrl);
-      final bytes = await file.readAsBytes();
+      Uint8List bytes;
+      String uploadFilename;
+      if (imageBytes != null) {
+        bytes = imageBytes;
+        uploadFilename = filename ?? 'image.jpg';
+      } else {
+        if (imagePathOrUrl == null || imagePathOrUrl.isEmpty) {
+          return null;
+        }
+        final file = File(imagePathOrUrl);
+        bytes = await file.readAsBytes();
+        uploadFilename = filename ??
+            imagePathOrUrl.split(Platform.pathSeparator).last;
+      }
       request.files.add(
         http.MultipartFile.fromBytes(
           'image',
           bytes,
-          filename: imagePathOrUrl.split(Platform.pathSeparator).last,
+          filename: uploadFilename,
         ),
       );
 
@@ -309,6 +330,7 @@ class ApiService {
 
   Future<FieldMeasurement?> predictRoundYield(String roundId) async {
     try {
+      _lastPredictYieldErrorDetail = null;
       final response = await http
           .post(
             Uri.parse('$baseUrl/rounds/$roundId/predict-yield'),
@@ -316,6 +338,10 @@ class ApiService {
           )
           .timeout(_timeout);
       if (response.statusCode != 200) {
+        try {
+          final body = jsonDecode(response.body) as Map<String, dynamic>;
+          _lastPredictYieldErrorDetail = body['detail']?.toString();
+        } catch (_) {}
         debugPrint(
           'ApiService predictRoundYield failed: '
           '${response.statusCode} ${response.body}',
@@ -372,6 +398,7 @@ class ApiService {
     required double kgPerWorkerPerDay,
   }) async {
     try {
+      _lastPlanRoundErrorDetail = null;
       final response = await http
           .post(
             Uri.parse('$baseUrl/rounds/$roundId/plan'),
@@ -379,7 +406,17 @@ class ApiService {
             body: jsonEncode({'kg_per_worker_per_day': kgPerWorkerPerDay}),
           )
           .timeout(_timeout);
-      if (response.statusCode != 200) return null;
+      if (response.statusCode != 200) {
+        try {
+          final body = jsonDecode(response.body) as Map<String, dynamic>;
+          _lastPlanRoundErrorDetail = body['detail']?.toString();
+        } catch (_) {}
+        debugPrint(
+          'ApiService planRound failed: '
+          '${response.statusCode} ${response.body}',
+        );
+        return null;
+      }
       return _parseRoundPlan(jsonDecode(response.body));
     } catch (e) {
       debugPrint('ApiService planRound error: $e');
