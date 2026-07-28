@@ -9,6 +9,7 @@ import '../../theme.dart';
 import '../fields/field_analysis_screen.dart';
 import '../fields/fields_screen.dart';
 import '../settings/profile_screen.dart';
+import 'disease_detection_screen.dart';
 import 'weather_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -113,7 +114,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             AppTheme.primaryButton,
                             Color(0xFF1F1F1F),
                           ],
-                          onTap: () {},
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const DiseaseDetectionScreen(),
+                              ),
+                            );
+                          },
                         ),
                       ),
                     ],
