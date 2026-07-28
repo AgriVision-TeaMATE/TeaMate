@@ -28,6 +28,7 @@ object AreaMath {
 
     data class QuadResult(
         val orderedPoints: List<Vec3>,
+        val orderedIndices: List<Int>,
         val areaSqm: Float,
         val warnings: List<String>,
     )
@@ -68,12 +69,19 @@ object AreaMath {
      */
     fun orderPoints(points: List<Vec3>, planeNormal: Vec3?): List<Vec3> {
         if (points.size < 3) return points
+        val orderedIndices = orderPointIndices(points, planeNormal)
+        return orderedIndices.map { points[it] }
+    }
+
+    fun orderPointIndices(points: List<Vec3>, planeNormal: Vec3?): List<Int> {
+        if (points.size < 3) return points.indices.toList()
         val normal = planeNormal?.takeIf { it.length() > 1e-6f } ?: planeNormalFallback(points)
         val centroid = centroidOf(points)
         val arbitrary = if (abs(normal.x) < 0.9f) Vec3(1f, 0f, 0f) else Vec3(0f, 1f, 0f)
         val u = normal.cross(arbitrary).normalized()
         val v = normal.cross(u).normalized()
-        return points.sortedBy { p ->
+        return points.indices.sortedBy { index ->
+            val p = points[index]
             val d = p - centroid
             atan2(d.dot(v).toDouble(), d.dot(u).toDouble())
         }
@@ -124,7 +132,8 @@ object AreaMath {
      * Safe to call with 1-4 points; area is only meaningful once >= 3.
      */
     fun evaluate(rawPoints: List<Vec3>, planeNormal: Vec3?): QuadResult {
-        val ordered = orderPoints(rawPoints, planeNormal)
+        val orderedIndices = orderPointIndices(rawPoints, planeNormal)
+        val ordered = orderedIndices.map { rawPoints[it] }
         val normal = planeNormal?.takeIf { it.length() > 1e-6f } ?: planeNormalFallback(ordered)
         val area = computeArea(ordered)
         val warnings = mutableListOf<String>()
@@ -133,6 +142,6 @@ object AreaMath {
             if (area < MIN_AREA_SQM) warnings.add(WARNING_DEGENERATE)
             if (area > MAX_AREA_SQM) warnings.add(WARNING_AREA_TOO_LARGE)
         }
-        return QuadResult(ordered, area, warnings)
+        return QuadResult(ordered, orderedIndices, area, warnings)
     }
 }

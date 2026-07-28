@@ -51,11 +51,16 @@ class ArCaptureView(
     private var referencePlane: Plane? = null
 
     @Volatile private var draggingIndex: Int = -1
+    private var dragCandidateIndex: Int = -1
+    private var touchDownX: Float = 0f
+    private var touchDownY: Float = 0f
+    private var dragActivated = false
     private val touchLock = Object()
     private var pendingTapXY: FloatArray? = null
     private var pendingDragXY: FloatArray? = null
 
     @Volatile private var lastScreenPoints: List<PointF> = emptyList()
+    @Volatile private var lastScreenPointAnchorIndices: List<Int> = emptyList()
 
     private var eventSink: EventChannel.EventSink? = null
 
@@ -102,22 +107,37 @@ class ArCaptureView(
     // ---- touch handling (UI thread; actual hit-test happens on the GL thread) ----
 
     private fun handleTouchDown(x: Float, y: Float) {
+        touchDownX = x
+        touchDownY = y
+        dragActivated = false
         val idx = overlayView.indexNear(x, y, lastScreenPoints)
-        if (idx != -1) {
-            draggingIndex = idx
-        } else if (anchors.size < 4) {
-            synchronized(touchLock) { pendingTapXY = floatArrayOf(x, y) }
+        dragCandidateIndex = if (idx != -1) {
+            lastScreenPointAnchorIndices.getOrNull(idx) ?: idx
+        } else {
+            -1
         }
     }
 
     private fun handleTouchMove(x: Float, y: Float) {
-        if (draggingIndex != -1) {
+        if (!dragActivated && dragCandidateIndex != -1) {
+            val movedFarEnough = overlayView.hasExceededDragSlop(touchDownX, touchDownY, x, y)
+            if (movedFarEnough) {
+                draggingIndex = dragCandidateIndex
+                dragActivated = true
+            }
+        }
+        if (dragActivated && draggingIndex != -1) {
             synchronized(touchLock) { pendingDragXY = floatArrayOf(x, y) }
         }
     }
 
     private fun handleTouchUp(x: Float, y: Float) {
+        if (!dragActivated && anchors.size < 4) {
+            synchronized(touchLock) { pendingTapXY = floatArrayOf(x, y) }
+        }
         draggingIndex = -1
+        dragCandidateIndex = -1
+        dragActivated = false
     }
 
     // ---- GLSurfaceView.Renderer (GL thread) ----
@@ -153,7 +173,8 @@ class ArCaptureView(
 
         if (!trackingOk) {
             lastScreenPoints = emptyList()
-            postOverlayUpdate(emptyList(), emptyList(), null, emptyList(), -1, false, null)
+            lastScreenPointAnchorIndices = emptyList()
+            postOverlayUpdate(emptyList(), emptyList(), emptyList(), null, emptyList(), -1, false, null)
             emitEvent(mapOf("type" to "tracking", "state" to "PAUSED"))
             return
         }
@@ -206,6 +227,7 @@ class ArCaptureView(
         }
 
         var screenPoints: List<PointF> = emptyList()
+        var displayIndices: List<Int> = emptyList()
         var reticle: PointF? = null
         var quad: AreaMath.QuadResult? = null
 
@@ -217,8 +239,10 @@ class ArCaptureView(
 
             if (worldPoints.size >= 2) {
                 quad = AreaMath.evaluate(worldPoints, currentPlaneNormal())
-                screenPoints = quad.orderedPoints.map { projectToScreen(it, viewMatrix, projMatrix) }
+                displayIndices = worldPoints.indices.toList()
+                screenPoints = worldPoints.map { projectToScreen(it, viewMatrix, projMatrix) }
             } else {
+                displayIndices = listOf(0)
                 screenPoints = listOf(projectToScreen(worldPoints[0], viewMatrix, projMatrix))
             }
         } else {
@@ -226,12 +250,27 @@ class ArCaptureView(
         }
 
         lastScreenPoints = screenPoints
+        lastScreenPointAnchorIndices = displayIndices
 
         val closed = anchors.size >= 4
-        val edgeLabels = quad?.let { AreaMath.edgeLengths(it.orderedPoints, closed) } ?: emptyList()
+        val edgeLabels = if (worldPoints.size >= 2) {
+            AreaMath.edgeLengths(worldPoints, closed)
+        } else {
+            emptyList()
+        }
         val areaPreview = if (anchors.size >= 3) quad?.areaSqm else null
+        val draggingOverlayIndex = displayIndices.indexOf(draggingIndex)
 
-        postOverlayUpdate(screenPoints, edgeLabels, areaPreview, quad?.warnings ?: emptyList(), draggingIndex, true, reticle)
+        postOverlayUpdate(
+            screenPoints,
+            edgeLabels,
+            displayIndices,
+            areaPreview,
+            quad?.warnings ?: emptyList(),
+            draggingOverlayIndex,
+            true,
+            reticle,
+        )
 
         if (anchors.size >= 3) {
             emitEvent(
@@ -268,13 +307,16 @@ class ArCaptureView(
     private fun postOverlayUpdate(
         points: List<PointF>,
         edges: List<Float>,
+        pointLabels: List<Int>,
         area: Float?,
         warnings: List<String>,
         draggingIdx: Int,
         trackingOk: Boolean,
         reticle: PointF?,
     ) {
-        activity.runOnUiThread { overlayView.update(points, edges, area, warnings, draggingIdx, trackingOk, reticle) }
+        activity.runOnUiThread {
+            overlayView.update(points, edges, pointLabels, area, warnings, draggingIdx, trackingOk, reticle)
+        }
     }
 
     // ---- MethodChannel ----
@@ -286,12 +328,14 @@ class ArCaptureView(
                     anchors.removeAt(anchors.size - 1).detach()
                     if (anchors.isEmpty()) referencePlane = null
                 }
+                draggingIndex = -1
                 result.success(anchors.size)
             }
             "reset" -> {
                 anchors.forEach { it.detach() }
                 anchors.clear()
                 referencePlane = null
+                draggingIndex = -1
                 result.success(null)
             }
             "confirmCapture" -> confirmCapture(result)

@@ -13,10 +13,10 @@ import kotlin.math.hypot
 
 /**
  * Transparent overlay drawn on top of the ARCore camera preview: placed point dots, connecting
- * lines (open path while <4 points, closed/filled quad at 4), per-edge length labels, a running
- * area readout, and a reticle when no points are placed yet. Also captures raw touch input and
- * forwards it to [touchListener] - hit-testing against real anchors happens on the GL thread in
- * ArCaptureView, since it needs the current ARCore Frame.
+ * lines (open path while <4 points, closed/filled quad at 4), per-edge length labels, and a
+ * reticle when no points are placed yet. Also captures raw touch input and forwards it to
+ * [touchListener] - hit-testing against real anchors happens on the GL thread in ArCaptureView,
+ * since it needs the current ARCore Frame.
  */
 class OverlayView(context: Context, attrs: AttributeSet? = null) : View(context, attrs) {
 
@@ -29,11 +29,12 @@ class OverlayView(context: Context, attrs: AttributeSet? = null) : View(context,
     var touchListener: TouchListener? = null
 
     /** Touch radius (px) used both here for hit-testing hints and by ArCaptureView for drag pickup. */
-    val touchRadiusPx = 56f
+    val touchRadiusPx = 40f
+    private val dragSlopPx = 18f
 
     @Volatile private var points: List<PointF> = emptyList()
     @Volatile private var edgeLengths: List<Float> = emptyList()
-    @Volatile private var areaSqm: Float? = null
+    @Volatile private var pointLabels: List<Int> = emptyList()
     @Volatile private var warnings: List<String> = emptyList()
     @Volatile private var draggingIndex: Int = -1
     @Volatile private var trackingOk: Boolean = true
@@ -68,12 +69,6 @@ class OverlayView(context: Context, attrs: AttributeSet? = null) : View(context,
     private val pointIndexPaint = Paint(labelPaint).apply {
         textAlign = Paint.Align.LEFT
     }
-    private val areaLabelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#4CAF50")
-        textSize = 46f
-        textAlign = Paint.Align.LEFT
-        setShadowLayer(4f, 0f, 0f, Color.BLACK)
-    }
     private val reticlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.WHITE
         style = Paint.Style.STROKE
@@ -87,6 +82,7 @@ class OverlayView(context: Context, attrs: AttributeSet? = null) : View(context,
     fun update(
         points: List<PointF>,
         edgeLengths: List<Float>,
+        pointLabels: List<Int>,
         areaSqm: Float?,
         warnings: List<String>,
         draggingIndex: Int,
@@ -95,7 +91,7 @@ class OverlayView(context: Context, attrs: AttributeSet? = null) : View(context,
     ) {
         this.points = points
         this.edgeLengths = edgeLengths
-        this.areaSqm = areaSqm
+        this.pointLabels = pointLabels
         this.warnings = warnings
         this.draggingIndex = draggingIndex
         this.trackingOk = trackingOk
@@ -110,6 +106,7 @@ class OverlayView(context: Context, attrs: AttributeSet? = null) : View(context,
         reticle?.let { canvas.drawCircle(it.x, it.y, 16f, reticlePaint) }
 
         val pts = points
+        val labels = pointLabels
         val n = pts.size
         if (n >= 2) {
             val closed = n >= 4
@@ -135,13 +132,8 @@ class OverlayView(context: Context, attrs: AttributeSet? = null) : View(context,
         for ((i, p) in pts.withIndex()) {
             val paint = if (i == draggingIndex) draggingPointPaint else pointPaint
             canvas.drawCircle(p.x, p.y, pointRadiusPx, paint)
-            canvas.drawText((i + 1).toString(), p.x + pointRadiusPx + 8f, p.y + 10f, pointIndexPaint)
-        }
-
-        if (n >= 3) {
-            areaSqm?.let {
-                canvas.drawText(String.format("Area: %.2f m²", it), 24f, height - 48f, areaLabelPaint)
-            }
+            val label = labels.getOrNull(i)?.plus(1) ?: (i + 1)
+            canvas.drawText(label.toString(), p.x + pointRadiusPx + 8f, p.y + 10f, pointIndexPaint)
         }
     }
 
@@ -166,5 +158,9 @@ class OverlayView(context: Context, attrs: AttributeSet? = null) : View(context,
             }
         }
         return bestIdx
+    }
+
+    fun hasExceededDragSlop(startX: Float, startY: Float, endX: Float, endY: Float): Boolean {
+        return hypot((endX - startX).toDouble(), (endY - startY).toDouble()) >= dragSlopPx
     }
 }

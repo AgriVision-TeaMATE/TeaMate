@@ -33,6 +33,40 @@ class AppTheme {
   static const Color secondaryColor = cardWhite;
   static const Color errorColor = alertRedText;
 
+  // Plucking-status colors, ranked by priority (most urgent first).
+  static const Color statusUrgent = Color(0xFFD94A4A); // Overgrown / review maturity
+  static const Color statusReady = brandGreen; // Ready to pluck — act now
+  static const Color statusApproaching = Color(0xFFE69A2E); // Maturing / pluck soon
+  static const Color statusMonitor = Color(0xFF64748B); // Needs more growth — low priority
+  static const Color statusAnalyzing = Color(0xFF5F6C7B); // Analysis in progress
+  static const Color statusPending = Color(0xFF9AA3AF); // Awaiting analysis / no data
+  static const Color statusCompleted = Color(0xFF2E6FA6); // Round completed — kept distinct from statusReady
+
+  /// Resolves the priority color for a field measurement's plucking status.
+  static Color pluckingStatusColor({
+    required bool isCompleted,
+    required String pluckingStatus,
+  }) {
+    if (isCompleted || pluckingStatus == 'completed') {
+      return statusCompleted;
+    }
+    switch (pluckingStatus) {
+      case 'ready_to_pluck':
+        return statusReady;
+      case 'overgrown':
+        return statusUrgent;
+      case 'maturing':
+        return statusApproaching;
+      case 'needs_growth':
+        return statusMonitor;
+      case 'analyzing':
+        return statusAnalyzing;
+      case 'awaiting_analysis':
+      default:
+        return statusPending;
+    }
+  }
+
   static ThemeData get lightTheme {
     return ThemeData(
       primaryColor: brandGreen,

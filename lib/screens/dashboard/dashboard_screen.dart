@@ -6,6 +6,7 @@ import '../../models/field_model.dart';
 import '../../services/auth_service.dart';
 import '../../services/weather_service.dart';
 import '../../theme.dart';
+import '../fields/field_analysis_screen.dart';
 import '../fields/fields_screen.dart';
 import '../settings/profile_screen.dart';
 import 'weather_screen.dart';
@@ -715,21 +716,18 @@ class _TrendCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          const Text(
+            'Actual Yield & Readiness',
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.5,
+            ),
+          ),
+          const SizedBox(height: 14),
           Row(
             children: [
-              Flexible(
-                child: Text(
-                  'Actual Yield & Readiness',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.5,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
+              const Spacer(),
               Container(
                 decoration: BoxDecoration(
                   color: const Color(0xFFF4F6F5),
@@ -912,127 +910,142 @@ class _CriticalFieldCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFEAEDEA)),
-      ),
-      child: Row(
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: SizedBox(
-              width: 60,
-              height: 60,
-              child: Image.asset(
-                'assets/images/tea_background.png',
-                fit: BoxFit.cover,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(22),
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => FieldAnalysisScreen(
+                fieldId: field.fieldId,
+                measurementId: field.measurementId,
               ),
             ),
+          );
+        },
+        child: Ink(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: const Color(0xFFEDF0EC)),
           ),
-          const SizedBox(width: 12),
-          Expanded(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  field.fieldName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Color(0xFF1B242C),
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                  ),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(14),
+                      child: SizedBox(
+                        width: 52,
+                        height: 52,
+                        child: Image.asset(
+                          'assets/images/tea_background.png',
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            field.fieldName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Color(0xFF1B242C),
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            field.caption,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Color(0xFF6E7E8B),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    const Icon(
+                      Icons.chevron_right_rounded,
+                      color: Color(0xFF6E7E8B),
+                      size: 20,
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  field.caption,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Color(0xFF6E7E8B),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                  ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    _buildActionBadge(field.chipLabel, field.chipColor),
+                    const Spacer(),
+                    Text(
+                      field.metricLabel,
+                      style: const TextStyle(
+                        color: Color(0xFF6E7E8B),
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      field.metricValue,
+                      style: TextStyle(
+                        color: field.metricColor,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
-          const SizedBox(width: 8),
-          _buildActionBadge(field.chipLabel),
-          const SizedBox(width: 16),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                field.metricLabel,
-                style: const TextStyle(
-                  color: Color(0xFF6E7E8B),
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                field.metricValue,
-                style: TextStyle(
-                  color: field.metricColor,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(width: 8),
-          const Icon(
-            Icons.chevron_right_rounded,
-            color: Color(0xFF6E7E8B),
-            size: 20,
-          ),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _buildActionBadge(String label) {
-    Color bgColor;
-    Color textColor;
+  Widget _buildActionBadge(String label, Color accentColor) {
     IconData icon;
-
     if (label == 'Pluck Now') {
-      bgColor = const Color(0xFFFDE8E8);
-      textColor = const Color(0xFFC04B4B);
       icon = Icons.content_cut_rounded;
-    } else if (label == 'Pluck Soon') {
-      bgColor = const Color(0xFFFFF4E6);
-      textColor = const Color(0xFFD97706);
-      icon = Icons.access_time_rounded;
+    } else if (label == 'Overgrown') {
+      icon = Icons.warning_amber_rounded;
     } else {
-      bgColor = const Color(0xFFFDE8E8);
-      textColor = const Color(0xFFC04B4B);
       icon = Icons.thunderstorm_rounded;
     }
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: bgColor,
+        color: accentColor.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(999),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: textColor, size: 12),
+          Icon(icon, color: accentColor, size: 12),
           const SizedBox(width: 4),
           Text(
             label,
             style: TextStyle(
-              color: textColor,
+              color: accentColor,
               fontSize: 11,
               fontWeight: FontWeight.w700,
             ),
@@ -1159,20 +1172,22 @@ class _DashboardStats {
 }
 
 class _CriticalFieldInfo {
+  final String fieldId;
+  final String measurementId;
   final String fieldName;
   final String caption;
   final String chipLabel;
-  final Color chipBackground;
   final Color chipColor;
   final String metricLabel;
   final String metricValue;
   final Color metricColor;
 
   const _CriticalFieldInfo({
+    required this.fieldId,
+    required this.measurementId,
     required this.fieldName,
     required this.caption,
     required this.chipLabel,
-    required this.chipBackground,
     required this.chipColor,
     required this.metricLabel,
     required this.metricValue,
@@ -1186,12 +1201,17 @@ class _CriticalFieldInfo {
     }
 
     final readinessPct = measurement.averagePluckableRatio * 100;
-    if (forecast?.hasStormRisk == true && readinessPct >= 50) {
+    final isReadyToPluck = measurement.pluckingStatus == 'ready_to_pluck';
+    final isOvergrown = measurement.pluckingStatus == 'overgrown';
+    final hasWeatherRisk = forecast?.hasStormRisk == true;
+
+    if (isReadyToPluck && hasWeatherRisk) {
       return _CriticalFieldInfo(
+        fieldId: field.id,
+        measurementId: measurement.id,
         fieldName: field.name,
-        caption: 'Weather risk increasing',
+        caption: 'Ready to pluck, weather risk increasing',
         chipLabel: 'Weather Risk',
-        chipBackground: const Color(0xFFFFECEA),
         chipColor: const Color(0xFFD95C5C),
         metricLabel: 'Risk Level',
         metricValue: 'High',
@@ -1199,12 +1219,13 @@ class _CriticalFieldInfo {
       );
     }
 
-    if (measurement.isReadyToPluck) {
+    if (isReadyToPluck) {
       return _CriticalFieldInfo(
+        fieldId: field.id,
+        measurementId: measurement.id,
         fieldName: field.name,
         caption: 'High plucking readiness',
         chipLabel: 'Pluck Now',
-        chipBackground: const Color(0xFFFFE9E8),
         chipColor: const Color(0xFFE2574C),
         metricLabel: 'Readiness',
         metricValue: '${readinessPct.toStringAsFixed(0)}%',
@@ -1212,16 +1233,17 @@ class _CriticalFieldInfo {
       );
     }
 
-    if (readinessPct >= 50) {
+    if (isOvergrown) {
       return _CriticalFieldInfo(
+        fieldId: field.id,
+        measurementId: measurement.id,
         fieldName: field.name,
-        caption: 'Leaf maturity approaching target',
-        chipLabel: 'Pluck Soon',
-        chipBackground: const Color(0xFFFFF4E6),
-        chipColor: const Color(0xFFCC8A17),
+        caption: 'Leaf maturity past optimal window',
+        chipLabel: 'Overgrown',
+        chipColor: AppTheme.statusUrgent,
         metricLabel: 'Readiness',
         metricValue: '${readinessPct.toStringAsFixed(0)}%',
-        metricColor: AppTheme.brandGreen,
+        metricColor: AppTheme.statusUrgent,
       );
     }
 
