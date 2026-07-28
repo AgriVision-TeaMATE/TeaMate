@@ -515,18 +515,10 @@ class _FieldCardState extends State<_FieldCard> {
     if (latest == null) {
       return const Color(0xFFF2F3F0);
     }
-
-    final ratio = latest.averagePluckableRatio;
-    if (ratio > 0.70) {
-      return const Color(0xFFD94A4A);
-    }
-    if (ratio >= 0.60) {
-      return const Color(0xFFE69A2E);
-    }
-    if (ratio >= 0.50) {
-      return AppTheme.brandGreen;
-    }
-    return const Color(0xFF87919A);
+    return AppTheme.pluckingStatusColor(
+      isCompleted: latest.isCompleted,
+      pluckingStatus: latest.pluckingStatus,
+    );
   }
 
   @override
@@ -562,7 +554,7 @@ class _FieldCardState extends State<_FieldCard> {
                 ),
               ),
               child: Text(
-                latest?.laborPriorityLabel ?? 'No analysis yet',
+                latest?.statusLabel ?? 'No analysis yet',
                 style: TextStyle(
                   color: hasLatestStatus
                       ? Colors.white
@@ -798,8 +790,9 @@ class _FieldCardState extends State<_FieldCard> {
                                 else
                                   _HistoryList(
                                     fieldId: field.id,
-                                    measurements: field.measurements.reversed
-                                        .toList(),
+                                    measurements: List<FieldMeasurement>.from(
+                                      field.measurements,
+                                    )..sort((a, b) => b.date.compareTo(a.date)),
                                     onHistoryTap: widget.onHistoryTap,
                                   ),
                               ],
@@ -890,8 +883,8 @@ class _MetricTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 76,
-      padding: const EdgeInsets.all(10),
+      height: 96,
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 14),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           colors: [Color(0xFF4A4A4A), Color(0xFF2F2F2F)],
@@ -922,14 +915,31 @@ class _MetricTile extends StatelessWidget {
               letterSpacing: 0.8,
             ),
           ),
+          const SizedBox(height: 8),
           const Spacer(),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 19,
-              fontWeight: FontWeight.w900,
-              color: Colors.white,
-              letterSpacing: -0.3,
+          SizedBox(
+            height: 28,
+            child: Align(
+              alignment: Alignment.bottomLeft,
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  value,
+                  maxLines: 1,
+                  strutStyle: const StrutStyle(
+                    forceStrutHeight: true,
+                    height: 1.0,
+                  ),
+                  style: const TextStyle(
+                    fontSize: 19,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white,
+                    letterSpacing: -0.3,
+                    height: 1.0,
+                  ),
+                ),
+              ),
             ),
           ),
         ],
@@ -968,7 +978,7 @@ class _HistoryList extends StatelessWidget {
           return _HistoryTile(
             fieldId: fieldId,
             measurement: measurement,
-            roundNumber: index + 1,
+            roundNumber: measurements.length - index,
             onTap: () => onHistoryTap(measurement),
           );
         },
@@ -1031,6 +1041,14 @@ class _HistoryTileState extends State<_HistoryTile> {
 
   @override
   Widget build(BuildContext context) {
+    final status = widget.measurement.isCompleted
+        ? 'Completed'
+        : widget.measurement.statusLabel;
+    final statusColor = AppTheme.pluckingStatusColor(
+      isCompleted: widget.measurement.isCompleted,
+      pluckingStatus: widget.measurement.pluckingStatus,
+    );
+
     final tileSurface = InkWell(
       onTap: _slideOffset == 0 ? widget.onTap : _closeDeletePane,
       borderRadius: BorderRadius.circular(_historyRadius),
@@ -1103,32 +1121,31 @@ class _HistoryTileState extends State<_HistoryTile> {
                 color: AppTheme.textSecondary.withValues(alpha: 0.65),
               ),
             ),
-            if (widget.measurement.isCompleted)
-              Positioned(
-                top: 0,
-                right: 0,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 7,
+            Positioned(
+              top: 0,
+              right: 0,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 7,
+                ),
+                decoration: BoxDecoration(
+                  color: statusColor,
+                  borderRadius: const BorderRadius.only(
+                    topRight: Radius.circular(_historyRadius),
+                    bottomLeft: Radius.circular(_historyRadius),
                   ),
-                  decoration: const BoxDecoration(
-                    color: AppTheme.brandGreen,
-                    borderRadius: BorderRadius.only(
-                      topRight: Radius.circular(_historyRadius),
-                      bottomLeft: Radius.circular(_historyRadius),
-                    ),
-                  ),
-                  child: const Text(
-                    'Completed',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                    ),
+                ),
+                child: Text(
+                  status,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
               ),
+            ),
           ],
         ),
       ),

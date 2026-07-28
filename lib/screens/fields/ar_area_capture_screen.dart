@@ -34,10 +34,7 @@ class _ArAreaCaptureScreenState extends State<ArAreaCaptureScreen> {
 
   void _safeSetState(VoidCallback fn) {
     if (!mounted) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      setState(fn);
-    });
+    setState(fn);
   }
 
   void _onPlatformViewCreated(int id) {
@@ -140,6 +137,7 @@ class _ArAreaCaptureScreenState extends State<ArAreaCaptureScreen> {
             _buildTopBar(),
             _buildInstructions(),
             if (_errorMessage != null) _buildErrorBanner(),
+            _buildLiveStatus(),
             _buildBottomControls(),
             if (_isConfirming) _buildConfirmingOverlay(),
           ],
@@ -156,22 +154,27 @@ class _ArAreaCaptureScreenState extends State<ArAreaCaptureScreen> {
   }
 
   Widget _buildTopBar() {
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: Row(
-          children: [
-            IconButton(
-              icon: const Icon(Icons.close, color: Colors.white),
-              onPressed: _isConfirming ? null : _cancel,
-            ),
-            const Spacer(),
-            Chip(
-              label: Text('$_pointCount / 4 points'),
-              backgroundColor: Colors.black54,
-              labelStyle: const TextStyle(color: Colors.white),
-            ),
-          ],
+    return Positioned(
+      top: 0,
+      left: 0,
+      right: 0,
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _GlassIconButton(
+                icon: Icons.close_rounded,
+                onPressed: _isConfirming ? null : _cancel,
+              ),
+              const Spacer(),
+              _StatusPill(
+                icon: Icons.timeline_rounded,
+                label: '$_pointCount / 4 points',
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -179,31 +182,53 @@ class _ArAreaCaptureScreenState extends State<ArAreaCaptureScreen> {
 
   Widget _buildInstructions() {
     final text = _trackingLost
-        ? 'Tracking lost - point at a flat, textured surface and move slowly.'
+        ? 'Tracking lost. Point at a flat, textured surface and move slowly.'
         : !_hasTrackedOnce
-        ? 'Scanning for a surface. Aim at the desk or floor, not the laptop screen.'
+        ? 'Scanning for a surface. Aim at the floor or table, not reflective objects.'
         : _pointCount == 0
-        ? 'Move your phone slowly to find a surface, then tap the 4 corners of the sample area.'
+        ? 'Move your phone slowly, then tap the 4 sample corners.'
         : _pointCount < 4
-        ? 'Tap corner ${_pointCount + 1} of 4. Drag a placed point to adjust it.'
-        : 'All 4 corners placed. Drag any point to fine-tune, or confirm.';
+        ? 'Tap corner ${_pointCount + 1} of 4. Drag any placed point to adjust it.'
+        : 'All 4 corners placed. Fine-tune the points, then confirm.';
+    final icon = _trackingLost
+        ? Icons.warning_amber_rounded
+        : !_hasTrackedOnce
+        ? Icons.radar_rounded
+        : _pointCount < 4
+        ? Icons.touch_app_rounded
+        : Icons.check_circle_outline_rounded;
 
     return Positioned(
-      top: 64,
+      top: 72,
       left: 16,
       right: 16,
       child: SafeArea(
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           decoration: BoxDecoration(
             color: _trackingLost
-                ? Colors.red.withValues(alpha: 0.75)
-                : Colors.black.withValues(alpha: 0.55),
-            borderRadius: BorderRadius.circular(12),
+                ? Colors.red.withValues(alpha: 0.78)
+                : const Color(0xCC111315),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
           ),
-          child: Text(
-            text,
-            style: const TextStyle(color: Colors.white, height: 1.4),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(icon, color: Colors.white, size: 20),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  text,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    height: 1.35,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -212,7 +237,7 @@ class _ArAreaCaptureScreenState extends State<ArAreaCaptureScreen> {
 
   Widget _buildErrorBanner() {
     return Positioned(
-      top: 120,
+      top: 148,
       left: 16,
       right: 16,
       child: Material(
@@ -220,13 +245,47 @@ class _ArAreaCaptureScreenState extends State<ArAreaCaptureScreen> {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
-            color: Colors.red.withValues(alpha: 0.85),
-            borderRadius: BorderRadius.circular(12),
+            color: Colors.red.withValues(alpha: 0.9),
+            borderRadius: BorderRadius.circular(16),
           ),
           child: Text(
             _errorMessage ?? '',
             style: const TextStyle(color: Colors.white),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLiveStatus() {
+    return Positioned(
+      left: 16,
+      right: 16,
+      bottom: 112,
+      child: SafeArea(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            if (_areaPreviewSqm != null && _pointCount >= 3)
+              _StatusPill(
+                icon: Icons.square_foot_rounded,
+                label: '${_areaPreviewSqm!.toStringAsFixed(2)} m²',
+                accent: AppTheme.brandGreen,
+              )
+            else
+              _StatusHint(
+                label: _hasTrackedOnce
+                    ? 'Place 3 points to preview area'
+                    : 'Scan a flat surface first',
+              ),
+            const Spacer(),
+            if (_pointCount > 0)
+              _StatusHint(
+                label: _pointCount < 4
+                    ? 'Next: corner ${_pointCount + 1}'
+                    : 'Drag points to refine',
+              ),
+          ],
         ),
       ),
     );
@@ -239,43 +298,32 @@ class _ArAreaCaptureScreenState extends State<ArAreaCaptureScreen> {
       bottom: 0,
       child: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
           child: Row(
             children: [
               Expanded(
-                child: OutlinedButton(
+                child: _GhostActionButton(
                   onPressed: _pointCount > 0 && !_isConfirming ? _undo : null,
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.white,
-                    side: const BorderSide(color: Colors.white54),
-                  ),
-                  child: const Text('Undo'),
+                  icon: Icons.undo_rounded,
+                  label: 'Undo',
                 ),
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: OutlinedButton(
+                child: _GhostActionButton(
                   onPressed: _pointCount > 0 && !_isConfirming ? _reset : null,
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.white,
-                    side: const BorderSide(color: Colors.white54),
-                  ),
-                  child: const Text('Reset'),
+                  icon: Icons.restart_alt_rounded,
+                  label: 'Reset',
                 ),
               ),
               const SizedBox(width: 10),
               Expanded(
                 flex: 2,
-                child: ElevatedButton(
+                child: _PrimaryActionButton(
                   onPressed: _canConfirm ? _confirm : null,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryGreen,
-                  ),
-                  child: Text(
-                    _areaPreviewSqm != null && _pointCount >= 4
-                        ? 'Confirm (${_areaPreviewSqm!.toStringAsFixed(2)} m²)'
-                        : 'Confirm',
-                  ),
+                  label: _areaPreviewSqm != null && _pointCount >= 4
+                      ? 'Confirm (${_areaPreviewSqm!.toStringAsFixed(2)} m²)'
+                      : 'Confirm',
                 ),
               ),
             ],
@@ -300,6 +348,151 @@ class _ArAreaCaptureScreenState extends State<ArAreaCaptureScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _GlassIconButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback? onPressed;
+
+  const _GlassIconButton({required this.icon, required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: const Color(0xA6111315),
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+          ),
+          child: Icon(icon, color: Colors.white),
+        ),
+      ),
+    );
+  }
+}
+
+class _StatusPill extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color? accent;
+
+  const _StatusPill({required this.icon, required this.label, this.accent});
+
+  @override
+  Widget build(BuildContext context) {
+    final accentColor = accent ?? Colors.white;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xB2111315),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 18, color: accentColor),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: TextStyle(
+              color: accentColor,
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatusHint extends StatelessWidget {
+  final String label;
+
+  const _StatusHint({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      decoration: BoxDecoration(
+        color: const Color(0x8F111315),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: Colors.white.withValues(alpha: 0.92),
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+}
+
+class _GhostActionButton extends StatelessWidget {
+  final VoidCallback? onPressed;
+  final IconData icon;
+  final String label;
+
+  const _GhostActionButton({
+    required this.onPressed,
+    required this.icon,
+    required this.label,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton.icon(
+      onPressed: onPressed,
+      style: OutlinedButton.styleFrom(
+        foregroundColor: Colors.white,
+        side: BorderSide(color: Colors.white.withValues(alpha: 0.55)),
+        backgroundColor: Colors.black.withValues(alpha: 0.18),
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      ),
+      icon: Icon(icon, size: 18),
+      label: Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
+    );
+  }
+}
+
+class _PrimaryActionButton extends StatelessWidget {
+  final VoidCallback? onPressed;
+  final String label;
+
+  const _PrimaryActionButton({required this.onPressed, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return ElevatedButton(
+      onPressed: onPressed,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: AppTheme.primaryGreen,
+        foregroundColor: Colors.white,
+        disabledBackgroundColor: Colors.black.withValues(alpha: 0.28),
+        disabledForegroundColor: Colors.white54,
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        elevation: 0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      ),
+      child: Text(
+        label,
+        textAlign: TextAlign.center,
+        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
       ),
     );
   }

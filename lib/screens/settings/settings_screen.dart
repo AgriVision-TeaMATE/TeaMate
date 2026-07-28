@@ -10,7 +10,14 @@ import '../auth/login_screen.dart';
 import 'profile_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
-  const SettingsScreen({super.key});
+  final int initialTabIndex;
+  final bool openYieldSettingsOnStart;
+
+  const SettingsScreen({
+    super.key,
+    this.initialTabIndex = 0,
+    this.openYieldSettingsOnStart = false,
+  });
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -20,10 +27,24 @@ class _SettingsScreenState extends State<SettingsScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
+  int get _safeInitialTabIndex {
+    if (widget.initialTabIndex < 0) {
+      return 0;
+    }
+    if (widget.initialTabIndex > 1) {
+      return 1;
+    }
+    return widget.initialTabIndex;
+  }
+
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(
+      length: 2,
+      vsync: this,
+      initialIndex: _safeInitialTabIndex,
+    );
     AppSettingsService().loadYieldSettings();
   }
 
@@ -67,7 +88,12 @@ class _SettingsScreenState extends State<SettingsScreen>
           ),
           body: TabBarView(
             controller: _tabController,
-            children: [_LabourManagementTab(), _GeneralSettingsTab()],
+            children: [
+              const _LabourManagementTab(),
+              _GeneralSettingsTab(
+                openYieldSettingsOnStart: widget.openYieldSettingsOnStart,
+              ),
+            ],
           ),
         );
       },
@@ -76,6 +102,8 @@ class _SettingsScreenState extends State<SettingsScreen>
 }
 
 class _LabourManagementTab extends StatelessWidget {
+  const _LabourManagementTab();
+
   @override
   Widget build(BuildContext context) {
     final manager = FieldManager();
@@ -90,7 +118,6 @@ class _LabourManagementTab extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Overview Banner
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(20),
@@ -102,42 +129,27 @@ class _LabourManagementTab extends StatelessWidget {
                 end: Alignment.bottomRight,
               ),
             ),
-            child: Column(
+            child: Row(
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: _OverviewStat(
-                        label: 'Total',
-                        value: '${workers.length}',
-                      ),
-                    ),
-                    Expanded(
-                      child: _OverviewStat(
-                        label: 'Available',
-                        value: '$available',
-                      ),
-                    ),
-                    Expanded(
-                      child: _OverviewStat(
-                        label: 'Assigned',
-                        value: '$assigned',
-                      ),
-                    ),
-                    Expanded(
-                      child: _OverviewStat(
-                        label: 'On Leave',
-                        value: '$onLeave',
-                      ),
-                    ),
-                  ],
+                Expanded(
+                  child: _OverviewStat(
+                    label: 'Total',
+                    value: '${workers.length}',
+                  ),
+                ),
+                Expanded(
+                  child: _OverviewStat(label: 'Available', value: '$available'),
+                ),
+                Expanded(
+                  child: _OverviewStat(label: 'Assigned', value: '$assigned'),
+                ),
+                Expanded(
+                  child: _OverviewStat(label: 'On Leave', value: '$onLeave'),
                 ),
               ],
             ),
           ),
           const SizedBox(height: 20),
-
-          // Add Worker Button
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
@@ -155,7 +167,6 @@ class _LabourManagementTab extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 24),
-
           ListenableBuilder(
             listenable: settings,
             builder: (context, _) {
@@ -234,10 +245,7 @@ class _LabourManagementTab extends StatelessWidget {
               );
             },
           ),
-
           const SizedBox(height: 24),
-
-          // Worker Roster
           Row(
             children: [
               const Text(
@@ -269,6 +277,7 @@ class _LabourManagementTab extends StatelessWidget {
                 fieldName = field.name;
               } catch (_) {}
             }
+
             return Padding(
               padding: const EdgeInsets.only(bottom: 10),
               child: WorkerAssignmentTile(
@@ -448,115 +457,70 @@ class _LabourManagementTab extends StatelessWidget {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setSheetState) {
-            return Padding(
-              padding: EdgeInsets.only(
-                bottom: MediaQuery.of(context).viewInsets.bottom,
-              ),
-              child: Container(
-                padding: const EdgeInsets.all(24),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+          ),
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Add New Worker',
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
                 ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: 48,
-                          height: 48,
-                          decoration: BoxDecoration(
-                            color: AppTheme.primaryButton.withValues(
-                              alpha: 0.08,
-                            ),
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          child: Icon(
-                            Icons.person_add_outlined,
-                            color: AppTheme.primaryButton,
-                          ),
-                        ),
-                        const SizedBox(width: 14),
-                        const Text(
-                          'Add New Worker',
-                          style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -0.5,
-                          ),
-                        ),
-                      ],
+                const SizedBox(height: 24),
+                TextField(
+                  controller: nameController,
+                  decoration: InputDecoration(
+                    labelText: 'Full Name',
+                    filled: true,
+                    fillColor: const Color(0xFFF5F7F6),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide.none,
                     ),
-                    const SizedBox(height: 24),
-                    TextField(
-                      controller: nameController,
-                      autofocus: true,
-                      textCapitalization: TextCapitalization.words,
-                      decoration: InputDecoration(
-                        labelText: 'Full Name',
-                        hintText: 'e.g. Kamal Perera',
-                        filled: true,
-                        fillColor: const Color(0xFFF5F7F6),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(16),
-                          borderSide: BorderSide.none,
-                        ),
-                        prefixIcon: const Icon(Icons.person_outline),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    TextField(
-                      controller: phoneController,
-                      keyboardType: TextInputType.phone,
-                      decoration: InputDecoration(
-                        labelText: 'Phone Number',
-                        hintText: '+94 77 123 4567',
-                        filled: true,
-                        fillColor: const Color(0xFFF5F7F6),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(16),
-                          borderSide: BorderSide.none,
-                        ),
-                        prefixIcon: const Icon(Icons.phone_outlined),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: () {
-                          final name = nameController.text.trim();
-                          final phone = phoneController.text.trim();
-                          if (name.isEmpty || phone.isEmpty) return;
-                          FieldManager().addWorker(name: name, phone: phone);
-                          Navigator.pop(context);
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.primaryButton,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                        ),
-                        child: const Text(
-                          'Add Worker',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 15,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
+                    prefixIcon: const Icon(Icons.person_outline),
+                  ),
                 ),
-              ),
-            );
-          },
+                const SizedBox(height: 14),
+                TextField(
+                  controller: phoneController,
+                  keyboardType: TextInputType.phone,
+                  decoration: InputDecoration(
+                    labelText: 'Phone Number',
+                    filled: true,
+                    fillColor: const Color(0xFFF5F7F6),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide.none,
+                    ),
+                    prefixIcon: const Icon(Icons.phone_outlined),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      final name = nameController.text.trim();
+                      final phone = phoneController.text.trim();
+                      if (name.isEmpty || phone.isEmpty) return;
+                      FieldManager().addWorker(name: name, phone: phone);
+                      Navigator.pop(context);
+                    },
+                    child: const Text('Add Worker'),
+                  ),
+                ),
+              ],
+            ),
+          ),
         );
       },
     );
@@ -611,7 +575,6 @@ class _LabourManagementTab extends StatelessWidget {
                       color: AppTheme.textPrimary,
                       fontSize: 22,
                       fontWeight: FontWeight.w800,
-                      letterSpacing: -0.5,
                     ),
                   ),
                   const SizedBox(height: 5),
@@ -650,34 +613,6 @@ class _LabourManagementTab extends StatelessWidget {
                     label: 'Joined',
                     value: _formatDate(worker.createdAt),
                   ),
-                  const SizedBox(height: 14),
-                  if (worker.status == WorkerStatus.assigned &&
-                      fieldName != null)
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        onPressed: () {
-                          manager.unassignWorker(worker.id);
-                          Navigator.pop(context);
-                        },
-                        icon: const Icon(
-                          Icons.person_remove_outlined,
-                          size: 18,
-                        ),
-                        label: const Text('Unassign from Field'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFFD95C5C),
-                          side: const BorderSide(
-                            color: Color(0xFFD95C5C),
-                            width: 1.5,
-                          ),
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                        ),
-                      ),
-                    ),
                 ],
               ),
             ),
@@ -691,12 +626,7 @@ class _LabourManagementTab extends StatelessWidget {
     final cleaned = phone.replaceAll(RegExp(r'\s+'), '');
     final uri = Uri(scheme: 'tel', path: cleaned);
     final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
-    if (opened) {
-      return;
-    }
-    if (!context.mounted) {
-      return;
-    }
+    if (opened || !context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Unable to open phone dialer.')),
     );
@@ -757,7 +687,18 @@ class _LabourManagementTab extends StatelessWidget {
   }
 }
 
-class _GeneralSettingsTab extends StatelessWidget {
+class _GeneralSettingsTab extends StatefulWidget {
+  final bool openYieldSettingsOnStart;
+
+  const _GeneralSettingsTab({this.openYieldSettingsOnStart = false});
+
+  @override
+  State<_GeneralSettingsTab> createState() => _GeneralSettingsTabState();
+}
+
+class _GeneralSettingsTabState extends State<_GeneralSettingsTab> {
+  bool _didAutoOpenYieldSettings = false;
+
   static const List<String> _teaVariants = [
     'TRI 2025',
     'TRI 2026',
@@ -766,6 +707,18 @@ class _GeneralSettingsTab extends StatelessWidget {
     'Seedling Tea',
     'Custom',
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.openYieldSettingsOnStart) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _didAutoOpenYieldSettings) return;
+        _didAutoOpenYieldSettings = true;
+        _showYieldSettingsSheet(context, AppSettingsService());
+      });
+    }
+  }
 
   void _openProfile(BuildContext context) {
     Navigator.push(
@@ -834,148 +787,161 @@ class _GeneralSettingsTab extends StatelessWidget {
                 bottom: MediaQuery.of(context).viewInsets.bottom + 20,
               ),
               child: Container(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(context).size.height * 0.82,
+                ),
                 padding: const EdgeInsets.all(24),
                 decoration: const BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
                 ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Yield prediction setup',
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Choose the tea variant and enter the average fresh weight of 100 pluckable buds and 100 arimbu buds.',
-                      style: TextStyle(
-                        color: AppTheme.textSecondary,
-                        height: 1.45,
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    DropdownButtonFormField<String>(
-                      initialValue: selectedVariant,
-                      decoration: InputDecoration(
-                        labelText: 'Tea variant',
-                        filled: true,
-                        fillColor: const Color(0xFFF5F7F6),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(16),
-                          borderSide: BorderSide.none,
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Yield prediction setup',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
                         ),
                       ),
-                      items: _teaVariants
-                          .map(
-                            (variant) => DropdownMenuItem<String>(
-                              value: variant,
-                              child: Text(variant),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: (value) {
-                        if (value == null) {
-                          return;
-                        }
-                        setSheetState(() {
-                          selectedVariant = value;
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 14),
-                    TextField(
-                      controller: pluckableController,
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
-                      ),
-                      decoration: InputDecoration(
-                        labelText: 'Average weight of 100 pluckable buds (g)',
-                        filled: true,
-                        fillColor: const Color(0xFFF5F7F6),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(16),
-                          borderSide: BorderSide.none,
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Choose the tea variant and enter estate-average fresh weights. TeaMate will use these values for each yield prediction.',
+                        style: TextStyle(
+                          color: AppTheme.textSecondary,
+                          height: 1.45,
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 14),
-                    TextField(
-                      controller: arimbuController,
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
+                      const SizedBox(height: 18),
+                      DropdownButtonFormField<String>(
+                        initialValue: selectedVariant,
+                        decoration: InputDecoration(
+                          hintText: 'Tea variant',
+                          hintStyle: const TextStyle(
+                            color: Color(0xFF9AA5B1),
+                            fontWeight: FontWeight.w500,
+                          ),
+                          filled: true,
+                          fillColor: const Color(0xFFF5F7F6),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
+                        items: _teaVariants
+                            .map(
+                              (variant) => DropdownMenuItem<String>(
+                                value: variant,
+                                child: Text(variant),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (value) {
+                          if (value == null) return;
+                          setSheetState(() {
+                            selectedVariant = value;
+                          });
+                        },
                       ),
-                      decoration: InputDecoration(
-                        labelText: 'Average weight of 100 arimbu buds (g)',
-                        filled: true,
-                        fillColor: const Color(0xFFF5F7F6),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(16),
-                          borderSide: BorderSide.none,
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: pluckableController,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: '100 pluckable buds weight (g)',
+                          hintStyle: const TextStyle(
+                            color: Color(0xFF9AA5B1),
+                            fontWeight: FontWeight.w500,
+                          ),
+                          filled: true,
+                          fillColor: const Color(0xFFF5F7F6),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: BorderSide.none,
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 18),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: isSaving
-                            ? null
-                            : () async {
-                                final pluckableWeight = double.tryParse(
-                                  pluckableController.text.trim(),
-                                );
-                                final arimbuWeight = double.tryParse(
-                                  arimbuController.text.trim(),
-                                );
-                                if (pluckableWeight == null ||
-                                    pluckableWeight <= 0 ||
-                                    arimbuWeight == null ||
-                                    arimbuWeight <= 0) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        'Enter valid positive bud weights.',
-                                      ),
-                                    ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: arimbuController,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: '100 arimbu buds weight (g)',
+                          hintStyle: const TextStyle(
+                            color: Color(0xFF9AA5B1),
+                            fontWeight: FontWeight.w500,
+                          ),
+                          filled: true,
+                          fillColor: const Color(0xFFF5F7F6),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: isSaving
+                              ? null
+                              : () async {
+                                  final pluckableWeight = double.tryParse(
+                                    pluckableController.text.trim(),
                                   );
-                                  return;
-                                }
+                                  final arimbuWeight = double.tryParse(
+                                    arimbuController.text.trim(),
+                                  );
+                                  if (pluckableWeight == null ||
+                                      pluckableWeight <= 0 ||
+                                      arimbuWeight == null ||
+                                      arimbuWeight <= 0) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          'Enter valid positive bud weights.',
+                                        ),
+                                      ),
+                                    );
+                                    return;
+                                  }
 
-                                setSheetState(() {
-                                  isSaving = true;
-                                });
-                                final saved = await settings.saveYieldSettings(
-                                  teaVariant: selectedVariant,
-                                  pluckable100BudWeightG: pluckableWeight,
-                                  arimbu100BudWeightG: arimbuWeight,
-                                );
-                                if (!context.mounted) {
-                                  return;
-                                }
-                                setSheetState(() {
-                                  isSaving = false;
-                                });
-                                if (!saved) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        'Failed to save yield settings.',
+                                  setSheetState(() {
+                                    isSaving = true;
+                                  });
+                                  final saved = await settings
+                                      .saveYieldSettings(
+                                        teaVariant: selectedVariant,
+                                        pluckable100BudWeightG: pluckableWeight,
+                                        arimbu100BudWeightG: arimbuWeight,
+                                      );
+                                  if (!context.mounted) return;
+                                  setSheetState(() {
+                                    isSaving = false;
+                                  });
+                                  if (!saved) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          'Failed to save yield settings.',
+                                        ),
                                       ),
-                                    ),
-                                  );
-                                  return;
-                                }
-                                Navigator.pop(context);
-                              },
-                        child: Text(isSaving ? 'Saving...' : 'Save'),
+                                    );
+                                    return;
+                                  }
+                                  Navigator.pop(context);
+                                },
+                          child: Text(isSaving ? 'Saving...' : 'Save'),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             );
@@ -1027,11 +993,18 @@ class _GeneralSettingsTab extends StatelessWidget {
               ListenableBuilder(
                 listenable: settings,
                 builder: (context, _) {
-                  final subtitle = settings.yieldSettingsLoading
-                      ? 'Loading saved tea variant and bud weights...'
-                      : settings.hasConfiguredYieldSettings
-                      ? '${settings.teaVariant} • 100 pluckable buds: ${settings.pluckable100BudWeightG!.toStringAsFixed(1)} g • 100 arimbu: ${settings.arimbu100BudWeightG!.toStringAsFixed(1)} g'
-                      : 'Save tea variant and 100-bud weights before predicting yield.';
+                  String subtitle;
+                  if (settings.yieldSettingsLoading) {
+                    subtitle = 'Loading saved tea variant and bud weights...';
+                  } else if (settings.hasConfiguredYieldSettings) {
+                    subtitle =
+                        'Variant: ${settings.teaVariant}\n'
+                        '100 pluckable buds: ${settings.pluckable100BudWeightG!.toStringAsFixed(1)} g\n'
+                        '100 arimbu buds: ${settings.arimbu100BudWeightG!.toStringAsFixed(1)} g';
+                  } else {
+                    subtitle =
+                        'Save tea variant and 100-bud weights before predicting yield.';
+                  }
 
                   return _SettingsTile(
                     icon: Icons.science_outlined,
@@ -1044,65 +1017,6 @@ class _GeneralSettingsTab extends StatelessWidget {
                     ),
                   );
                 },
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          _SettingsSection(
-            title: 'Notifications',
-            children: [
-              _SettingsTile(
-                icon: Icons.notifications_outlined,
-                title: 'Push Notifications',
-                subtitle: 'Weather warnings, labour alerts',
-                trailing: Switch(
-                  value: true,
-                  onChanged: (_) {},
-                  activeThumbColor: AppTheme.primaryButton,
-                ),
-              ),
-              _SettingsTile(
-                icon: Icons.sms_outlined,
-                title: 'SMS Alerts',
-                subtitle: 'Send SMS reminders to workers',
-                trailing: Switch(
-                  value: true,
-                  onChanged: (_) {},
-                  activeThumbColor: AppTheme.primaryButton,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          _SettingsSection(
-            title: 'Preferences',
-            children: [
-              _SettingsTile(
-                icon: Icons.landscape_outlined,
-                title: 'Default Region',
-                subtitle: 'Hatton Division',
-                trailing: const Icon(
-                  Icons.chevron_right_rounded,
-                  color: AppTheme.textSecondary,
-                ),
-              ),
-              _SettingsTile(
-                icon: Icons.thermostat_outlined,
-                title: 'Temperature Unit',
-                subtitle: 'Celsius (°C)',
-                trailing: const Icon(
-                  Icons.chevron_right_rounded,
-                  color: AppTheme.textSecondary,
-                ),
-              ),
-              _SettingsTile(
-                icon: Icons.schedule_outlined,
-                title: 'Default Shift Time',
-                subtitle: '06:00 AM',
-                trailing: const Icon(
-                  Icons.chevron_right_rounded,
-                  color: AppTheme.textSecondary,
-                ),
               ),
             ],
           ),
@@ -1212,7 +1126,6 @@ class _DetailRow extends StatelessWidget {
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
                       label,
@@ -1230,7 +1143,6 @@ class _DetailRow extends StatelessWidget {
                         fontWeight: FontWeight.w800,
                         fontSize: 14,
                       ),
-                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
@@ -1318,6 +1230,7 @@ class _SettingsTile extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
               width: 38,
@@ -1347,12 +1260,13 @@ class _SettingsTile extends StatelessWidget {
                       color: AppTheme.textSecondary,
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
+                      height: 1.4,
                     ),
                   ),
                 ],
               ),
             ),
-            if (trailing != null) trailing!,
+            if (trailing != null) ...[const SizedBox(width: 12), trailing!],
           ],
         ),
       ),

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -11,6 +12,7 @@ import '../../services/app_settings_service.dart';
 import '../../services/ar_capture_service.dart';
 import '../../theme.dart';
 import 'ar_area_capture_screen.dart';
+import '../settings/settings_screen.dart';
 
 class FieldAnalysisScreen extends StatefulWidget {
   final String fieldId;
@@ -26,7 +28,8 @@ class FieldAnalysisScreen extends StatefulWidget {
   State<FieldAnalysisScreen> createState() => _FieldAnalysisScreenState();
 }
 
-class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
+class _FieldAnalysisScreenState extends State<FieldAnalysisScreen>
+    with SingleTickerProviderStateMixin {
   static const int _minimumImages = 3;
   static const double _capturedAreaPerImageSqm = 8.0;
 
@@ -40,12 +43,18 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
 
   int _currentIndex = 0;
   bool _isAnalyzing = false;
+  bool _isBudScanAnimating = false;
   String? _analysisStatus;
   bool _didCleanupDraft = false;
+  late final AnimationController _scanController;
 
   @override
   void initState() {
     super.initState();
+    _scanController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1800),
+    );
     final manager = FieldManager();
     _measurementId = widget.measurementId;
     _field = manager.fields.firstWhere((field) => field.id == widget.fieldId);
@@ -67,6 +76,7 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
 
   @override
   void dispose() {
+    _scanController.dispose();
     _pageController.dispose();
     super.dispose();
   }
@@ -83,6 +93,17 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
       return;
     }
 
+    final imageBytes = await _readPickedImageBytes(pickedFile);
+    if (imageBytes == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to prepare the selected image for upload.'),
+        ),
+      );
+      return;
+    }
+
     final capturedArea = await _promptCapturedArea();
     if (capturedArea == null) {
       return;
@@ -92,6 +113,11 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
       _PendingImage(
         id: DateTime.now().microsecondsSinceEpoch.toString(),
         imagePath: pickedFile.path,
+        imageBytes: imageBytes,
+        filename: _buildUploadFilename(
+          source == ImageSource.camera ? 'camera' : 'upload',
+          pickedFile.path,
+        ),
         sourceLabel: source == ImageSource.camera ? 'Camera' : 'Upload',
         capturedAt: DateTime.now(),
         capturedArea: capturedArea,
@@ -164,16 +190,70 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
       return;
     }
 
+    final imageBytes = await _readFileBytes(result.imagePath);
+    if (imageBytes == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to prepare the captured image for upload.'),
+        ),
+      );
+      return;
+    }
+
     _appendPendingImage(
       _PendingImage(
         id: DateTime.now().microsecondsSinceEpoch.toString(),
         imagePath: result.imagePath,
+        imageBytes: imageBytes,
+        filename: _buildUploadFilename('ar_capture', result.imagePath),
         sourceLabel: 'Camera',
         capturedAt: DateTime.now(),
         capturedArea: result.areaSqm,
         corners: result.cornersImagePx,
       ),
     );
+  }
+
+  Future<Uint8List?> _readPickedImageBytes(XFile pickedFile) async {
+    try {
+      return await pickedFile.readAsBytes();
+    } catch (error) {
+      debugPrint('Failed to read picked image bytes: $error');
+      return null;
+    }
+  }
+
+  Future<Uint8List?> _readFileBytes(String sourcePath) async {
+    try {
+      final sourceFile = File(sourcePath);
+      if (!await sourceFile.exists()) {
+        debugPrint('Source image missing: $sourcePath');
+        return null;
+      }
+      return await sourceFile.readAsBytes();
+    } catch (error) {
+      debugPrint('Failed to read source image bytes: $error');
+      return null;
+    }
+  }
+
+  String _buildUploadFilename(
+    String sourcePrefix,
+    String originalPath,
+  ) {
+    final extension = _safeImageExtension(originalPath);
+    return '${sourcePrefix}_${DateTime.now().microsecondsSinceEpoch}$extension';
+  }
+
+  String _safeImageExtension(String path) {
+    final dotIndex = path.lastIndexOf('.');
+    if (dotIndex == -1) {
+      return '.jpg';
+    }
+    final extension = path.substring(dotIndex).toLowerCase();
+    const allowed = {'.jpg', '.jpeg', '.png', '.webp', '.heic'};
+    return allowed.contains(extension) ? extension : '.jpg';
   }
 
   void _appendPendingImage(_PendingImage image) {
@@ -265,8 +345,10 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
 
     setState(() {
       _isAnalyzing = true;
+      _isBudScanAnimating = true;
       _analysisStatus = null;
     });
+    _scanController.repeat();
 
     final pendingCopy = List<_PendingImage>.from(_pendingImages);
     final api = ApiService();
@@ -278,8 +360,10 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
     if (!hasServerRound) {
       setState(() {
         _isAnalyzing = false;
+        _isBudScanAnimating = false;
         _analysisStatus = null;
       });
+      _scanController.stop();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Failed to create harvest round.')),
       );
@@ -294,14 +378,18 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
       final uploaded = await api.uploadImageToRound(
         roundId: _measurementId,
         imagePathOrUrl: pendingCopy[index].imagePath,
+        imageBytes: pendingCopy[index].imageBytes,
+        filename: pendingCopy[index].filename,
         capturedArea: pendingCopy[index].capturedArea,
       );
       if (uploaded == null) {
         if (!mounted) return;
         setState(() {
           _isAnalyzing = false;
+          _isBudScanAnimating = false;
           _analysisStatus = null;
         });
+        _scanController.stop();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Image upload failed. Check backend connection.'),
@@ -320,8 +408,10 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
       if (!mounted) return;
       setState(() {
         _isAnalyzing = false;
+        _isBudScanAnimating = false;
         _analysisStatus = null;
       });
+      _scanController.stop();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Bud analysis failed. Check backend and ML service.'),
@@ -342,8 +432,10 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
       _pendingImages.clear();
       _currentIndex = 0;
       _isAnalyzing = false;
+      _isBudScanAnimating = false;
       _analysisStatus = null;
     });
+    _scanController.stop();
   }
 
   Future<bool> _ensureServerRoundForAnalysis(ApiService api) async {
@@ -391,13 +483,18 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
       return;
     }
     if (predictedRound == null) {
+      final detail = api.lastPredictYieldErrorDetail;
       setState(() {
         _isAnalyzing = false;
         _analysisStatus = null;
       });
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Yield prediction failed.')));
+      if (detail != null && detail.contains('Yield settings are incomplete')) {
+        await _showYieldSettingsRequiredDialog();
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(detail ?? 'Yield prediction failed.')),
+      );
       return;
     }
 
@@ -419,6 +516,50 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
       _isAnalyzing = false;
     });
     manager.saveMeasurement(widget.fieldId, _measurement);
+  }
+
+  Future<void> _showYieldSettingsRequiredDialog() async {
+    await showDialog<void>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
+          title: const Text(
+            'Yield Setup Required',
+            style: TextStyle(fontWeight: FontWeight.w800),
+          ),
+          content: const Text(
+            'TeaMate needs the tea variant, 100 pluckable bud weight, and 100 arimbu bud weight before it can predict yield.',
+            style: TextStyle(color: AppTheme.textSecondary, height: 1.45),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Not now'),
+            ),
+            SizedBox(
+              width: 144,
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  Navigator.of(this.context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const SettingsScreen(
+                        initialTabIndex: 1,
+                        openYieldSettingsOnStart: true,
+                      ),
+                    ),
+                  );
+                },
+                child: const Text('Open Settings'),
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Future<bool> _showActualYieldSheet() async {
@@ -507,14 +648,20 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
       _measurement = _measurement.copyWith(actualYieldKg: result);
     });
     manager.saveMeasurement(widget.fieldId, _measurement);
-    if (_measurement.isCompleted) {
+    if (!_measurementId.startsWith('draft-')) {
       await ApiService().updateActualYield(_measurementId, result);
       if (!mounted) {
         return false;
       }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Actual yield updated.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _measurement.isCompleted
+                ? 'Actual yield updated.'
+                : 'Actual yield saved.',
+          ),
+        ),
+      );
     }
     return true;
   }
@@ -729,12 +876,13 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
       return;
     }
     if (plan == null) {
+      final detail = api.lastPlanRoundErrorDetail;
       setState(() {
         _isAnalyzing = false;
         _analysisStatus = null;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to create labour plan.')),
+        SnackBar(content: Text(detail ?? 'Failed to create labour plan.')),
       );
       return;
     }
@@ -1570,6 +1718,8 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
                   fit: StackFit.expand,
                   children: [
                     _buildImageSurface(item),
+                    if (_isBudScanAnimating && item.pending != null)
+                      _buildImageScanOverlay(),
                     Positioned(
                       left: 16,
                       top: 16,
@@ -1730,6 +1880,9 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
   }
 
   Widget _buildImageSurface(_GalleryItem item, {BoxFit fit = BoxFit.cover}) {
+    if (item.imageBytes != null) {
+      return Image.memory(item.imageBytes!, fit: fit);
+    }
     if (item.imagePath != null) {
       if (item.imagePath!.startsWith('data:image')) {
         try {
@@ -1738,7 +1891,29 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
         } catch (_) {}
       }
       if (item.imagePath!.startsWith('http')) {
-        return Image.network(item.imagePath!, fit: fit);
+        return Image.network(
+          item.imagePath!,
+          fit: fit,
+          loadingBuilder: (context, child, loadingProgress) {
+            if (loadingProgress == null) {
+              return child;
+            }
+            final total = loadingProgress.expectedTotalBytes;
+            return Container(
+              decoration: const BoxDecoration(color: Color(0xFFE9EDF1)),
+              child: Center(
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  color: AppTheme.brandGreen,
+                  value: total != null
+                      ? loadingProgress.cumulativeBytesLoaded / total
+                      : null,
+                ),
+              ),
+            );
+          },
+          errorBuilder: (context, _, __) => _buildPlaceholderSurface(item),
+        );
       }
       return Image.file(
         File(item.imagePath!),
@@ -1747,6 +1922,110 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen> {
       );
     }
     return _buildPlaceholderSurface(item);
+  }
+
+  Widget _buildImageScanOverlay() {
+    return Positioned.fill(
+      child: IgnorePointer(
+        child: AnimatedBuilder(
+          animation: _scanController,
+          builder: (context, child) {
+            final progress = _scanController.value;
+            return Stack(
+              fit: StackFit.expand,
+              children: [
+                Container(color: Colors.black.withValues(alpha: 0.18)),
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  top: -80 + (420 * progress),
+                  child: Container(
+                    height: 88,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          AppTheme.brandGreen.withValues(alpha: 0.0),
+                          AppTheme.brandGreen.withValues(alpha: 0.18),
+                          Colors.white.withValues(alpha: 0.55),
+                          AppTheme.brandGreen.withValues(alpha: 0.18),
+                          AppTheme.brandGreen.withValues(alpha: 0.0),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned.fill(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.transparent,
+                          AppTheme.brandGreen.withValues(alpha: 0.06),
+                          Colors.transparent,
+                        ],
+                        stops: const [0.0, 0.5, 1.0],
+                        transform: _SlidingGradientTransform(progress),
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  left: 16,
+                  right: 16,
+                  bottom: 16,
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 30,
+                        height: 30,
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.48),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Padding(
+                          padding: EdgeInsets.all(7),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.2,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              AppTheme.brandGreen,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 9,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.5),
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: const Text(
+                            'Scanning buds...',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.1,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
   }
 
   Widget _buildPlaceholderSurface(_GalleryItem item) {
@@ -2179,8 +2458,8 @@ class _CountBox extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 84,
-      padding: const EdgeInsets.all(10),
+      height: 96,
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 14),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           colors: [Color(0xFF4A4A4A), Color(0xFF2F2F2F)],
@@ -2203,7 +2482,7 @@ class _CountBox extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           SizedBox(
-            height: 22,
+            height: 26,
             child: Text(
               title,
               maxLines: 2,
@@ -2217,13 +2496,29 @@ class _CountBox extends StatelessWidget {
             ),
           ),
           const Spacer(),
-          Text(
-            value,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 21,
-              fontWeight: FontWeight.w900,
-              letterSpacing: -0.4,
+          SizedBox(
+            height: 30,
+            child: Align(
+              alignment: Alignment.bottomLeft,
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  value,
+                  maxLines: 1,
+                  strutStyle: const StrutStyle(
+                    forceStrutHeight: true,
+                    height: 1.0,
+                  ),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 21,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.4,
+                    height: 1.0,
+                  ),
+                ),
+              ),
             ),
           ),
         ],
@@ -2551,6 +2846,8 @@ class _WeatherSmsPreview extends StatelessWidget {
 class _PendingImage {
   final String id;
   final String imagePath;
+  final Uint8List imageBytes;
+  final String filename;
   final String sourceLabel;
   final DateTime capturedAt;
   final double capturedArea;
@@ -2561,6 +2858,8 @@ class _PendingImage {
   const _PendingImage({
     required this.id,
     required this.imagePath,
+    required this.imageBytes,
+    required this.filename,
     required this.sourceLabel,
     required this.capturedAt,
     required this.capturedArea,
@@ -2582,5 +2881,21 @@ class _GalleryItem {
 
   String get id => analysis?.id ?? pending!.id;
   String? get imagePath => analysis?.imagePath ?? pending?.imagePath;
+  Uint8List? get imageBytes => pending?.imageBytes;
   double? get capturedArea => analysis?.capturedArea ?? pending?.capturedArea;
+}
+
+class _SlidingGradientTransform extends GradientTransform {
+  final double progress;
+
+  const _SlidingGradientTransform(this.progress);
+
+  @override
+  Matrix4? transform(Rect bounds, {TextDirection? textDirection}) {
+    return Matrix4.translationValues(
+      0,
+      bounds.height * (progress * 1.2 - 0.6),
+      0,
+    );
+  }
 }

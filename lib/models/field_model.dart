@@ -415,6 +415,9 @@ class FieldMeasurement {
   bool get hasOverPluckingRisk => (yieldVariancePercent ?? 0) >= 15;
 
   String get laborPriorityLabel {
+    if (isCompleted) {
+      return 'Round completed';
+    }
     final ratio = averagePluckableRatio;
     if (ratio >= 0.60 && ratio <= 0.70) {
       return 'Dispatch now';
@@ -450,6 +453,31 @@ class FieldMeasurement {
     }
     return 'Needs more growth';
   }
+
+  String get statusLabel {
+    if (isCompleted || pluckingStatus == 'completed') {
+      return 'Completed';
+    }
+
+    switch (pluckingStatus) {
+      case 'ready_to_pluck':
+        return 'Ready to pluck';
+      case 'overgrown':
+        return 'Review maturity';
+      case 'maturing':
+        return 'Maturing';
+      case 'needs_growth':
+        return 'Needs more growth';
+      case 'analyzing':
+        return 'Analyzing';
+      case 'awaiting_analysis':
+        return analyzedImages.isEmpty
+            ? 'Awaiting analysis'
+            : 'Awaiting analysis';
+      default:
+        return readinessLabel;
+    }
+  }
 }
 
 class Field {
@@ -483,15 +511,31 @@ class Field {
 
   DateTime get createdAt => _createdAt ?? DateTime.now();
 
-  FieldMeasurement? get latestMeasurement =>
-      measurements.isEmpty ? null : measurements.last;
+  double get areaSquareMeters => areaHectares * 10000;
+
+  String get areaDisplay {
+    final sqm = areaSquareMeters;
+    final hasFraction = (sqm - sqm.roundToDouble()).abs() > 0.01;
+    return hasFraction
+        ? '${sqm.toStringAsFixed(1)} sq.m'
+        : '${sqm.toStringAsFixed(0)} sq.m';
+  }
+
+  FieldMeasurement? get latestMeasurement {
+    if (measurements.isEmpty) {
+      return null;
+    }
+    return measurements.reduce(
+      (latest, current) => current.date.isAfter(latest.date) ? current : latest,
+    );
+  }
 
   String get subtitle {
     final trimmedRegion = region.trim();
     if (trimmedRegion.isEmpty) {
-      return '${areaHectares.toStringAsFixed(1)} ha';
+      return areaDisplay;
     }
-    return '$trimmedRegion • ${areaHectares.toStringAsFixed(1)} ha';
+    return '$trimmedRegion • $areaDisplay';
   }
 }
 
