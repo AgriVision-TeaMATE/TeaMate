@@ -73,7 +73,7 @@ class DiseaseScanService {
 
       final responseBody = await response.stream.bytesToString();
 
-      if (response.statusCode == 200) {
+      if (response.statusCode >= 200 && response.statusCode < 300) {
         return json.decode(responseBody) as Map<String, dynamic>;
       } else {
         final errorMessage = _parseErrorMessage(responseBody, response.statusCode);

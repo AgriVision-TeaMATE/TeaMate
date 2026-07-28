@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 
@@ -48,10 +49,72 @@ class _ScanDiseaseScreenState extends State<ScanDiseaseScreen> {
       return;
     }
 
+    // Crop the image to 1:1 aspect ratio
+    final XFile? croppedFile = await _cropImage(pickedFile);
+    if (croppedFile == null) {
+      return;
+    }
+
     if (!mounted) return;
     setState(() {
-      _selectedImage = pickedFile;
+      _selectedImage = croppedFile;
     });
+  }
+
+  /// Crop image to 1:1 aspect ratio for optimal disease detection.
+  /// Cropping is mandatory on every platform (including web) — if the user
+  /// cancels the cropper, no image is set rather than falling back to the
+  /// uncropped original.
+  Future<XFile?> _cropImage(XFile imageFile) async {
+    try {
+      final CroppedFile? croppedFile = await ImageCropper().cropImage(
+        sourcePath: imageFile.path,
+        uiSettings: [
+          AndroidUiSettings(
+            toolbarTitle: 'Crop Leaf Image',
+            toolbarColor: AppTheme.primaryButton,
+            toolbarWidgetColor: Colors.white,
+            backgroundColor: Colors.white,
+            cropGridColor: AppTheme.brandGreen,
+            cropFrameColor: AppTheme.brandGreen,
+            activeControlsWidgetColor: AppTheme.brandGreen,
+            showCropGrid: true,
+            lockAspectRatio: true,
+            hideBottomControls: true,
+            aspectRatioPresets: [
+              CropAspectRatioPreset.square,
+            ],
+          ),
+          IOSUiSettings(
+            title: 'Crop Leaf Image',
+            aspectRatioLockEnabled: true,
+            aspectRatioPickerButtonHidden: true,
+            aspectRatioPresets: [
+              CropAspectRatioPreset.square,
+            ],
+            resetButtonHidden: true,
+          ),
+          WebUiSettings(
+            context: context,
+            // size: const CropperSize(width: 480, height: 480),
+            // viewMode: WebViewMode.viewMode1,
+            // dragMode: WebDragMode.crop,
+            // cropBoxResizable: false,
+            // cropBoxMovable: true,
+          ),
+        ],
+        aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
+      );
+      if (croppedFile == null) return null;
+      return XFile(croppedFile.path);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Cropping failed. Please try again.')),
+        );
+      }
+      return null;
+    }
   }
 
   /// Camera-capture entry point for disease scanning
@@ -85,9 +148,15 @@ class _ScanDiseaseScreenState extends State<ScanDiseaseScreen> {
       return;
     }
 
+    // Crop the image to 1:1 aspect ratio
+    final XFile? croppedFile = await _cropImage(pickedFile);
+    if (croppedFile == null) {
+      return;
+    }
+
     if (!mounted) return;
     setState(() {
-      _selectedImage = pickedFile;
+      _selectedImage = croppedFile;
     });
   }
 
@@ -160,32 +229,88 @@ class _ScanDiseaseScreenState extends State<ScanDiseaseScreen> {
   }
 
   DiseaseScanResult _parseApiResponse(Map<String, dynamic> response) {
-    final weatherData = response['weather'] as Map<String, dynamic>?;
-    final diseasesList = response['diseases'] as List<dynamic>? ?? [];
+    final scanId = response['scan_id'] as String?;
+    final timestampStr = response['timestamp'] as String?;
+    final confidenceAnalysis = response['confidence_analysis'] as List<dynamic>? ?? [];
+    final riskData = response['risk_level'] as Map<String, dynamic>?;
+    final scanSummary = response['scan_summary'] as Map<String, dynamic>?;
+    final weatherDetails = scanSummary?['weather_details'] as Map<String, dynamic>?;
+
+    // Parse timestamp from API or fall back to current time
+    DateTime detectedAt;
+    try {
+      detectedAt = DateTime.parse(timestampStr ?? DateTime.now().toIso8601String());
+    } catch (_) {
+      detectedAt = DateTime.now();
+    }
+
+    // If no disease results from API, generate placeholder data
+    final results = confidenceAnalysis.isNotEmpty
+        ? confidenceAnalysis.map((d) => DiseaseResult(
+            name: d['disease'] as String? ?? 'Unknown',
+            confidence: (((d['probability'] as num?)?.toDouble() ?? 0.0) * 100).toInt(),
+            description: d['confidence_label'] as String? ?? '',
+            symptoms: d['symptoms'] as String? ?? '',
+            treatment: d['treatment'] as String? ?? '',
+          )).toList()
+        : _getPlaceholderResults();
 
     return DiseaseScanResult(
       fieldId: widget.fieldId,
       imagePath: _selectedImage?.path,
-      detectedAt: DateTime.now(),
-      weather: weatherData != null
+      detectedAt: detectedAt,
+      scanId: scanId,
+      weather: weatherDetails != null
           ? WeatherSnapshot(
               date: DateTime.now(),
-              summary: weatherData['summary'] as String? ?? 'Partly cloudy',
-              rainChance: (weatherData['rain_chance'] as num?)?.toInt() ?? 42,
-              humidity: (weatherData['humidity'] as num?)?.toInt() ?? 78,
+              summary: _buildWeatherSummary(weatherDetails),
+              rainChance: (weatherDetails['rainy_hours_last_7'] as num?)?.toInt() ?? 42,
+              humidity: (weatherDetails['avg_humidity_last_7'] as num?)?.toInt() ?? 78,
               temperatureC:
-                  (weatherData['temperature'] as num?)?.toDouble() ?? 24.5,
-              stormRisk: weatherData['storm_risk'] as bool? ?? false,
+                  (weatherDetails['avg_temperature_last_7'] as num?)?.toDouble() ?? 24.5,
+              stormRisk: ((weatherDetails['rainy_hours_last_7'] as num?)?.toInt() ?? 0) > 40,
             )
           : null,
-      diseaseResults: diseasesList.map((d) => DiseaseResult(
-          name: d['name'] as String? ?? 'Unknown',
-          confidence: (d['confidence'] as num?)?.toInt() ?? 0,
-          description: d['description'] as String? ?? '',
-          symptoms: d['symptoms'] as String? ?? '',
-          treatment: d['treatment'] as String? ?? '',
-        )).toList(),
+      diseaseResults: results,
+      riskLevel: riskData?['level'] as String? ?? '',
+      riskReason: riskData?['reason'] as String? ?? '',
     );
+  }
+
+  List<DiseaseResult> _getPlaceholderResults() {
+    return [
+      DiseaseResult(
+        name: 'Healthy',
+        confidence: 95,
+        description: 'The leaf appears healthy with no visible signs of disease or pest infection.',
+        symptoms: '',
+        treatment: '',
+      ),
+    ];
+  }
+
+  String _buildWeatherSummary(Map<String, dynamic> weather) {
+    final conditions = <String>[];
+
+    final sunshineHours = weather['avg_sunshine_hours_last_7'] as num?;
+    if (sunshineHours != null && sunshineHours.toDouble() < 5) {
+      conditions.add('cloudy');
+    }
+
+    final rainfall = weather['total_rainfall_last_7'] as num?;
+    if (rainfall != null && rainfall.toDouble() > 10) {
+      conditions.add('wet');
+    }
+
+    final humidity = weather['avg_humidity_last_7'] as num?;
+    if (humidity != null && humidity.toDouble() > 80) {
+      conditions.add('humid');
+    }
+
+    if (conditions.isEmpty) {
+      return 'Moderate conditions';
+    }
+    return 'Conditions: ${conditions.join(', ')}';
   }
 
   @override

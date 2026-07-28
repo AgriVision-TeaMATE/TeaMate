@@ -28,6 +28,12 @@ class _DiseaseScanResultScreenState extends State<DiseaseScanResultScreen> {
     _scanResult = widget.scanResult ?? _generateDummyResult();
   }
 
+  /// Check if the top prediction is a healthy result (not a disease)
+  bool _isHealthyResult() {
+    return _scanResult.diseaseResults.isNotEmpty &&
+        _scanResult.diseaseResults.first.name.toLowerCase() == 'healthy';
+  }
+
   DiseaseScanResult _generateDummyResult() {
     return DiseaseScanResult(
       fieldId: widget.fieldId,
@@ -125,44 +131,89 @@ class _DiseaseScanResultScreenState extends State<DiseaseScanResultScreen> {
             ),
             const SizedBox(height: 20),
 
-            // Most Probable Disease
-            _MostProbableDiseaseCard(
-              disease: _scanResult.diseaseResults.first,
-            ),
-            const SizedBox(height: 20),
+            // Healthy Result Card (positive outcome)
+            if (_isHealthyResult()) ...[
+              _HealthyLeafCard(
+                confidence: _scanResult.diseaseResults.first.confidence,
+              ),
+            ] else if (_scanResult.diseaseResults.isNotEmpty) ...[
+              // Most Probable Disease (disease result)
+              _MostProbableDiseaseCard(
+                disease: _scanResult.diseaseResults.first,
+              ),
+              const SizedBox(height: 20),
 
-            // Confidence Analysis
-            _ConfidenceAnalysisCard(
-              diseaseResults: _scanResult.diseaseResults,
-            ),
-            const SizedBox(height: 20),
+              // Confidence Analysis
+              _ConfidenceAnalysisCard(
+                diseaseResults: _scanResult.diseaseResults,
+              ),
+              const SizedBox(height: 20),
 
-            // AI Explanations
-            _AIExplanationSection(
-              diseaseResults: _scanResult.diseaseResults,
-            ),
-            const SizedBox(height: 24),
+              // AI Explanations
+              _AIExplanationSection(
+                diseaseResults: _scanResult.diseaseResults,
+              ),
+              const SizedBox(height: 24),
 
-            // Recommendation Button
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: _navigateToRecommendations,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.brandGreen,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+              // Recommendation Button
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: _navigateToRecommendations,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.brandGreen,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  icon: const Icon(Icons.recommend_outlined, size: 18),
+                  label: const Text(
+                    'View Recommendations',
+                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
                   ),
                 ),
-                icon: const Icon(Icons.recommend_outlined, size: 18),
-                label: const Text(
-                  'View Recommendations',
-                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+              ),
+            ] else ...[
+              // No results placeholder
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFE8ECEF), width: 1),
+                ),
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.check_circle_outline,
+                      color: AppTheme.brandGreen,
+                      size: 48,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'No Diseases Detected',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'The scan completed but no disease patterns were identified in the image.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
+            ]
           ],
         ),
       ),
@@ -174,15 +225,21 @@ class DiseaseScanResult {
   final String fieldId;
   final String? imagePath;
   final DateTime detectedAt;
+  final String? scanId;
   final WeatherSnapshot? weather;
   final List<DiseaseResult> diseaseResults;
+  final String? riskLevel;
+  final String? riskReason;
 
   const DiseaseScanResult({
     required this.fieldId,
     this.imagePath,
     required this.detectedAt,
+    this.scanId,
     this.weather,
     required this.diseaseResults,
+    this.riskLevel,
+    this.riskReason,
   });
 }
 
@@ -273,6 +330,14 @@ class _ScanSummaryCard extends StatelessWidget {
               icon: Icons.cloud_outlined,
             ),
           if (scanResult.weather != null) const SizedBox(height: 10),
+          if (scanResult.scanId != null) ...[
+            _SummaryRow(
+              label: 'Scan ID',
+              value: scanResult.scanId!,
+              icon: Icons.qr_code_outlined,
+            ),
+            const SizedBox(height: 10),
+          ],
           _SummaryRow(
             label: 'Image',
             value: scanResult.imagePath != null ? 'Captured' : 'Not available',
@@ -452,6 +517,112 @@ class _MostProbableDiseaseCard extends StatelessWidget {
     if (confidence >= 60) return const Color(0xFFB54848);
     if (confidence >= 40) return const Color(0xFFE2574C);
     return const Color(0xFFB97922);
+  }
+}
+
+class _HealthyLeafCard extends StatelessWidget {
+  final int confidence;
+
+  const _HealthyLeafCard({required this.confidence});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE8ECEF), width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.brandGreen.withValues(alpha: 0.08),
+            blurRadius: 24,
+            offset: const Offset(0, 12),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(
+                Icons.favorite_rounded,
+                color: Color(0xFF22C55E),
+                size: 20,
+              ),
+              SizedBox(width: 8),
+              Text(
+                'Healthy Leaf',
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: -0.3,
+                  color: Color(0xFF166534),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF0FDF4),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFBBF7D0)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'No Disease Detected',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w900,
+                          color: Color(0xFF166534),
+                          letterSpacing: -0.5,
+                        ),
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF22C55E),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        '$confidence%',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'The leaf appears healthy with no visible signs of disease or pest infection. Continue regular monitoring and maintain good agricultural practices.',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: const Color(0xFF166534).withValues(alpha: 0.8),
+                    height: 1.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
