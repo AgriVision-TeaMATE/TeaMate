@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/field_model.dart';
 import '../../theme.dart';
+import 'disease_history_screen.dart';
 import 'environmental_data_screen.dart';
 
 class DiseaseDetectionScreen extends StatefulWidget {
@@ -182,7 +183,10 @@ class _DiseaseDetectionScreenState extends State<DiseaseDetectionScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => const DetectionHistoryPlaceholder(fieldId: ''),
+        builder: (_) => DiseaseHistoryScreen(
+          fieldId: field.id,
+          fieldName: field.name,
+        ),
       ),
     );
   }
@@ -570,190 +574,6 @@ class _FieldCardState extends State<_FieldCard> {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-// Placeholder pages for disease detection features
-
-class DetectionHistoryPlaceholder extends StatelessWidget {
-  final String fieldId;
-
-  const DetectionHistoryPlaceholder({super.key, required this.fieldId});
-
-  static final List<DiseaseDetectionRecord> _dummyRecords = [
-    DiseaseDetectionRecord(
-      date: DateTime.now().subtract(const Duration(days: 3)),
-      disease: 'Tea Mosquito Bug',
-      severity: DetectionSeverity.high,
-      confidence: 92,
-      imageHint: 'Leaf with curled edges and yellow spots',
-    ),
-    DiseaseDetectionRecord(
-      date: DateTime.now().subtract(const Duration(days: 10)),
-      disease: 'Red Leaf Spot',
-      severity: DetectionSeverity.medium,
-      confidence: 78,
-      imageHint: 'Small reddish spots on young leaves',
-    ),
-    DiseaseDetectionRecord(
-      date: DateTime.now().subtract(const Duration(days: 18)),
-      disease: 'Healthy',
-      severity: DetectionSeverity.none,
-      confidence: 95,
-      imageHint: 'No disease detected - normal growth',
-    ),
-    DiseaseDetectionRecord(
-      date: DateTime.now().subtract(const Duration(days: 25)),
-      disease: 'Blister Blight',
-      severity: DetectionSeverity.low,
-      confidence: 65,
-      imageHint: 'Minor brown blisters on leaf surface',
-    ),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        title: const Text(
-          'Detection History',
-          style: TextStyle(
-            color: AppTheme.textPrimary,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded, color: AppTheme.textPrimary),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-      ),
-      body: _dummyRecords.isEmpty
-          ? const Center(
-              child: Text(
-                'No detection records yet',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: AppTheme.textSecondary,
-                ),
-              ),
-            )
-          : ListView.separated(
-              padding: const EdgeInsets.all(16),
-              itemCount: _dummyRecords.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 12),
-              itemBuilder: (context, index) {
-                final record = _dummyRecords[index];
-                return _DetectionRecordCard(record: record);
-              },
-            ),
-    );
-  }
-}
-
-enum DetectionSeverity { none, low, medium, high }
-
-class DiseaseDetectionRecord {
-  final DateTime date;
-  final String disease;
-  final DetectionSeverity severity;
-  final int confidence;
-  final String imageHint;
-
-  const DiseaseDetectionRecord({
-    required this.date,
-    required this.disease,
-    required this.severity,
-    required this.confidence,
-    required this.imageHint,
-  });
-}
-
-class _DetectionRecordCard extends StatelessWidget {
-  final DiseaseDetectionRecord record;
-
-  const _DetectionRecordCard({required this.record});
-
-  @override
-  Widget build(BuildContext context) {
-    final Color severityColor;
-    final IconData severityIcon;
-    switch (record.severity) {
-      case DetectionSeverity.none:
-        severityColor = AppTheme.brandGreen;
-        severityIcon = Icons.check_circle_rounded;
-      case DetectionSeverity.low:
-        severityColor = const Color(0xFFB97922);
-        severityIcon = Icons.info_rounded;
-      case DetectionSeverity.medium:
-        severityColor = const Color(0xFFE2574C);
-        severityIcon = Icons.warning_rounded;
-      case DetectionSeverity.high:
-        severityColor = const Color(0xFFD95C5C);
-        severityIcon = Icons.dangerous_rounded;
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE4E9DE)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(severityIcon, color: severityColor, size: 20),
-              const SizedBox(width: 8),
-              Text(
-                record.disease,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                  color: AppTheme.textPrimary,
-                ),
-              ),
-              const Spacer(),
-              Text(
-                '${record.confidence}%',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: severityColor,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '${record.date.day}/${record.date.month}/${record.date.year}',
-            style: const TextStyle(
-              fontSize: 12,
-              color: AppTheme.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            record.imageHint,
-            style: const TextStyle(
-              fontSize: 13,
-              color: AppTheme.textSecondary,
-            ),
-          ),
-        ],
       ),
     );
   }

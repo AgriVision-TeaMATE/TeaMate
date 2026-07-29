@@ -4,7 +4,9 @@ import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 
+import '../models/disease_scan_record.dart';
 import '../models/environmental_data.dart';
+import 'auth_service.dart';
 
 /// Exception thrown when disease scan API fails
 class DiseaseScanException implements Exception {
@@ -17,9 +19,87 @@ class DiseaseScanException implements Exception {
 
 /// Service for disease scanning API calls
 class DiseaseScanService {
-  static const String _baseUrl = 'http://localhost:8001/api/v1/disease/scan';
+  static const String _host = 'http://localhost:8001';
+  static const String _baseUrl = '$_host/api/v1/disease/scan';
+  static const String _diseaseBaseUrl = '$_host/api/v1/disease';
+
+  // Fallback token, used only if the user isn't currently logged in
+  // (AuthService().token is preferred and used whenever available).
   static const String _authToken =
       'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhMGFiMDAwYS1kOGJkLTRhODktODA3YS03YmZlMjVkZDRhMTMiLCJlbWFpbCI6ImFAYS5hIiwiZXhwIjoxNzg3MzM5OTIxfQ.p-X_efCJmVZxBpDR4ThQnJwWKWhK1FsQ7h6t690dvWQ';
+
+  static Map<String, String> _authHeaders() {
+    final token = AuthService().token;
+    final resolved = (token != null && token.isNotEmpty) ? token : _authToken;
+    return {'Authorization': 'Bearer $resolved'};
+  }
+
+  /// Builds an absolute URL for an `image_url` returned by the API
+  /// (e.g. "/media/disease-scans/xyz.jpg" -> "http://localhost:8001/media/...").
+  static String? resolveImageUrl(String? path) {
+    if (path == null || path.isEmpty) return null;
+    if (path.startsWith('http://') || path.startsWith('https://')) {
+      return path;
+    }
+    return '$_host$path';
+  }
+
+  /// Fetches all disease scan records for a given field, most recent first.
+  /// Throws DiseaseScanException on failure.
+  static Future<List<DiseaseScanRecord>> fetchScansByField(
+    String fieldId,
+  ) async {
+    try {
+      final uri = Uri.parse('$_diseaseBaseUrl/by-field/$fieldId');
+      final response = await http
+          .get(uri, headers: _authHeaders())
+          .timeout(const Duration(seconds: 15));
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        final data = json.decode(response.body) as List;
+        final records = data
+            .map(
+              (e) => DiseaseScanRecord.fromJson(e as Map<String, dynamic>),
+            )
+            .toList();
+        records.sort((a, b) => b.scanDatetime.compareTo(a.scanDatetime));
+        return records;
+      }
+
+      throw DiseaseScanException(
+        _parseErrorMessage(response.body, response.statusCode),
+      );
+    } on DiseaseScanException {
+      rethrow;
+    } catch (e) {
+      throw DiseaseScanException(_parseExceptionMessage(e));
+    }
+  }
+
+  /// Fetches a single disease scan record's full detail by its record id.
+  /// Throws DiseaseScanException on failure.
+  static Future<DiseaseScanRecord> fetchScanById(String scanRecordId) async {
+    try {
+      final uri = Uri.parse('$_diseaseBaseUrl/$scanRecordId');
+      final response = await http
+          .get(uri, headers: _authHeaders())
+          .timeout(const Duration(seconds: 15));
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return DiseaseScanRecord.fromJson(
+          json.decode(response.body) as Map<String, dynamic>,
+        );
+      }
+
+      throw DiseaseScanException(
+        _parseErrorMessage(response.body, response.statusCode),
+      );
+    } on DiseaseScanException {
+      rethrow;
+    } catch (e) {
+      throw DiseaseScanException(_parseExceptionMessage(e));
+    }
+  }
 
   /// Performs disease scan with image and environmental data
   /// Throws DiseaseScanException on failure
@@ -48,7 +128,7 @@ class DiseaseScanService {
       };
 
       final request = http.MultipartRequest('POST', uri);
-      request.headers['Authorization'] = 'Bearer $_authToken';
+      request.headers.addAll(_authHeaders());
 
       // Determine content type from file extension
       final mimeType = _getImageMimeType(fileName);
