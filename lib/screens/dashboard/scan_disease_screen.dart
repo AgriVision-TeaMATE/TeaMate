@@ -81,17 +81,13 @@ class _ScanDiseaseScreenState extends State<ScanDiseaseScreen> {
             showCropGrid: true,
             lockAspectRatio: true,
             hideBottomControls: true,
-            aspectRatioPresets: [
-              CropAspectRatioPreset.square,
-            ],
+            aspectRatioPresets: [CropAspectRatioPreset.square],
           ),
           IOSUiSettings(
             title: 'Crop Leaf Image',
             aspectRatioLockEnabled: true,
             aspectRatioPickerButtonHidden: true,
-            aspectRatioPresets: [
-              CropAspectRatioPreset.square,
-            ],
+            aspectRatioPresets: [CropAspectRatioPreset.square],
             resetButtonHidden: true,
           ),
           WebUiSettings(
@@ -173,7 +169,9 @@ class _ScanDiseaseScreenState extends State<ScanDiseaseScreen> {
   Future<void> _scanDisease() async {
     if (_selectedImage == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select or capture an image first.')),
+        const SnackBar(
+          content: Text('Please select or capture an image first.'),
+        ),
       );
       return;
     }
@@ -190,11 +188,9 @@ class _ScanDiseaseScreenState extends State<ScanDiseaseScreen> {
       final response = await DiseaseScanService.scanDisease(
         imageBytes: bytes,
         fileName: _selectedImage!.name,
-        environmentalData: widget.environmentalData ??
-            EnvironmentalData(
-              date: DateTime.now(),
-              time: DateTime.now(),
-            ),
+        environmentalData:
+            widget.environmentalData ??
+            EnvironmentalData(date: DateTime.now(), time: DateTime.now()),
         fieldId: widget.fieldId,
       );
 
@@ -222,69 +218,115 @@ class _ScanDiseaseScreenState extends State<ScanDiseaseScreen> {
       setState(() {
         _isScanning = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Scan failed: ${e.toString()}')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Scan failed: ${e.toString()}')));
     }
   }
 
+  /// Parses the disease-scan API response into a [DiseaseScanResult].
+  ///
+  /// Expected shape (see `/api/v1/disease/scan`):
+  /// {
+  ///   "scan_id": "...",
+  ///   "scan_summary": { "field_id", "field_name", "weather_details",
+  ///                      "image_url", "scan_datetime", ... },
+  ///   "most_probable_disease": { "disease_name", "confidence", "severity",
+  ///                               "description", "causes": [...] },
+  ///   "confidence_analysis": [ { "disease", "probability",
+  ///                              "confidence_label", "category" }, ... ],
+  ///   "recommendations": [ "...", "..." ],
+  ///   "classification": { "level", "label", "confidence", "category",
+  ///                        "message" },
+  ///   "meta": { "timestamp", ... }
+  /// }
   DiseaseScanResult _parseApiResponse(Map<String, dynamic> response) {
     final scanId = response['scan_id'] as String?;
-    final timestampStr = response['timestamp'] as String?;
-    final confidenceAnalysis = response['confidence_analysis'] as List<dynamic>? ?? [];
-    final riskData = response['risk_level'] as Map<String, dynamic>?;
     final scanSummary = response['scan_summary'] as Map<String, dynamic>?;
-    final weatherDetails = scanSummary?['weather_details'] as Map<String, dynamic>?;
+    final weatherDetails =
+        scanSummary?['weather_details'] as Map<String, dynamic>?;
+    final mostProbableJson =
+        response['most_probable_disease'] as Map<String, dynamic>?;
+    final confidenceAnalysis =
+        response['confidence_analysis'] as List<dynamic>? ?? [];
+    final recommendations =
+        (response['recommendations'] as List<dynamic>? ?? [])
+            .map((e) => e.toString())
+            .toList();
+    final classificationJson =
+        response['classification'] as Map<String, dynamic>?;
+    final meta = response['meta'] as Map<String, dynamic>?;
 
-    // Parse timestamp from API or fall back to current time
+    // Prefer scan_summary.scan_datetime, then meta.timestamp, then now.
+    final timestampStr =
+        scanSummary?['scan_datetime'] as String? ??
+        meta?['timestamp'] as String?;
     DateTime detectedAt;
     try {
-      detectedAt = DateTime.parse(timestampStr ?? DateTime.now().toIso8601String());
+      detectedAt = DateTime.parse(
+        timestampStr ?? DateTime.now().toIso8601String(),
+      );
     } catch (_) {
       detectedAt = DateTime.now();
     }
 
-    // If no disease results from API, generate placeholder data
-    final results = confidenceAnalysis.isNotEmpty
-        ? confidenceAnalysis.map((d) => DiseaseResult(
-            name: d['disease'] as String? ?? 'Unknown',
-            confidence: (((d['probability'] as num?)?.toDouble() ?? 0.0) * 100).toInt(),
-            description: d['confidence_label'] as String? ?? '',
-            symptoms: d['symptoms'] as String? ?? '',
-            treatment: d['treatment'] as String? ?? '',
-          )).toList()
-        : _getPlaceholderResults();
+    final diseaseResults = confidenceAnalysis.map((d) {
+      final map = d as Map<String, dynamic>;
+      return DiseaseResult(
+        name: map['disease']?.toString() ?? 'Unknown',
+        confidence: (((map['probability'] as num?)?.toDouble() ?? 0.0) * 100)
+            .round(),
+        confidenceLabel: map['confidence_label']?.toString() ?? '',
+        category: map['category']?.toString() ?? '',
+      );
+    }).toList();
 
     return DiseaseScanResult(
       fieldId: widget.fieldId,
       imagePath: _selectedImage?.path,
       detectedAt: detectedAt,
       scanId: scanId,
+      fieldName: scanSummary?['field_name']?.toString(),
+      remoteImageUrl: scanSummary?['image_url']?.toString(),
       weather: weatherDetails != null
           ? WeatherSnapshot(
               date: DateTime.now(),
               summary: _buildWeatherSummary(weatherDetails),
-              rainChance: (weatherDetails['rainy_hours_last_7'] as num?)?.toInt() ?? 42,
-              humidity: (weatherDetails['avg_humidity_last_7'] as num?)?.toInt() ?? 78,
+              rainChance:
+                  (weatherDetails['rainy_hours_last_7'] as num?)?.toInt() ?? 42,
+              humidity:
+                  (weatherDetails['avg_humidity_last_7'] as num?)?.toInt() ??
+                  78,
               temperatureC:
-                  (weatherDetails['avg_temperature_last_7'] as num?)?.toDouble() ?? 24.5,
-              stormRisk: ((weatherDetails['rainy_hours_last_7'] as num?)?.toInt() ?? 0) > 40,
+                  (weatherDetails['avg_temperature_last_7'] as num?)
+                      ?.toDouble() ??
+                  24.5,
+              stormRisk:
+                  ((weatherDetails['rainy_hours_last_7'] as num?)?.toInt() ??
+                      0) >
+                  40,
             )
           : null,
-      diseaseResults: results,
-      riskLevel: riskData?['level'] as String? ?? '',
-      riskReason: riskData?['reason'] as String? ?? '',
+      classification: classificationJson != null
+          ? DiseaseClassification.fromJson(classificationJson)
+          : null,
+      mostProbableDisease: mostProbableJson != null
+          ? MostProbableDisease.fromJson(mostProbableJson)
+          : null,
+      diseaseResults: diseaseResults.isNotEmpty
+          ? diseaseResults
+          : _getPlaceholderResults(),
+      recommendations: recommendations,
     );
   }
 
   List<DiseaseResult> _getPlaceholderResults() {
-    return [
+    return const [
       DiseaseResult(
         name: 'Healthy',
         confidence: 95,
-        description: 'The leaf appears healthy with no visible signs of disease or pest infection.',
-        symptoms: '',
-        treatment: '',
+        confidenceLabel: 'Very High',
+        category: 'Healthy',
       ),
     ];
   }
@@ -334,7 +376,10 @@ class _ScanDiseaseScreenState extends State<ScanDiseaseScreen> {
           ),
         ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded, color: AppTheme.textPrimary),
+          icon: const Icon(
+            Icons.arrow_back_rounded,
+            color: AppTheme.textPrimary,
+          ),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
@@ -400,10 +445,7 @@ class _ScanDiseaseScreenState extends State<ScanDiseaseScreen> {
                   icon: const Icon(Icons.camera_alt_outlined, size: 22),
                   label: const Text(
                     'Capture',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 16,
-                    ),
+                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
                   ),
                 ),
               ),
@@ -412,7 +454,9 @@ class _ScanDiseaseScreenState extends State<ScanDiseaseScreen> {
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
-                  onPressed: _isScanning ? null : () => _pickImage(ImageSource.gallery),
+                  onPressed: _isScanning
+                      ? null
+                      : () => _pickImage(ImageSource.gallery),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
@@ -452,10 +496,12 @@ class _ScanDiseaseScreenState extends State<ScanDiseaseScreen> {
     final avgTemperature = hasEnvironmentalData
         ? widget.environmentalData!.avgTemperatureLast7
         : 24.5;
-    final avgHumidity =
-        hasEnvironmentalData ? widget.environmentalData!.avgHumidityLast7 : 78;
-    final totalRainfall =
-        hasEnvironmentalData ? widget.environmentalData!.totalRainfallLast7 : 0.0;
+    final avgHumidity = hasEnvironmentalData
+        ? widget.environmentalData!.avgHumidityLast7
+        : 78;
+    final totalRainfall = hasEnvironmentalData
+        ? widget.environmentalData!.totalRainfallLast7
+        : 0.0;
     final avgWindSpeed = hasEnvironmentalData
         ? widget.environmentalData!.avgWindSpeedLast7
         : 12.0;
@@ -483,11 +529,7 @@ class _ScanDiseaseScreenState extends State<ScanDiseaseScreen> {
         children: [
           const Row(
             children: [
-              Icon(
-                Icons.cloud_outlined,
-                color: AppTheme.brandGreen,
-                size: 20,
-              ),
+              Icon(Icons.cloud_outlined, color: AppTheme.brandGreen, size: 20),
               SizedBox(width: 8),
               Text(
                 '7-Day Environmental Data',
@@ -585,11 +627,7 @@ class _WeatherMetric extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            icon,
-            color: const Color(0xFF7ED321),
-            size: 18,
-          ),
+          Icon(icon, color: const Color(0xFF7ED321), size: 18),
           const SizedBox(height: 6),
           Text(
             label,
