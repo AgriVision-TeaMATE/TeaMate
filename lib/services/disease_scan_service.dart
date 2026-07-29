@@ -147,6 +147,12 @@ class DiseaseScanService {
       // Add weather summary as form field
       request.fields['weather_summary'] = json.encode(weatherSummary);
 
+      // Add field_id as a text form-data field so the backend can
+      // associate this scan with the correct field.
+      if (fieldId != null && fieldId.isNotEmpty) {
+        request.fields['field_id'] = fieldId;
+      }
+
       final response = await request.send().timeout(
         const Duration(seconds: 30),
       );
