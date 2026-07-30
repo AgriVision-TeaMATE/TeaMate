@@ -3,12 +3,13 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:geolocator/geolocator.dart';
 
+import '../config/network_config.dart';
 import '../models/environmental_data.dart';
 
 /// Service for fetching environmental data using GPS and weather APIs
 class EnvironmentalDataService {
   /// Local API endpoint for weekly weather summary
-  static const String _weeklyWeatherUrl = 'http://localhost:8001/api/v1/weather/weekly-summary';
+  static String get _weeklyWeatherUrl => '${NetworkConfig.apiBaseUrl()}/weather/weekly-summary';
 
   /// Dummy GPS coordinates for testing (Hatton, Sri Lanka - tea plantation region)
   static const double _defaultLat = 6.8985;

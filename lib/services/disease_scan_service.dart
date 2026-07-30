@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 
+import '../config/network_config.dart';
 import '../models/disease_scan_record.dart';
 import '../models/environmental_data.dart';
 import 'auth_service.dart';
@@ -26,9 +27,9 @@ class ScanImage {
 
 /// Service for disease scanning API calls
 class DiseaseScanService {
-  static const String _host = 'http://localhost:8001';
-  static const String _baseUrl = '$_host/api/v1/disease/scan';
-  static const String _diseaseBaseUrl = '$_host/api/v1/disease';
+  static String get _host => 'http://${NetworkConfig.host}:8001';
+  static String get _baseUrl => '$_host/api/v1/disease/scan';
+  static String get _diseaseBaseUrl => '$_host/api/v1/disease';
 
   // Fallback token, used only if the user isn't currently logged in
   // (AuthService().token is preferred and used whenever available).
