@@ -124,7 +124,7 @@ class _LabourManagementTab extends StatelessWidget {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(14),
               gradient: const LinearGradient(
-                colors: [Color(0xFF4A4A4A), Color(0xFF2F2F2F)],
+                colors: [AppTheme.primaryGreen, Color(0xFF1E4A3D)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -818,10 +818,10 @@ class _GeneralSettingsTabState extends State<_GeneralSettingsTab> {
                       DropdownButtonFormField<String>(
                         initialValue: selectedVariant,
                         decoration: InputDecoration(
-                          hintText: 'Tea variant',
-                          hintStyle: const TextStyle(
-                            color: Color(0xFF9AA5B1),
-                            fontWeight: FontWeight.w500,
+                          labelText: 'Tea variant',
+                          labelStyle: const TextStyle(
+                            color: Color(0xFF6E7E8B),
+                            fontWeight: FontWeight.w600,
                           ),
                           filled: true,
                           fillColor: const Color(0xFFF5F7F6),
@@ -852,10 +852,10 @@ class _GeneralSettingsTabState extends State<_GeneralSettingsTab> {
                           decimal: true,
                         ),
                         decoration: InputDecoration(
-                          hintText: '100 pluckable buds weight (g)',
-                          hintStyle: const TextStyle(
-                            color: Color(0xFF9AA5B1),
-                            fontWeight: FontWeight.w500,
+                          labelText: '100 pluckable buds weight (g)',
+                          labelStyle: const TextStyle(
+                            color: Color(0xFF6E7E8B),
+                            fontWeight: FontWeight.w600,
                           ),
                           filled: true,
                           fillColor: const Color(0xFFF5F7F6),
@@ -872,10 +872,10 @@ class _GeneralSettingsTabState extends State<_GeneralSettingsTab> {
                           decimal: true,
                         ),
                         decoration: InputDecoration(
-                          hintText: '100 arimbu buds weight (g)',
-                          hintStyle: const TextStyle(
-                            color: Color(0xFF9AA5B1),
-                            fontWeight: FontWeight.w500,
+                          labelText: '100 arimbu buds weight (g)',
+                          labelStyle: const TextStyle(
+                            color: Color(0xFF6E7E8B),
+                            fontWeight: FontWeight.w600,
                           ),
                           filled: true,
                           fillColor: const Color(0xFFF5F7F6),

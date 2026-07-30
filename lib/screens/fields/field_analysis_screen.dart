@@ -1192,14 +1192,15 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (_measurement.analyzedImages.isNotEmpty) ...[
+              if (_measurement.analyzedImages.isNotEmpty &&
+                  !_measurement.isCompleted) ...[
                 _buildDecisionHero(),
               ],
               if (!_measurement.isCompleted) ...[
                 _buildCapturePanel(),
                 const SizedBox(height: 18),
               ] else
-                const SizedBox(height: 18),
+                const SizedBox(height: 4),
               if (_galleryItems.isEmpty) ...[
                 _EmptyGalleryState(minimumImages: _minimumImages),
                 if (!_measurement.isCompleted) ...[
@@ -2185,15 +2186,8 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen>
       child: Container(
         width: double.infinity,
         decoration: BoxDecoration(
-          color: AppTheme.primaryButton,
-          image: DecorationImage(
-            image: const AssetImage('assets/images/summary_card_bg.png'),
-            fit: BoxFit.cover,
-            colorFilter: ColorFilter.mode(
-              Colors.black.withValues(alpha: 0.58),
-              BlendMode.darken,
-            ),
-          ),
+          color: Colors.white,
+          border: Border.all(color: const Color(0xFFE8ECEF), width: 1),
         ),
         child: Stack(
           children: [
@@ -2207,7 +2201,7 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen>
                     child: Text(
                       'Average output summary',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: AppTheme.textPrimary,
                         fontSize: 18,
                         fontWeight: FontWeight.w900,
                         letterSpacing: -0.4,
@@ -2291,10 +2285,10 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen>
 
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.zero,
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(color: const Color(0xFFE8ECEF), width: 1),
       ),
       child: Column(
@@ -2458,11 +2452,10 @@ class _CountBox extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 96,
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 14),
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF4A4A4A), Color(0xFF2F2F2F)],
+          colors: [AppTheme.primaryGreen, Color(0xFF1E4A3D)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -2480,9 +2473,9 @@ class _CountBox extends StatelessWidget {
               borderRadius: BorderRadius.circular(14),
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 5),
           SizedBox(
-            height: 26,
+            height: 20,
             child: Text(
               title,
               maxLines: 2,
@@ -2495,9 +2488,9 @@ class _CountBox extends StatelessWidget {
               ),
             ),
           ),
-          const Spacer(),
+          const SizedBox(height: 2),
           SizedBox(
-            height: 30,
+            height: 26,
             child: Align(
               alignment: Alignment.bottomLeft,
               child: FittedBox(
@@ -2538,18 +2531,18 @@ class _SummaryStat extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.12),
+        color: const Color(0xFFF4F7F5),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+        border: Border.all(color: const Color(0xFFE8ECEF)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             label,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 11,
-              color: Colors.white.withValues(alpha: 0.72),
+              color: Color(0xFF56616B),
               fontWeight: FontWeight.w700,
               height: 1.35,
             ),
@@ -2558,7 +2551,7 @@ class _SummaryStat extends StatelessWidget {
           Text(
             value,
             style: const TextStyle(
-              color: Colors.white,
+              color: AppTheme.textPrimary,
               fontSize: 16,
               fontWeight: FontWeight.w900,
               letterSpacing: -0.4,
@@ -2695,15 +2688,14 @@ class _ComparisonMetric extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 78,
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF4A4A4A), Color(0xFF2F2F2F)],
+          colors: [AppTheme.primaryGreen, Color(0xFF1E4A3D)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(color: Colors.white24),
       ),
       child: Column(
@@ -2726,7 +2718,7 @@ class _ComparisonMetric extends StatelessWidget {
               fontSize: 11.5,
             ),
           ),
-          const Spacer(),
+          const SizedBox(height: 4),
           Text(
             value,
             style: const TextStyle(

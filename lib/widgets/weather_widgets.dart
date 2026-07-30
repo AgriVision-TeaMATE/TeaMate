@@ -1,7 +1,21 @@
 import 'package:flutter/material.dart';
 import '../models/field_model.dart';
-import '../services/weather_service.dart';
 import '../theme.dart';
+
+/// Maps an Open-Meteo weather code to a Material icon for a consistent,
+/// non-emoji presentation across the weather UI.
+IconData weatherCodeToIconData(int code) {
+  if (code == 0) return Icons.wb_sunny_rounded;
+  if (code <= 2) return Icons.wb_cloudy_rounded;
+  if (code == 3) return Icons.cloud_rounded;
+  if (code <= 48) return Icons.foggy;
+  if (code <= 57) return Icons.grain_rounded;
+  if (code <= 67) return Icons.water_drop_rounded;
+  if (code <= 77) return Icons.ac_unit_rounded;
+  if (code <= 82) return Icons.water_drop_rounded;
+  if (code <= 86) return Icons.ac_unit_rounded;
+  return Icons.thunderstorm_rounded;
+}
 
 /// Compact weather banner for dashboard
 class WeatherBannerCard extends StatelessWidget {
@@ -18,9 +32,9 @@ class WeatherBannerCard extends StatelessWidget {
         width: double.infinity,
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(16),
           gradient: const LinearGradient(
-            colors: [Color(0xFF1A3C34), Color(0xFF0E221D)],
+            colors: [AppTheme.primaryGreen, Color(0xFF1E4A3D)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -53,17 +67,17 @@ class WeatherBannerCard extends StatelessWidget {
         width: double.infinity,
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(16),
           gradient: LinearGradient(
             colors: hasRisk
                 ? [const Color(0xFF3D2014), const Color(0xFF1E1108)]
-                : [const Color(0xFF1A3C34), const Color(0xFF0E221D)],
+                : [AppTheme.primaryGreen, const Color(0xFF1E4A3D)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
           boxShadow: [
             BoxShadow(
-              color: (hasRisk ? const Color(0xFF3D2014) : const Color(0xFF1A3C34))
+              color: (hasRisk ? const Color(0xFF3D2014) : AppTheme.primaryGreen)
                   .withValues(alpha: 0.3),
               blurRadius: 20,
               offset: const Offset(0, 8),
@@ -74,9 +88,18 @@ class WeatherBannerCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Text(
-                  WeatherService.weatherCodeToIcon(f.currentWeatherCode),
-                  style: const TextStyle(fontSize: 36),
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Icon(
+                    weatherCodeToIconData(f.currentWeatherCode),
+                    color: Colors.white,
+                    size: 26,
+                  ),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -291,7 +314,7 @@ class PluckingWindowCard extends StatelessWidget {
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: bgColor,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: accentColor.withValues(alpha: 0.2)),
       ),
       child: Row(

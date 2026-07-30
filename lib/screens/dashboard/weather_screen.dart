@@ -131,19 +131,19 @@ class _WeatherScreenState extends State<WeatherScreen> {
     final f = _forecast!;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(16),
         gradient: const LinearGradient(
-          colors: [Color(0xFF173730), Color(0xFF0E221D)],
+          colors: [AppTheme.primaryGreen, Color(0xFF1E4A3D)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF173730).withValues(alpha: 0.4),
-            blurRadius: 24,
-            offset: const Offset(0, 12),
+            color: AppTheme.primaryGreen.withValues(alpha: 0.3),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
           ),
         ],
       ),
@@ -159,45 +159,54 @@ class _WeatherScreenState extends State<WeatherScreen> {
                     'Hatton, Sri Lanka',
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.65),
-                      fontSize: 14,
+                      fontSize: 13,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 4),
                   Text(
                     '${f.currentTemp.toStringAsFixed(0)}°',
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 64,
+                      fontSize: 46,
                       fontWeight: FontWeight.w800,
-                      letterSpacing: -3,
+                      letterSpacing: -2,
                       height: 1.0,
                     ),
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 4),
                   Text(
                     f.currentDescription,
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.8),
-                      fontSize: 18,
+                      fontSize: 15,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                 ],
               ),
               const Spacer(),
-              Text(
-                WeatherService.weatherCodeToIcon(f.currentWeatherCode),
-                style: const TextStyle(fontSize: 56),
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(13),
+                ),
+                child: Icon(
+                  weatherCodeToIconData(f.currentWeatherCode),
+                  color: Colors.white,
+                  size: 24,
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 14),
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(18),
+              borderRadius: BorderRadius.circular(14),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -241,7 +250,7 @@ class _WeatherScreenState extends State<WeatherScreen> {
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: const Color(0xFFFFF2E8),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: const Color(0xFFB97922).withValues(alpha: 0.3),
         ),
@@ -361,8 +370,15 @@ class _WeatherScreenState extends State<WeatherScreen> {
                   vertical: 12,
                 ),
                 decoration: BoxDecoration(
-                  color: isNow ? const Color(0xFF173730) : Colors.white,
-                  borderRadius: BorderRadius.circular(18),
+                  gradient: isNow
+                      ? const LinearGradient(
+                          colors: [AppTheme.primaryGreen, Color(0xFF1E4A3D)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        )
+                      : null,
+                  color: isNow ? null : Colors.white,
+                  borderRadius: BorderRadius.circular(14),
                   border: isNow
                       ? null
                       : Border.all(color: const Color(0xFFE5E7EB)),
@@ -378,9 +394,10 @@ class _WeatherScreenState extends State<WeatherScreen> {
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    Text(
-                      WeatherService.weatherCodeToIcon(hour.weatherCode),
-                      style: const TextStyle(fontSize: 22),
+                    Icon(
+                      weatherCodeToIconData(hour.weatherCode),
+                      size: 22,
+                      color: isNow ? Colors.white : AppTheme.textPrimary,
                     ),
                     Text(
                       '${hour.temperatureC.toStringAsFixed(0)}°',
@@ -442,7 +459,7 @@ class _WeatherScreenState extends State<WeatherScreen> {
         Container(
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(22),
+            borderRadius: BorderRadius.circular(16),
             border: Border.all(color: const Color(0xFFE5E7EB)),
           ),
           child: Column(
@@ -513,7 +530,7 @@ class _WeatherScreenState extends State<WeatherScreen> {
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(14),
               border: Border.all(color: const Color(0xFFE5E7EB)),
             ),
             child: Row(
@@ -608,9 +625,10 @@ class _DailyRow extends StatelessWidget {
               ),
             ),
           ),
-          Text(
-            WeatherService.weatherCodeToIcon(day.weatherCode),
-            style: const TextStyle(fontSize: 20),
+          Icon(
+            weatherCodeToIconData(day.weatherCode),
+            size: 18,
+            color: AppTheme.textSecondary,
           ),
           const SizedBox(width: 12),
           Expanded(child: RainChanceBar(percentage: day.rainChance)),

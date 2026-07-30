@@ -5,6 +5,21 @@ import '../../theme.dart';
 import 'field_analytics_screen.dart';
 import 'field_analysis_screen.dart';
 
+extension _FieldSorting on List<Field> {
+  List<Field> sortedByLatestRecord() {
+    final sorted = [...this];
+    sorted.sort((a, b) {
+      final aDate = a.latestMeasurement?.date;
+      final bDate = b.latestMeasurement?.date;
+      if (aDate == null && bDate == null) return 0;
+      if (aDate == null) return 1;
+      if (bDate == null) return -1;
+      return bDate.compareTo(aDate);
+    });
+    return sorted;
+  }
+}
+
 class FieldsScreen extends StatefulWidget {
   const FieldsScreen({super.key});
 
@@ -208,13 +223,17 @@ class _FieldsScreenState extends State<FieldsScreen> {
       listenable: FieldManager(),
       builder: (context, _) {
         final fields = FieldManager().fields;
-        final filteredFields = _searchQuery.isEmpty
-            ? fields
-            : fields
-                  .where(
-                    (field) => field.name.toLowerCase().contains(_searchQuery),
-                  )
-                  .toList();
+        final filteredFields =
+            (_searchQuery.isEmpty
+                    ? fields
+                    : fields
+                          .where(
+                            (field) => field.name.toLowerCase().contains(
+                              _searchQuery,
+                            ),
+                          )
+                          .toList())
+                .sortedByLatestRecord();
         return Scaffold(
           backgroundColor: AppTheme.backgroundLight,
           appBar: AppBar(
@@ -547,7 +566,9 @@ class _FieldCardState extends State<_FieldCard> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               decoration: BoxDecoration(
-                color: priorityColor,
+                color: latest?.isCompleted == true
+                    ? AppTheme.accentGreen
+                    : priorityColor,
                 borderRadius: const BorderRadius.only(
                   topRight: Radius.circular(14),
                   bottomLeft: Radius.circular(14),
@@ -556,7 +577,9 @@ class _FieldCardState extends State<_FieldCard> {
               child: Text(
                 latest?.statusLabel ?? 'No analysis yet',
                 style: TextStyle(
-                  color: hasLatestStatus
+                  color: latest?.isCompleted == true
+                      ? AppTheme.accentGreenText
+                      : hasLatestStatus
                       ? Colors.white
                       : AppTheme.textSecondary,
                   fontSize: 13,
@@ -829,7 +852,7 @@ class _FieldCardState extends State<_FieldCard> {
                     child: Container(
                       width: _deletePaneWidth,
                       decoration: BoxDecoration(
-                        color: const Color(0xFFB54848),
+                        color: const Color(0xFFE53935),
                         borderRadius: BorderRadius.circular(14),
                       ),
                       child: InkWell(
@@ -883,11 +906,10 @@ class _MetricTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 96,
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 14),
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF4A4A4A), Color(0xFF2F2F2F)],
+          colors: [AppTheme.primaryGreen, Color(0xFF1E4A3D)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -915,8 +937,7 @@ class _MetricTile extends StatelessWidget {
               letterSpacing: 0.8,
             ),
           ),
-          const SizedBox(height: 8),
-          const Spacer(),
+          const SizedBox(height: 4),
           SizedBox(
             height: 28,
             child: Align(
@@ -1006,7 +1027,7 @@ class _HistoryTile extends StatefulWidget {
 
 class _HistoryTileState extends State<_HistoryTile> {
   static const double _deletePaneWidth = 88;
-  static const double _historyRadius = 14;
+  static const double _historyRadius = 11;
 
   double _slideOffset = 0;
 
@@ -1125,12 +1146,11 @@ class _HistoryTileState extends State<_HistoryTile> {
               top: 0,
               right: 0,
               child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 7,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: statusColor,
+                  color: widget.measurement.isCompleted
+                      ? AppTheme.accentGreen
+                      : statusColor,
                   borderRadius: const BorderRadius.only(
                     topRight: Radius.circular(_historyRadius),
                     bottomLeft: Radius.circular(_historyRadius),
@@ -1138,9 +1158,11 @@ class _HistoryTileState extends State<_HistoryTile> {
                 ),
                 child: Text(
                   status,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
+                  style: TextStyle(
+                    color: widget.measurement.isCompleted
+                        ? AppTheme.accentGreenText
+                        : Colors.white,
+                    fontSize: 10,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -1160,7 +1182,7 @@ class _HistoryTileState extends State<_HistoryTile> {
               width: _deletePaneWidth,
               margin: const EdgeInsets.only(bottom: 12),
               decoration: BoxDecoration(
-                color: const Color(0xFFB54848),
+                color: const Color(0xFFE53935),
                 borderRadius: BorderRadius.circular(14),
               ),
               child: InkWell(

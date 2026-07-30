@@ -92,8 +92,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           eyebrow: 'YIELD',
                           title: 'Optimization',
                           colors: const [
-                            AppTheme.primaryButton,
-                            Color(0xFF1F1F1F),
+                            AppTheme.primaryGreen,
+                            Color(0xFF1E4A3D),
                           ],
                           onTap: () {
                             Navigator.push(
@@ -111,8 +111,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           eyebrow: 'DISEASE',
                           title: 'Detection',
                           colors: const [
-                            AppTheme.primaryButton,
-                            Color(0xFF1F1F1F),
+                            AppTheme.primaryGreen,
+                            Color(0xFF1E4A3D),
                           ],
                           onTap: () {
                             Navigator.push(
@@ -127,10 +127,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ],
                   ),
                   const SizedBox(height: 22),
+                  const _SectionHeader(
+                    title: 'Actual Yield & Readiness',
+                    compact: true,
+                  ),
+                  const SizedBox(height: 12),
                   _TrendCard(points: _buildTrendPoints(manager.fields)),
                   const SizedBox(height: 22),
                   _SectionHeader(
                     title: 'Critical Fields',
+                    compact: true,
                     badgeText: '${stats.criticalFields.length}',
                     actionLabel: 'View All',
                     onAction: () {
@@ -481,7 +487,14 @@ class _WeatherCard extends StatelessWidget {
                           vertical: 10,
                         ),
                         decoration: BoxDecoration(
-                          color: AppTheme.primaryButton.withValues(alpha: 0.85),
+                          gradient: LinearGradient(
+                            colors: [
+                              AppTheme.primaryGreen.withValues(alpha: 0.92),
+                              const Color(0xFF1E4A3D).withValues(alpha: 0.92),
+                            ],
+                            begin: Alignment.centerLeft,
+                            end: Alignment.centerRight,
+                          ),
                           borderRadius: const BorderRadius.vertical(
                             bottom: Radius.circular(16),
                           ),
@@ -663,7 +676,7 @@ class _ModuleTile extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 13,
+                    fontSize: 15,
                     fontWeight: FontWeight.w900,
                     height: 1.1,
                   ),
@@ -675,7 +688,7 @@ class _ModuleTile extends StatelessWidget {
                       'Open',
                       style: TextStyle(
                         color: Colors.white.withValues(alpha: 0.72),
-                        fontSize: 10,
+                        fontSize: 11,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
@@ -707,35 +720,68 @@ class _ModuleTile extends StatelessWidget {
   }
 }
 
-class _TrendCard extends StatelessWidget {
+class _TrendCard extends StatefulWidget {
   final List<_TrendPoint> points;
 
   const _TrendCard({required this.points});
 
   @override
+  State<_TrendCard> createState() => _TrendCardState();
+}
+
+class _TrendCardState extends State<_TrendCard> {
+  static const double _leftPad = 40.0;
+  static const double _rightPad = 34.0;
+
+  int? _selectedIndex;
+
+  void _updateSelection(Offset localPosition, double width) {
+    final points = widget.points;
+    if (points.isEmpty) return;
+    final chartWidth = width - _leftPad - _rightPad;
+    if (chartWidth <= 0) return;
+    final slotWidth = points.length == 1
+        ? 0.0
+        : chartWidth / (points.length - 1);
+    final dx = (localPosition.dx - _leftPad).clamp(0.0, chartWidth);
+    final index = slotWidth == 0
+        ? 0
+        : (dx / slotWidth).round().clamp(0, points.length - 1);
+    setState(() => _selectedIndex = index);
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final points = widget.points;
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFFE4E7EB)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Actual Yield & Readiness',
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.5,
-            ),
-          ),
-          const SizedBox(height: 14),
           Row(
             children: [
-              const Spacer(),
+              const Expanded(
+                child: Wrap(
+                  spacing: 14,
+                  runSpacing: 6,
+                  children: [
+                    _LegendDot(
+                      color: AppTheme.brandGreen,
+                      label: 'Actual Yield (kg)',
+                    ),
+                    _LegendDot(
+                      color: AppTheme.primaryButton,
+                      label: 'Pluckable Ratio (%)',
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
               Container(
                 decoration: BoxDecoration(
                   color: const Color(0xFFF4F6F5),
@@ -755,21 +801,6 @@ class _TrendCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 10),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const _LegendDot(
-                color: AppTheme.brandGreen,
-                label: 'Actual Yield (kg)',
-              ),
-              const SizedBox(height: 8),
-              const _LegendDot(
-                color: AppTheme.primaryButton,
-                label: 'Pluckable Ratio (%)',
-              ),
-            ],
-          ),
           const SizedBox(height: 18),
           if (points.isEmpty)
             const _EmptyStateCard(
@@ -779,9 +810,25 @@ class _TrendCard extends StatelessWidget {
           else
             SizedBox(
               height: 250,
-              child: CustomPaint(
-                painter: _TrendPainter(points: points),
-                size: Size.infinite,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  return GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTapDown: (details) =>
+                        _updateSelection(details.localPosition, constraints.maxWidth),
+                    onPanStart: (details) =>
+                        _updateSelection(details.localPosition, constraints.maxWidth),
+                    onPanUpdate: (details) =>
+                        _updateSelection(details.localPosition, constraints.maxWidth),
+                    child: CustomPaint(
+                      painter: _TrendPainter(
+                        points: points,
+                        selectedIndex: _selectedIndex,
+                      ),
+                      size: Size.infinite,
+                    ),
+                  );
+                },
               ),
             ),
         ],
@@ -1345,8 +1392,9 @@ String _monthName(int month) {
 
 class _TrendPainter extends CustomPainter {
   final List<_TrendPoint> points;
+  final int? selectedIndex;
 
-  const _TrendPainter({required this.points});
+  const _TrendPainter({required this.points, this.selectedIndex});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1532,7 +1580,8 @@ class _TrendPainter extends CustomPainter {
       canvas.drawPath(getBezierPath(ratioOffsets), ratioPaint);
     }
 
-    final selectedIdx = points.length > 4 ? 4 : points.length - 1;
+    final selectedIdx = (selectedIndex ?? (points.length > 4 ? 4 : points.length - 1))
+        .clamp(0, points.length - 1);
     if (selectedIdx >= 0 && selectedIdx < points.length) {
       final selectedYieldOffset = yieldOffsets[selectedIdx];
       final selectedRatioOffset = ratioOffsets[selectedIdx];
@@ -1638,6 +1687,7 @@ class _TrendPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _TrendPainter oldDelegate) {
-    return oldDelegate.points != points;
+    return oldDelegate.points != points ||
+        oldDelegate.selectedIndex != selectedIndex;
   }
 }

@@ -251,7 +251,7 @@ class _SummaryTile extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF4A4A4A), Color(0xFF2F2F2F)],
+          colors: [AppTheme.primaryGreen, Color(0xFF1E4A3D)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -277,7 +277,7 @@ class _SummaryTile extends StatelessWidget {
               fontWeight: FontWeight.w800,
             ),
           ),
-          const Spacer(),
+          const SizedBox(height: 4),
           Text(
             value,
             style: const TextStyle(

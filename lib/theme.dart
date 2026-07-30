@@ -40,7 +40,7 @@ class AppTheme {
   static const Color statusMonitor = Color(0xFF64748B); // Needs more growth — low priority
   static const Color statusAnalyzing = Color(0xFF5F6C7B); // Analysis in progress
   static const Color statusPending = Color(0xFF9AA3AF); // Awaiting analysis / no data
-  static const Color statusCompleted = Color(0xFF2E6FA6); // Round completed — kept distinct from statusReady
+  static const Color statusCompleted = Color(0xFF1E4A3D); // Round completed — matches app's green gradient theme
 
   /// Resolves the priority color for a field measurement's plucking status.
   static Color pluckingStatusColor({
