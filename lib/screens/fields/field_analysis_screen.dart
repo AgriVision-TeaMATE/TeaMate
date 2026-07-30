@@ -10,6 +10,7 @@ import '../../models/field_model.dart';
 import '../../services/api_service.dart';
 import '../../services/app_settings_service.dart';
 import '../../services/ar_capture_service.dart';
+import '../../services/image_picker_helper.dart';
 import '../../theme.dart';
 import 'ar_area_capture_screen.dart';
 import '../settings/settings_screen.dart';
@@ -44,6 +45,7 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen>
   int _currentIndex = 0;
   bool _isAnalyzing = false;
   bool _isBudScanAnimating = false;
+  bool _isPickingOrCropping = false;
   String? _analysisStatus;
   bool _didCleanupDraft = false;
   late final AnimationController _scanController;
@@ -72,6 +74,61 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen>
       _measurement,
     );
     manager.saveMeasurement(widget.fieldId, _measurement);
+    _checkLostData();
+  }
+
+  /// Recovers picked images lost if Android destroyed the activity
+  /// while camera/gallery was active under low memory conditions.
+  Future<void> _checkLostData() async {
+    final recovered = await ImagePickerHelper.retrieveLostData(_picker);
+    if (recovered.isEmpty) return;
+
+    // Defer to after the first frame so the area-entry dialog can be shown.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _processRecoveredImages(recovered);
+    });
+  }
+
+  Future<void> _processRecoveredImages(List<XFile> recovered) async {
+    for (final file in recovered) {
+      if (_measurement.isCompleted || _isPickingOrCropping || !mounted) break;
+
+      setState(() => _isPickingOrCropping = true);
+
+      try {
+        final imageBytes = await _readPickedImageBytes(file);
+        if (imageBytes == null || !mounted) continue;
+
+        final capturedArea = await _promptCapturedArea();
+        if (capturedArea == null || !mounted) continue;
+
+        _appendPendingImage(
+          _PendingImage(
+            id: DateTime.now().microsecondsSinceEpoch.toString(),
+            imagePath: file.path,
+            imageBytes: imageBytes,
+            filename: _buildUploadFilename('upload', file.path),
+            sourceLabel: 'Upload',
+            capturedAt: DateTime.now(),
+            capturedArea: capturedArea,
+          ),
+        );
+      } catch (e) {
+        debugPrint('Error processing recovered image: $e');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Failed to process a recovered image.'),
+            ),
+          );
+        }
+      } finally {
+        if (mounted) {
+          setState(() => _isPickingOrCropping = false);
+        }
+      }
+    }
   }
 
   @override
@@ -82,47 +139,68 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen>
   }
 
   Future<void> _pickImage(ImageSource source) async {
-    if (_measurement.isCompleted) {
-      return;
-    }
-    final pickedFile = await _picker.pickImage(
-      source: source,
-      imageQuality: 85,
-    );
-    if (pickedFile == null) {
+    if (_measurement.isCompleted || _isPickingOrCropping || !mounted) {
       return;
     }
 
-    final imageBytes = await _readPickedImageBytes(pickedFile);
-    if (imageBytes == null) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Failed to prepare the selected image for upload.'),
+    setState(() => _isPickingOrCropping = true);
+
+    try {
+      final rawPicked = await _picker.pickImage(
+        source: source,
+        imageQuality: 85,
+      );
+      if (rawPicked == null || !mounted) {
+        return;
+      }
+
+      final pickedFile =
+          await ImagePickerHelper.prepareLocalImageFile(rawPicked) ?? rawPicked;
+
+      final imageBytes = await _readPickedImageBytes(pickedFile);
+      if (imageBytes == null) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to prepare the selected image for upload.'),
+          ),
+        );
+        return;
+      }
+
+      final capturedArea = await _promptCapturedArea();
+      if (capturedArea == null || !mounted) {
+        return;
+      }
+
+      _appendPendingImage(
+        _PendingImage(
+          id: DateTime.now().microsecondsSinceEpoch.toString(),
+          imagePath: pickedFile.path,
+          imageBytes: imageBytes,
+          filename: _buildUploadFilename(
+            source == ImageSource.camera ? 'camera' : 'upload',
+            pickedFile.path,
+          ),
+          sourceLabel: source == ImageSource.camera ? 'Camera' : 'Upload',
+          capturedAt: DateTime.now(),
+          capturedArea: capturedArea,
         ),
       );
-      return;
+    } catch (e) {
+      debugPrint('Error picking image in field_analysis_screen: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to select image. Please try again.'),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isPickingOrCropping = false);
+      }
     }
-
-    final capturedArea = await _promptCapturedArea();
-    if (capturedArea == null) {
-      return;
-    }
-
-    _appendPendingImage(
-      _PendingImage(
-        id: DateTime.now().microsecondsSinceEpoch.toString(),
-        imagePath: pickedFile.path,
-        imageBytes: imageBytes,
-        filename: _buildUploadFilename(
-          source == ImageSource.camera ? 'camera' : 'upload',
-          pickedFile.path,
-        ),
-        sourceLabel: source == ImageSource.camera ? 'Camera' : 'Upload',
-        capturedAt: DateTime.now(),
-        capturedArea: capturedArea,
-      ),
-    );
   }
 
   /// Camera-capture entry point: measures area via AR (see ArAreaCaptureScreen) instead of the

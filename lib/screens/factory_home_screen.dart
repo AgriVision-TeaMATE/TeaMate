@@ -7,6 +7,7 @@ import '../models/tea_grade_model.dart';
 import '../models/user_role.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
+import '../services/image_picker_helper.dart';
 import 'grade_result_screen.dart';
 
 /// Factory manager home: capture or upload a tea sample photo and submit it
@@ -24,6 +25,7 @@ class _FactoryHomeScreenState extends State<FactoryHomeScreen> {
   XFile? _selectedImage;
   Uint8List? _selectedBytes; // for preview — Image.file is unavailable on web
   bool _isSubmitting = false;
+  bool _isPickingOrCropping = false;
 
   // Source field: the backend only accepts a field owned by this account,
   // so the options come from the caller-scoped GET /fields.
@@ -35,6 +37,50 @@ class _FactoryHomeScreenState extends State<FactoryHomeScreen> {
   void initState() {
     super.initState();
     _loadFields();
+    _checkLostData();
+  }
+
+  /// Recovers picked images lost if Android destroyed the activity
+  /// while camera/gallery was active under low memory conditions.
+  Future<void> _checkLostData() async {
+    final recovered = await ImagePickerHelper.retrieveLostData(_picker);
+    if (recovered.isEmpty) return;
+
+    // Defer to after the first frame so the UI is ready.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || recovered.isEmpty) return;
+      _processRecoveredImage(recovered.first);
+    });
+  }
+
+  Future<void> _processRecoveredImage(XFile file) async {
+    if (_isPickingOrCropping || _selectedImage != null || !mounted) return;
+
+    setState(() => _isPickingOrCropping = true);
+
+    try {
+      final bytes = await file.readAsBytes();
+      if (!mounted) return;
+      setState(() {
+        _selectedImage = file;
+        _selectedBytes = bytes;
+      });
+    } catch (e) {
+      debugPrint('Error processing recovered image: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to process a recovered image.'),
+            backgroundColor: Colors.redAccent,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isPickingOrCropping = false);
+      }
+    }
   }
 
   Future<void> _loadFields() async {
@@ -70,25 +116,45 @@ class _FactoryHomeScreenState extends State<FactoryHomeScreen> {
   }
 
   Future<void> _pickImage(ImageSource source) async {
+    if (_isPickingOrCropping || _isSubmitting || !mounted) return;
+
+    setState(() => _isPickingOrCropping = true);
+
     try {
       final pickedFile =
           await _picker.pickImage(source: source, imageQuality: 85);
-      if (pickedFile == null) return;
-      final bytes = await pickedFile.readAsBytes();
+      if (pickedFile == null || !mounted) {
+        // User cancelled — just reset the lock silently.
+        return;
+      }
+
+      // Copy to local cache to prevent StaleDataException on Android
+      // when the DocumentsUI cursor closes after the picker activity exits.
+      final localFile =
+          await ImagePickerHelper.prepareLocalImageFile(pickedFile) ??
+          pickedFile;
+
+      final bytes = await localFile.readAsBytes();
       if (!mounted) return;
       setState(() {
-        _selectedImage = pickedFile;
+        _selectedImage = localFile;
         _selectedBytes = bytes;
       });
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Could not open the image picker.'),
-          backgroundColor: Colors.redAccent,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      debugPrint('Error picking image in factory_home_screen: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not open the image picker. Please try again.'),
+            backgroundColor: Colors.redAccent,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isPickingOrCropping = false);
+      }
     }
   }
 
@@ -174,8 +240,9 @@ class _FactoryHomeScreenState extends State<FactoryHomeScreen> {
                     child: _PickButton(
                       icon: Icons.photo_camera_outlined,
                       label: 'Camera',
-                      onPressed:
-                          _isSubmitting ? null : () => _pickImage(ImageSource.camera),
+                      onPressed: _isSubmitting || _isPickingOrCropping
+                          ? null
+                          : () => _pickImage(ImageSource.camera),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -183,7 +250,7 @@ class _FactoryHomeScreenState extends State<FactoryHomeScreen> {
                     child: _PickButton(
                       icon: Icons.photo_library_outlined,
                       label: 'Gallery',
-                      onPressed: _isSubmitting
+                      onPressed: _isSubmitting || _isPickingOrCropping
                           ? null
                           : () => _pickImage(ImageSource.gallery),
                     ),

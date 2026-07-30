@@ -2,13 +2,13 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../../models/environmental_data.dart';
 import '../../models/field_model.dart';
 import '../../services/disease_scan_service.dart';
+import '../../services/image_picker_helper.dart';
 import '../../theme.dart';
 import '../../widgets/disease_scan_widgets.dart';
 import 'disease_scan_result_screen.dart';
@@ -32,6 +32,31 @@ class _ScanDiseaseScreenState extends State<ScanDiseaseScreen> {
   final ImagePicker _picker = ImagePicker();
   final List<XFile> _selectedImages = [];
   bool _isScanning = false;
+  bool _isPickingOrCropping = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkLostData();
+  }
+
+  Future<void> _checkLostData() async {
+    final recovered = await ImagePickerHelper.retrieveLostData(_picker);
+    if (recovered.isNotEmpty && mounted) {
+      for (final file in recovered) {
+        if (_selectedImages.length >= _maxImages) break;
+        final cropped = await ImagePickerHelper.cropLeafImage(
+          imageFile: file,
+          context: context,
+        );
+        if (cropped != null && mounted) {
+          setState(() {
+            _selectedImages.add(cropped);
+          });
+        }
+      }
+    }
+  }
 
   @override
   void dispose() {
@@ -43,128 +68,114 @@ class _ScanDiseaseScreenState extends State<ScanDiseaseScreen> {
   // ──────────────────────────────────────────────────────────────────────────
 
   Future<void> _pickFromGallery() async {
-    if (!mounted) return;
+    if (!mounted || _isPickingOrCropping) return;
     if (_selectedImages.length >= _maxImages) {
       _showMaxImagesSnackbar();
       return;
     }
 
+    setState(() => _isPickingOrCropping = true);
+
     try {
-      // Pick multiple at once from gallery
       final remaining = _maxImages - _selectedImages.length;
-      final List<XFile> pickedFiles = await _picker.pickMultiImage(
-        imageQuality: 85,
-        limit: remaining,
-      );
-      if (pickedFiles.isEmpty) return;
+      List<XFile> pickedFiles = [];
+      try {
+        pickedFiles = await _picker.pickMultiImage(
+          imageQuality: 85,
+          limit: remaining,
+        );
+      } catch (_) {
+        final single = await _picker.pickImage(
+          source: ImageSource.gallery,
+          imageQuality: 85,
+        );
+        if (single != null) pickedFiles = [single];
+      }
+
+      if (pickedFiles.isEmpty || !mounted) return;
 
       for (final file in pickedFiles) {
-        if (_selectedImages.length >= _maxImages) break;
-        // Crop each picked image
-        final cropped = await _cropImage(file);
+        if (_selectedImages.length >= _maxImages || !mounted) break;
+        final cropped = await ImagePickerHelper.cropLeafImage(
+          imageFile: file,
+          context: context,
+        );
         if (cropped != null && mounted) {
           setState(() {
             _selectedImages.add(cropped);
           });
         }
       }
-    } catch (_) {
-      // Fallback to single-pick if multi-pick isn't available
-      final XFile? picked = await _picker.pickImage(
-        source: ImageSource.gallery,
-        imageQuality: 85,
-      );
-      if (picked == null) return;
-      final cropped = await _cropImage(picked);
-      if (cropped != null && mounted) {
-        setState(() {
-          _selectedImages.add(cropped);
-        });
+    } catch (e) {
+      debugPrint('Error picking from gallery: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to pick images. Please try again.')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isPickingOrCropping = false);
       }
     }
   }
 
   Future<void> _captureWithCamera() async {
-    if (!mounted) return;
+    if (!mounted || _isPickingOrCropping) return;
     if (_selectedImages.length >= _maxImages) {
       _showMaxImagesSnackbar();
       return;
     }
 
-    // On web, camera permissions work differently
-    if (!kIsWeb) {
-      final cameraStatus = await Permission.camera.request();
-      if (!cameraStatus.isGranted) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              cameraStatus.isPermanentlyDenied
-                  ? 'Camera permission is blocked. Enable it in app settings.'
-                  : 'Camera permission is required to capture images.',
-            ),
-            action: cameraStatus.isPermanentlyDenied
-                ? SnackBarAction(label: 'Settings', onPressed: openAppSettings)
-                : null,
-          ),
-        );
-        return;
-      }
-    }
+    setState(() => _isPickingOrCropping = true);
 
-    final XFile? pickedFile = await _picker.pickImage(
-      source: ImageSource.camera,
-      imageQuality: 85,
-    );
-    if (pickedFile == null) return;
-
-    final XFile? croppedFile = await _cropImage(pickedFile);
-    if (croppedFile == null) return;
-
-    if (!mounted) return;
-    setState(() {
-      _selectedImages.add(croppedFile);
-    });
-  }
-
-  Future<XFile?> _cropImage(XFile imageFile) async {
     try {
-      final CroppedFile? croppedFile = await ImageCropper().cropImage(
-        sourcePath: imageFile.path,
-        uiSettings: [
-          AndroidUiSettings(
-            toolbarTitle: 'Crop Leaf Image',
-            toolbarColor: AppTheme.primaryButton,
-            toolbarWidgetColor: Colors.white,
-            backgroundColor: Colors.white,
-            cropGridColor: AppTheme.brandGreen,
-            cropFrameColor: AppTheme.brandGreen,
-            activeControlsWidgetColor: AppTheme.brandGreen,
-            showCropGrid: true,
-            lockAspectRatio: true,
-            hideBottomControls: true,
-            aspectRatioPresets: [CropAspectRatioPreset.square],
-          ),
-          IOSUiSettings(
-            title: 'Crop Leaf Image',
-            aspectRatioLockEnabled: true,
-            aspectRatioPickerButtonHidden: true,
-            aspectRatioPresets: [CropAspectRatioPreset.square],
-            resetButtonHidden: true,
-          ),
-          WebUiSettings(context: context),
-        ],
-        aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
+      if (!kIsWeb) {
+        final cameraStatus = await Permission.camera.request();
+        if (!cameraStatus.isGranted) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                cameraStatus.isPermanentlyDenied
+                    ? 'Camera permission is blocked. Enable it in app settings.'
+                    : 'Camera permission is required to capture images.',
+              ),
+              action: cameraStatus.isPermanentlyDenied
+                  ? SnackBarAction(label: 'Settings', onPressed: openAppSettings)
+                  : null,
+            ),
+          );
+          return;
+        }
+      }
+
+      final XFile? pickedFile = await _picker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 85,
       );
-      if (croppedFile == null) return null;
-      return XFile(croppedFile.path);
+      if (pickedFile == null || !mounted) return;
+
+      final XFile? croppedFile = await ImagePickerHelper.cropLeafImage(
+        imageFile: pickedFile,
+        context: context,
+      );
+      if (croppedFile == null || !mounted) return;
+
+      setState(() {
+        _selectedImages.add(croppedFile);
+      });
     } catch (e) {
+      debugPrint('Error capturing with camera: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Cropping failed. Please try again.')),
+          const SnackBar(content: Text('Failed to capture image. Please try again.')),
         );
       }
-      return null;
+    } finally {
+      if (mounted) {
+        setState(() => _isPickingOrCropping = false);
+      }
     }
   }
 
