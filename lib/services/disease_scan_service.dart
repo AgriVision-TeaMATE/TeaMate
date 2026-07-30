@@ -48,7 +48,10 @@ class DiseaseScanService {
     if (path.startsWith('http://') || path.startsWith('https://')) {
       return path;
     }
-    return '$_host$path';
+    if (path.startsWith('/')) {
+      return '$_host$path';
+    }
+    return '$_host/$path';
   }
 
   /// Fetches all disease scan records for a given field, most recent first.
@@ -83,11 +86,11 @@ class DiseaseScanService {
     }
   }
 
-  /// Fetches a single disease scan record's full detail by its record id.
+  /// Fetches a single disease scan record's full detail by its scan_id.
   /// Throws DiseaseScanException on failure.
-  static Future<DiseaseScanRecord> fetchScanById(String scanRecordId) async {
+  static Future<DiseaseScanRecord> fetchScanById(String scanId) async {
     try {
-      final uri = Uri.parse('$_diseaseBaseUrl/$scanRecordId');
+      final uri = Uri.parse('$_diseaseBaseUrl/$scanId');
       final response = await http
           .get(uri, headers: _authHeaders())
           .timeout(const Duration(seconds: 15));
