@@ -41,19 +41,28 @@ class _ScanDiseaseScreenState extends State<ScanDiseaseScreen> {
   }
 
   Future<void> _checkLostData() async {
-    final recovered = await ImagePickerHelper.retrieveLostData(_picker);
-    if (recovered.isNotEmpty && mounted) {
-      for (final file in recovered) {
-        if (_selectedImages.length >= _maxImages) break;
-        final cropped = await ImagePickerHelper.cropLeafImage(
-          imageFile: file,
-          context: context,
-        );
-        if (cropped != null && mounted) {
-          setState(() {
-            _selectedImages.add(cropped);
-          });
+    _isPickingOrCropping = true;
+    try {
+      final recovered = await ImagePickerHelper.retrieveLostData(_picker);
+      if (recovered.isNotEmpty && mounted) {
+        for (final file in recovered) {
+          if (_selectedImages.length >= _maxImages || !mounted) break;
+          final cropped = await ImagePickerHelper.cropLeafImage(
+            imageFile: file,
+            context: context,
+          );
+          if (cropped != null && mounted) {
+            setState(() {
+              _selectedImages.add(cropped);
+            });
+          }
         }
+      }
+    } catch (e) {
+      debugPrint('Error checking lost data: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _isPickingOrCropping = false);
       }
     }
   }
@@ -199,6 +208,7 @@ class _ScanDiseaseScreenState extends State<ScanDiseaseScreen> {
   // ──────────────────────────────────────────────────────────────────────────
 
   Future<void> _scanDisease() async {
+    if (_isScanning || !mounted) return;
     if (_selectedImages.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(

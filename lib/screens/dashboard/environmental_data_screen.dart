@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import '../../models/environmental_data.dart';
 import '../../models/field_model.dart';
@@ -32,8 +34,6 @@ class _EnvironmentalDataScreenState extends State<EnvironmentalDataScreen> {
     _environmentalData = EnvironmentalData(
       date: DateTime(now.year, now.month, now.day),
       time: DateTime(now.year, now.month, now.day, now.hour, now.minute),
-      latitude: 6.8985,
-      longitude: 80.5853,
     );
   }
 
@@ -93,10 +93,60 @@ class _EnvironmentalDataScreenState extends State<EnvironmentalDataScreen> {
         _fetchStep = 0;
         _isFetching = false;
       });
-      final messenger = ScaffoldMessenger.of(context);
+      _showFetchError(e);
+    }
+  }
+
+  /// Shows a user-friendly error message based on the exception type.
+  /// Provides actionable buttons for GPS settings and app settings.
+  void _showFetchError(Object error) {
+    final messenger = ScaffoldMessenger.of(context);
+
+    if (error is LocationServiceDisabledException) {
       messenger.showSnackBar(
         SnackBar(
-          content: Text('Failed to fetch data: ${e.toString()}'),
+          content: const Text(
+            'GPS/location is disabled. Please enable it to fetch environmental data.',
+          ),
+          backgroundColor: AppTheme.alertRedText,
+          action: SnackBarAction(
+            label: 'Open Settings',
+            textColor: Colors.white,
+            onPressed: () async {
+              await Geolocator.openLocationSettings();
+            },
+          ),
+        ),
+      );
+    } else if (error is PermissionDeniedException) {
+      final message = error.toString();
+      final isPermanentlyDenied = message.toLowerCase().contains('settings');
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: AppTheme.alertRedText,
+          action: isPermanentlyDenied
+              ? SnackBarAction(
+                  label: 'Open Settings',
+                  textColor: Colors.white,
+                  onPressed: () async {
+                    await openAppSettings();
+                  },
+                )
+              : null,
+        ),
+      );
+    } else if (error is LocationFetchException) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(error.toString()),
+          backgroundColor: AppTheme.alertRedText,
+        ),
+      );
+    } else {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Failed to fetch data: ${error.toString()}'),
           backgroundColor: AppTheme.alertRedText,
         ),
       );

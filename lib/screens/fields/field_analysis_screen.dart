@@ -91,42 +91,46 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen>
   }
 
   Future<void> _processRecoveredImages(List<XFile> recovered) async {
-    for (final file in recovered) {
-      if (_measurement.isCompleted || _isPickingOrCropping || !mounted) break;
+    if (_isPickingOrCropping || !mounted) return;
 
-      setState(() => _isPickingOrCropping = true);
+    setState(() => _isPickingOrCropping = true);
 
-      try {
-        final imageBytes = await _readPickedImageBytes(file);
-        if (imageBytes == null || !mounted) continue;
+    try {
+      for (final file in recovered) {
+        if (_measurement.isCompleted || !mounted) break;
 
-        final capturedArea = await _promptCapturedArea();
-        if (capturedArea == null || !mounted) continue;
+        try {
+          final imageBytes = await _readPickedImageBytes(file);
+          if (imageBytes == null || !mounted) continue;
 
-        _appendPendingImage(
-          _PendingImage(
-            id: DateTime.now().microsecondsSinceEpoch.toString(),
-            imagePath: file.path,
-            imageBytes: imageBytes,
-            filename: _buildUploadFilename('upload', file.path),
-            sourceLabel: 'Upload',
-            capturedAt: DateTime.now(),
-            capturedArea: capturedArea,
-          ),
-        );
-      } catch (e) {
-        debugPrint('Error processing recovered image: $e');
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Failed to process a recovered image.'),
+          final capturedArea = await _promptCapturedArea();
+          if (capturedArea == null || !mounted) continue;
+
+          _appendPendingImage(
+            _PendingImage(
+              id: DateTime.now().microsecondsSinceEpoch.toString(),
+              imagePath: file.path,
+              imageBytes: imageBytes,
+              filename: _buildUploadFilename('upload', file.path),
+              sourceLabel: 'Upload',
+              capturedAt: DateTime.now(),
+              capturedArea: capturedArea,
             ),
           );
+        } catch (e) {
+          debugPrint('Error processing recovered image: $e');
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Failed to process a recovered image.'),
+              ),
+            );
+          }
         }
-      } finally {
-        if (mounted) {
-          setState(() => _isPickingOrCropping = false);
-        }
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isPickingOrCropping = false);
       }
     }
   }
