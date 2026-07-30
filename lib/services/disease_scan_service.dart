@@ -17,6 +17,13 @@ class DiseaseScanException implements Exception {
   String toString() => message;
 }
 
+/// A single image to be submitted for disease scanning.
+class ScanImage {
+  final Uint8List bytes;
+  final String name;
+  const ScanImage({required this.bytes, required this.name});
+}
+
 /// Service for disease scanning API calls
 class DiseaseScanService {
   static const String _host = 'http://localhost:8001';
@@ -101,60 +108,81 @@ class DiseaseScanService {
     }
   }
 
-  /// Performs disease scan with image and environmental data
-  /// Throws DiseaseScanException on failure
+  /// Performs disease scan with one or more images and environmental data.
+  ///
+  /// The new API accepts multiple images under the `images` key (repeated
+  /// multipart fields), along with individual weather form fields and a
+  /// `weather_summary` JSON blob.
+  ///
+  /// Throws [DiseaseScanException] on failure.
   static Future<Map<String, dynamic>> scanDisease({
-    required Uint8List imageBytes,
-    required String fileName,
+    required List<ScanImage> images,
     required EnvironmentalData environmentalData,
     String? fieldId,
   }) async {
+    if (images.isEmpty) {
+      throw DiseaseScanException('At least one image is required for scanning.');
+    }
+
     try {
       final uri = Uri.parse(_baseUrl);
 
-      // Build weather summary JSON from environmental data
+      // Build weather summary JSON — only the 5 fields the new API expects.
       final weatherSummary = {
-        'rainy_days_last_7': environmentalData.totalRainfallLast7 > 10 ? 5 : 2,
-        'rainy_hours_last_7': 42,
         'total_rainfall_last_7': environmentalData.totalRainfallLast7,
         'avg_temperature_last_7': environmentalData.avgTemperatureLast7,
         'avg_humidity_last_7': environmentalData.avgHumidityLast7,
-        'max_humidity_last_7': environmentalData.avgHumidityLast7 + 10,
         'avg_wind_speed_last_7': environmentalData.avgWindSpeedLast7,
-        'max_wind_speed_last_7': environmentalData.avgWindSpeedLast7 + 5,
         'avg_sunshine_hours_last_7': environmentalData.avgSunshineHoursLast7,
-        'estimated_leaf_wetness_hours_last_7':
-            (environmentalData.avgHumidityLast7 > 80) ? 65 : 20,
       };
 
       final request = http.MultipartRequest('POST', uri);
       request.headers.addAll(_authHeaders());
 
-      // Determine content type from file extension
-      final mimeType = _getImageMimeType(fileName);
-      final contentType = MediaType('image', mimeType);
+      // Add each image under the `images` key (repeated multipart field).
+      for (final image in images) {
+        final mimeType = _getImageMimeType(image.name);
+        final contentType = MediaType('image', mimeType);
+        request.files.add(
+          http.MultipartFile.fromBytes(
+            'images',
+            image.bytes,
+            filename: image.name,
+            contentType: contentType,
+          ),
+        );
+      }
 
-      // Add image file
-      request.files.add(
-        http.MultipartFile.fromBytes(
-          'image',
-          imageBytes,
-          filename: fileName,
-          contentType: contentType,
-        ),
-      );
+      // Individual weather form fields (new API format).
+      request.fields['total_rainfall_last_7'] =
+          environmentalData.totalRainfallLast7.toString();
+      request.fields['avg_temperature_last_7'] =
+          environmentalData.avgTemperatureLast7.toString();
+      request.fields['avg_humidity_last_7'] =
+          environmentalData.avgHumidityLast7.toString();
+      request.fields['avg_wind_speed_last_7'] =
+          environmentalData.avgWindSpeedLast7.toString();
+      request.fields['avg_sunshine_hours_last_7'] =
+          environmentalData.avgSunshineHoursLast7.toString();
 
-      // Add weather summary as form field
+      // weather_summary as JSON blob (redundant but some backend versions need it).
       request.fields['weather_summary'] = json.encode(weatherSummary);
 
-      // Add field_id as a text form-data field so the backend can
-      // associate this scan with the correct field.
+      // GPS coordinates.
+      if (environmentalData.latitude != 0.0) {
+        request.fields['latitude'] = environmentalData.latitude.toString();
+      }
+      if (environmentalData.longitude != 0.0) {
+        request.fields['longitude'] = environmentalData.longitude.toString();
+      }
+
+      // Associate this scan with a specific field.
       if (fieldId != null && fieldId.isNotEmpty) {
         request.fields['field_id'] = fieldId;
       }
 
       final response = await request.send().timeout(
-        const Duration(seconds: 30),
+        const Duration(seconds: 60),
       );
 
       final responseBody = await response.stream.bytesToString();
@@ -162,7 +190,8 @@ class DiseaseScanService {
       if (response.statusCode >= 200 && response.statusCode < 300) {
         return json.decode(responseBody) as Map<String, dynamic>;
       } else {
-        final errorMessage = _parseErrorMessage(responseBody, response.statusCode);
+        final errorMessage =
+            _parseErrorMessage(responseBody, response.statusCode);
         throw DiseaseScanException(errorMessage);
       }
     } on DiseaseScanException {
@@ -234,7 +263,7 @@ class DiseaseScanService {
       return 'Network error: Please check your internet connection';
     }
 
-    return 'Disease analysis failed: Could not reach ML backend at http://localhost:8000/predict: All connection attempts failed';
+    return 'Disease analysis failed: Could not reach ML backend at http://localhost:8001/api/v1/disease/scan';
   }
 
   /// Extracts MIME type from file extension

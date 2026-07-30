@@ -1,17 +1,232 @@
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../models/field_model.dart';
+import '../../services/disease_scan_service.dart';
 import '../../theme.dart';
+
+// ════════════════════════════════════════════════════════════════════════════
+// Data models (co-located with result UI)
+// ════════════════════════════════════════════════════════════════════════════
+
+/// Top-level classification verdict from the scan endpoint.
+class DiseaseClassification {
+  final String level;
+  final String label;
+  final double confidence;
+  final String category;
+  final String message;
+
+  const DiseaseClassification({
+    required this.level,
+    required this.label,
+    required this.confidence,
+    required this.category,
+    required this.message,
+  });
+
+  factory DiseaseClassification.fromJson(Map<String, dynamic> json) {
+    return DiseaseClassification(
+      level: json['level']?.toString() ?? '',
+      label: json['label']?.toString() ?? '',
+      confidence: (json['confidence'] as num?)?.toDouble() ?? 0.0,
+      category: json['category']?.toString() ?? '',
+      message: json['message']?.toString() ?? '',
+    );
+  }
+
+  int get confidencePercent => (confidence * 100).round();
+  bool get isHealthy => level.toLowerCase() == 'healthy';
+}
+
+/// The single highest-confidence disease from `most_probable_disease`.
+class MostProbableDisease {
+  final String diseaseName;
+  final double confidence;
+  final String severity;
+  final String description;
+  final List<String> causes;
+
+  const MostProbableDisease({
+    required this.diseaseName,
+    required this.confidence,
+    required this.severity,
+    required this.description,
+    this.causes = const [],
+  });
+
+  factory MostProbableDisease.fromJson(Map<String, dynamic> json) {
+    return MostProbableDisease(
+      diseaseName: json['disease_name']?.toString() ?? 'Unknown',
+      confidence: (json['confidence'] as num?)?.toDouble() ?? 0.0,
+      severity: json['severity']?.toString() ?? '',
+      description: json['description']?.toString() ?? '',
+      causes: (json['causes'] as List? ?? []).map((e) => e.toString()).toList(),
+    );
+  }
+
+  int get confidencePercent => (confidence * 100).round();
+}
+
+/// One entry from `confidence_analysis`.
+class DiseaseResult {
+  final String name;
+  final int confidence;
+  final String confidenceLabel;
+  final String category;
+
+  const DiseaseResult({
+    required this.name,
+    required this.confidence,
+    this.confidenceLabel = '',
+    this.category = '',
+  });
+}
+
+/// Plain-language environmental insight from `environmental_insights`.
+class EnvironmentalInsight {
+  final String title;
+  final String message;
+  final String severity; // 'high', 'medium', 'low'
+
+  const EnvironmentalInsight({
+    required this.title,
+    required this.message,
+    required this.severity,
+  });
+
+  factory EnvironmentalInsight.fromJson(Map<String, dynamic> json) {
+    return EnvironmentalInsight(
+      title: json['title']?.toString() ?? '',
+      message: json['message']?.toString() ?? '',
+      severity: json['severity']?.toString() ?? 'low',
+    );
+  }
+}
+
+/// One factor from `environmental_technical_summary.top_risk_factors`.
+class EnvironmentalTechFactor {
+  final String feature;
+  final double impact;
+  final String effect; // 'increase_risk' | 'decrease_risk'
+
+  const EnvironmentalTechFactor({
+    required this.feature,
+    required this.impact,
+    required this.effect,
+  });
+
+  factory EnvironmentalTechFactor.fromJson(Map<String, dynamic> json) {
+    return EnvironmentalTechFactor(
+      feature: json['feature']?.toString() ?? '',
+      impact: (json['impact'] as num?)?.toDouble() ?? 0.0,
+      effect: json['effect']?.toString() ?? '',
+    );
+  }
+
+  bool get isRiskIncreasing => effect == 'increase_risk';
+}
+
+/// Technical environmental summary from `environmental_technical_summary`.
+class EnvironmentalTechnicalSummary {
+  final List<EnvironmentalTechFactor> topRiskFactors;
+  final int riskIncreasingFactors;
+  final int riskReducingFactors;
+
+  const EnvironmentalTechnicalSummary({
+    required this.topRiskFactors,
+    required this.riskIncreasingFactors,
+    required this.riskReducingFactors,
+  });
+
+  factory EnvironmentalTechnicalSummary.fromJson(Map<String, dynamic> json) {
+    return EnvironmentalTechnicalSummary(
+      topRiskFactors: (json['top_risk_factors'] as List? ?? [])
+          .map((e) => EnvironmentalTechFactor.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      riskIncreasingFactors:
+          (json['risk_increasing_factors'] as num?)?.toInt() ?? 0,
+      riskReducingFactors:
+          (json['risk_reducing_factors'] as num?)?.toInt() ?? 0,
+    );
+  }
+}
+
+/// Weather data for the scan context.
+class DiseaseWeatherSnapshot {
+  final DateTime date;
+  final String summary;
+  final int humidity;
+  final double temperatureC;
+  final double rainfallMm;
+  final double windSpeedKmh;
+  final double sunshineHours;
+
+  const DiseaseWeatherSnapshot({
+    required this.date,
+    required this.summary,
+    required this.humidity,
+    required this.temperatureC,
+    this.rainfallMm = 0.0,
+    this.windSpeedKmh = 0.0,
+    this.sunshineHours = 0.0,
+  });
+}
+
+/// Complete scan result passed to [DiseaseScanResultScreen].
+class DiseaseScanResult {
+  final String fieldId;
+  final List<String> imagePaths; // local paths (from picker)
+  final DateTime detectedAt;
+  final String? scanId;
+  final String? fieldName;
+  final List<String> remoteImageUrls; // URLs returned by API
+  final DiseaseWeatherSnapshot? weather;
+  final DiseaseClassification? classification;
+  final MostProbableDisease? mostProbableDisease;
+  final List<DiseaseResult> diseaseResults;
+  final List<String> recommendations;
+  final String? aggregatedGradcamUrl;
+  final List<EnvironmentalInsight> environmentalInsights;
+  final EnvironmentalTechnicalSummary? environmentalTechnicalSummary;
+  final String? environmentalSummary;
+  final int processedImages;
+
+  const DiseaseScanResult({
+    required this.fieldId,
+    this.imagePaths = const [],
+    required this.detectedAt,
+    this.scanId,
+    this.fieldName,
+    this.remoteImageUrls = const [],
+    this.weather,
+    this.classification,
+    this.mostProbableDisease,
+    required this.diseaseResults,
+    this.recommendations = const [],
+    this.aggregatedGradcamUrl,
+    this.environmentalInsights = const [],
+    this.environmentalTechnicalSummary,
+    this.environmentalSummary,
+    this.processedImages = 1,
+  });
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// Result screen
+// ════════════════════════════════════════════════════════════════════════════
 
 class DiseaseScanResultScreen extends StatefulWidget {
   final String fieldId;
-  final String? imagePath;
+  final List<String>? imagePaths;
   final DiseaseScanResult? scanResult;
 
   const DiseaseScanResultScreen({
     super.key,
     required this.fieldId,
-    this.imagePath,
+    this.imagePaths,
     this.scanResult,
   });
 
@@ -22,6 +237,7 @@ class DiseaseScanResultScreen extends StatefulWidget {
 
 class _DiseaseScanResultScreenState extends State<DiseaseScanResultScreen> {
   late final DiseaseScanResult _scanResult;
+  bool _showTechnicalDetails = false;
 
   @override
   void initState() {
@@ -29,30 +245,44 @@ class _DiseaseScanResultScreenState extends State<DiseaseScanResultScreen> {
     _scanResult = widget.scanResult ?? _generateDummyResult();
   }
 
-  /// Check if the scan classifies as a healthy leaf (no disease detected).
-  /// Prefers the backend's `classification.level`, falling back to the old
-  /// heuristic (top confidence-analysis entry named "Healthy") for
-  /// responses that don't include a classification block.
-  bool _isHealthyResult() {
-    if (_scanResult.classification != null) {
-      return _scanResult.classification!.isHealthy;
+  // ─── Helpers ────────────────────────────────────────────────────────────
+
+  String get _topResultName {
+    if (_scanResult.mostProbableDisease != null) {
+      return _scanResult.mostProbableDisease!.diseaseName;
     }
-    return _scanResult.diseaseResults.isNotEmpty &&
-        _scanResult.diseaseResults.first.name.toLowerCase() == 'healthy';
+    if (_scanResult.diseaseResults.isNotEmpty) {
+      return _scanResult.diseaseResults.first.name;
+    }
+    return '';
   }
+
+  bool _isHealthyResult() {
+    final level = _scanResult.classification?.level.toLowerCase();
+    if (level == 'healthy') return true;
+    return _topResultName.toLowerCase() == 'healthy';
+  }
+
+  bool _isUncertainResult() {
+    final level = _scanResult.classification?.level.toLowerCase();
+    return level == 'uncertain' || level == 'unknown' || level == 'unclear';
+  }
+
+  // ─── Dummy data (fallback when no real result passed) ───────────────────
 
   DiseaseScanResult _generateDummyResult() {
     return DiseaseScanResult(
       fieldId: widget.fieldId,
-      imagePath: widget.imagePath,
+      imagePaths: widget.imagePaths ?? [],
       detectedAt: DateTime.now(),
-      weather: WeatherSnapshot(
+      weather: DiseaseWeatherSnapshot(
         date: DateTime.now(),
         summary: 'Partly cloudy',
-        rainChance: 42,
         humidity: 78,
         temperatureC: 24.5,
-        stormRisk: false,
+        rainfallMm: 15.2,
+        windSpeedKmh: 6.1,
+        sunshineHours: 5.0,
       ),
       classification: const DiseaseClassification(
         level: 'disease',
@@ -99,439 +329,710 @@ class _DiseaseScanResultScreenState extends State<DiseaseScanResultScreen> {
         'Improve air circulation by proper pruning',
         'Avoid overhead irrigation',
       ],
+      environmentalInsights: const [
+        EnvironmentalInsight(
+          title: 'Wind Conditions',
+          message:
+              'Lower wind movement may reduce air circulation and create favourable conditions for disease development.',
+          severity: 'high',
+        ),
+        EnvironmentalInsight(
+          title: 'Temperature',
+          message:
+              'Temperature conditions may support pathogen activity and disease development.',
+          severity: 'medium',
+        ),
+        EnvironmentalInsight(
+          title: 'Rainfall',
+          message:
+              'Recent rainfall may have increased moisture availability for disease development.',
+          severity: 'low',
+        ),
+      ],
+      environmentalSummary:
+          'Recent environmental conditions may have increased disease risk based on weather patterns.',
+      processedImages: 1,
     );
   }
+
+  // ─── Navigation ─────────────────────────────────────────────────────────
 
   void _navigateToRecommendations() {
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => DiseaseRecommendationScreen(
-          diseaseName:
-              _scanResult.mostProbableDisease?.diseaseName ??
-              _scanResult.diseaseResults.first.name,
-          confidence:
-              _scanResult.mostProbableDisease?.confidencePercent ??
-              _scanResult.diseaseResults.first.confidence,
+          diseaseName: _scanResult.mostProbableDisease?.diseaseName ??
+              (_scanResult.diseaseResults.isNotEmpty
+                  ? _scanResult.diseaseResults.first.name
+                  : 'Unknown'),
+          confidence: _scanResult.mostProbableDisease?.confidencePercent ??
+              (_scanResult.diseaseResults.isNotEmpty
+                  ? _scanResult.diseaseResults.first.confidence
+                  : 0),
           recommendations: _scanResult.recommendations,
         ),
       ),
     );
   }
 
+  // ════════════════════════════════════════════════════════════════════════
+  // Build
+  // ════════════════════════════════════════════════════════════════════════
+
   @override
   Widget build(BuildContext context) {
-    final Field? field = FieldManager().fields
+    final Field? field = FieldManager()
+        .fields
         .where((f) => f.id == widget.fieldId)
         .toList()
         .firstOrNull;
+    final isHealthy = _isHealthyResult();
+    final isUncertain = _isUncertainResult();
 
     return Scaffold(
       backgroundColor: AppTheme.backgroundLight,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        title: const Text(
-          'Scan Results',
-          style: TextStyle(
-            color: AppTheme.textPrimary,
-            fontWeight: FontWeight.w800,
+      body: CustomScrollView(
+        slivers: [
+          // ── Hero / verdict header ──────────────────────────────────────
+          SliverToBoxAdapter(
+            child: _HeroVerdictCard(
+              scanResult: _scanResult,
+              field: field,
+              isHealthy: isHealthy,
+              isUncertain: isUncertain,
+              onBack: () => Navigator.of(context).pop(),
+            ),
           ),
-        ),
-        leading: IconButton(
-          icon: const Icon(
-            Icons.arrow_back_rounded,
-            color: AppTheme.textPrimary,
-          ),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Summary Section
-            _ScanSummaryCard(field: field, scanResult: _scanResult),
-            const SizedBox(height: 20),
 
-            // Classification banner (new) — top-line verdict from the
-            // `classification` block returned by the scan endpoint.
-            if (_scanResult.classification != null) ...[
-              _ClassificationBanner(
-                classification: _scanResult.classification!,
-              ),
-              const SizedBox(height: 20),
-            ],
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+            sliver: SliverList(
+              delegate: SliverChildListDelegate([
+                const SizedBox(height: 20),
 
-            // Healthy Result Card (positive outcome)
-            if (_isHealthyResult()) ...[
-              _HealthyLeafCard(
-                confidence:
-                    _scanResult.mostProbableDisease?.confidencePercent ??
-                    _scanResult.classification?.confidencePercent ??
-                    (_scanResult.diseaseResults.isNotEmpty
-                        ? _scanResult.diseaseResults.first.confidence
-                        : 0),
-                message: _scanResult.classification?.message,
-              ),
-            ] else if (_scanResult.diseaseResults.isNotEmpty) ...[
-              // Most Probable Disease (disease result)
-              if (_scanResult.mostProbableDisease != null)
-                _MostProbableDiseaseCard(
-                  disease: _scanResult.mostProbableDisease!,
-                )
-              else
-                _MostProbableDiseaseCard(
-                  disease: MostProbableDisease(
-                    diseaseName: _scanResult.diseaseResults.first.name,
+                // ── Scanned images carousel ─────────────────────────────
+                _ScannedImagesCarousel(
+                  localPaths: _scanResult.imagePaths,
+                  remoteUrls: _scanResult.remoteImageUrls,
+                  processedImages: _scanResult.processedImages,
+                ),
+                const SizedBox(height: 20),
+
+                // ── Healthy leaf celebration ────────────────────────────
+                if (isHealthy) ...[
+                  _HealthyCelebrationCard(
                     confidence:
-                        _scanResult.diseaseResults.first.confidence / 100,
-                    severity: '',
-                    description: '',
-                    causes: const [],
+                        _scanResult.mostProbableDisease?.confidencePercent ??
+                        _scanResult.classification?.confidencePercent ??
+                        (_scanResult.diseaseResults.isNotEmpty
+                            ? _scanResult.diseaseResults.first.confidence
+                            : 0),
+                    message: _scanResult.classification?.message,
+                    isUncertain: isUncertain,
                   ),
-                ),
-              const SizedBox(height: 20),
-
-              // Confidence Analysis
-              _ConfidenceAnalysisCard(
-                diseaseResults: _scanResult.diseaseResults,
-              ),
-              const SizedBox(height: 20),
-
-              // Recommendations (global list from the API, no longer
-              // per-disease symptoms/treatment)
-              if (_scanResult.recommendations.isNotEmpty) ...[
-                _RecommendationsCard(
-                  recommendations: _scanResult.recommendations,
-                ),
-                const SizedBox(height: 24),
-              ],
-
-              // Recommendation Button
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: _navigateToRecommendations,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.brandGreen,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  icon: const Icon(Icons.recommend_outlined, size: 18),
-                  label: const Text(
-                    'View Recommendations',
-                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
-                  ),
-                ),
-              ),
-            ] else ...[
-              // No results placeholder
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: const Color(0xFFE8ECEF), width: 1),
-                ),
-                child: Column(
-                  children: [
-                    Icon(
-                      Icons.check_circle_outline,
-                      color: AppTheme.brandGreen,
-                      size: 48,
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'No Diseases Detected',
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        color: AppTheme.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'The scan completed but no disease patterns were identified in the image.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: AppTheme.textSecondary,
-                      ),
+                  if (isUncertain && _scanResult.diseaseResults.length > 1) ...[
+                    const SizedBox(height: 20),
+                    _ConfidenceBreakdownCard(
+                      diseaseResults: _scanResult.diseaseResults,
+                      topResultIsHealthy: true,
                     ),
                   ],
+                ],
+
+                // ── Disease result cards ────────────────────────────────
+                if (!isHealthy && _scanResult.diseaseResults.isNotEmpty) ...[
+                  // What is it?
+                  if (_scanResult.mostProbableDisease != null) ...[
+                    _WhatIsItCard(
+                      disease: _scanResult.mostProbableDisease!,
+                      isUncertain: isUncertain,
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
+                  // What should I do?
+                  if (_scanResult.recommendations.isNotEmpty) ...[
+                    _WhatToDoCard(
+                        recommendations: _scanResult.recommendations),
+                    const SizedBox(height: 16),
+                  ],
+
+                  // Confidence breakdown
+                  _ConfidenceBreakdownCard(
+                    diseaseResults: _scanResult.diseaseResults,
+                    topResultIsHealthy: false,
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Recommendation button
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: _navigateToRecommendations,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.brandGreen,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      icon: const Icon(Icons.recommend_outlined, size: 18),
+                      label: const Text(
+                        'View Full Recommendations',
+                        style: TextStyle(
+                            fontWeight: FontWeight.w800, fontSize: 15),
+                      ),
+                    ),
+                  ),
+                ],
+
+                // ── No results ──────────────────────────────────────────
+                if (_scanResult.diseaseResults.isEmpty) ...[
+                  _NoResultsCard(),
+                ],
+
+                // ── Environmental conditions (aggregated) ───────────────
+                if (_scanResult.environmentalInsights.isNotEmpty) ...[
+                  const SizedBox(height: 20),
+                  _EnvironmentalConditionsCard(
+                    insights: _scanResult.environmentalInsights,
+                    summary: _scanResult.environmentalSummary,
+                  ),
+                ],
+
+                // ── Technical details (expandable) ──────────────────────
+                const SizedBox(height: 20),
+                _TechnicalDetailsSection(
+                  scanResult: _scanResult,
+                  isExpanded: _showTechnicalDetails,
+                  onToggle: () => setState(
+                    () => _showTechnicalDetails = !_showTechnicalDetails,
+                  ),
                 ),
-              ),
-            ],
-          ],
-        ),
+
+                const SizedBox(height: 20),
+              ]),
+            ),
+          ),
+        ],
       ),
     );
   }
 }
 
-/// Top-level classification returned by the scan endpoint, e.g.
-/// { "level": "disease", "label": "Blister Blight", "confidence": 0.98,
-///   "category": "Fungal Disease", "message": "Detected ... " }
-class DiseaseClassification {
-  final String level;
-  final String label;
-  final double confidence;
-  final String category;
-  final String message;
+// ════════════════════════════════════════════════════════════════════════════
+// Hero Verdict Card
+// ════════════════════════════════════════════════════════════════════════════
 
-  const DiseaseClassification({
-    required this.level,
-    required this.label,
-    required this.confidence,
-    required this.category,
-    required this.message,
-  });
-
-  factory DiseaseClassification.fromJson(Map<String, dynamic> json) {
-    return DiseaseClassification(
-      level: json['level']?.toString() ?? '',
-      label: json['label']?.toString() ?? '',
-      confidence: (json['confidence'] as num?)?.toDouble() ?? 0.0,
-      category: json['category']?.toString() ?? '',
-      message: json['message']?.toString() ?? '',
-    );
-  }
-
-  int get confidencePercent => (confidence * 100).round();
-
-  bool get isHealthy => level.toLowerCase() == 'healthy';
-}
-
-/// The single highest-confidence disease from `most_probable_disease`,
-/// including severity/description/causes not present on the plain
-/// confidence_analysis entries.
-class MostProbableDisease {
-  final String diseaseName;
-  final double confidence;
-  final String severity;
-  final String description;
-  final List<String> causes;
-
-  const MostProbableDisease({
-    required this.diseaseName,
-    required this.confidence,
-    required this.severity,
-    required this.description,
-    this.causes = const [],
-  });
-
-  factory MostProbableDisease.fromJson(Map<String, dynamic> json) {
-    return MostProbableDisease(
-      diseaseName: json['disease_name']?.toString() ?? 'Unknown',
-      confidence: (json['confidence'] as num?)?.toDouble() ?? 0.0,
-      severity: json['severity']?.toString() ?? '',
-      description: json['description']?.toString() ?? '',
-      causes: (json['causes'] as List? ?? []).map((e) => e.toString()).toList(),
-    );
-  }
-
-  int get confidencePercent => (confidence * 100).round();
-}
-
-class DiseaseScanResult {
-  final String fieldId;
-  final String? imagePath;
-  final DateTime detectedAt;
-  final String? scanId;
-  final String? fieldName;
-  final String? remoteImageUrl;
-  final WeatherSnapshot? weather;
-  final DiseaseClassification? classification;
-  final MostProbableDisease? mostProbableDisease;
-  final List<DiseaseResult> diseaseResults;
-  final List<String> recommendations;
-
-  const DiseaseScanResult({
-    required this.fieldId,
-    this.imagePath,
-    required this.detectedAt,
-    this.scanId,
-    this.fieldName,
-    this.remoteImageUrl,
-    this.weather,
-    this.classification,
-    this.mostProbableDisease,
-    required this.diseaseResults,
-    this.recommendations = const [],
-  });
-}
-
-/// One entry from `confidence_analysis`. Note this no longer carries
-/// symptoms/treatment text — that detail now lives only on
-/// `most_probable_disease` (causes/description) and the shared
-/// top-level `recommendations` list.
-class DiseaseResult {
-  final String name;
-  final int confidence;
-  final String confidenceLabel;
-  final String category;
-
-  const DiseaseResult({
-    required this.name,
-    required this.confidence,
-    this.confidenceLabel = '',
-    this.category = '',
-  });
-}
-
-class _ScanSummaryCard extends StatelessWidget {
-  final Field? field;
+class _HeroVerdictCard extends StatelessWidget {
   final DiseaseScanResult scanResult;
+  final Field? field;
+  final bool isHealthy;
+  final bool isUncertain;
+  final VoidCallback onBack;
 
-  const _ScanSummaryCard({required this.field, required this.scanResult});
+  const _HeroVerdictCard({
+    required this.scanResult,
+    required this.field,
+    required this.isHealthy,
+    required this.isUncertain,
+    required this.onBack,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final displayFieldName = scanResult.fieldName ?? field?.name;
+    // Colors based on result
+    final List<Color> gradientColors;
+    final Color textColor = Colors.white;
+    final String headline;
+    final String subline;
+    final IconData icon;
+
+    if (isHealthy && !isUncertain) {
+      gradientColors = [const Color(0xFF1A6E41), const Color(0xFF2D9A5E)];
+      headline = 'Leaves Look Healthy!';
+      subline = 'No disease patterns detected';
+      icon = Icons.eco_rounded;
+    } else if (isHealthy && isUncertain) {
+      gradientColors = [const Color(0xFF7A4D0C), const Color(0xFFB97922)];
+      headline = 'Likely Healthy';
+      subline = 'Low confidence — consider rescanning';
+      icon = Icons.help_outline_rounded;
+    } else {
+      final severity =
+          scanResult.mostProbableDisease?.severity.toLowerCase() ?? 'medium';
+      if (severity == 'high') {
+        gradientColors = [const Color(0xFF7A1515), const Color(0xFFB54848)];
+      } else if (severity == 'medium') {
+        gradientColors = [const Color(0xFF7A3D15), const Color(0xFFCC6633)];
+      } else {
+        gradientColors = [const Color(0xFF5C4A10), const Color(0xFFB99020)];
+      }
+      final diseaseName = scanResult.mostProbableDisease?.diseaseName ??
+          (scanResult.diseaseResults.isNotEmpty
+              ? scanResult.diseaseResults.first.name
+              : 'Disease Detected');
+      headline = diseaseName;
+      final sev = scanResult.mostProbableDisease?.severity ?? '';
+      subline = sev.isNotEmpty ? '${_capitalize(sev)} severity' : 'Disease detected';
+      icon = Icons.health_and_safety_outlined;
+    }
+
+    final confidence = scanResult.mostProbableDisease?.confidencePercent ??
+        scanResult.classification?.confidencePercent ??
+        (scanResult.diseaseResults.isNotEmpty
+            ? scanResult.diseaseResults.first.confidence
+            : 0);
+
+    final fieldDisplayName =
+        scanResult.fieldName ?? field?.name ?? 'Unknown Field';
+    final date = _formatDate(scanResult.detectedAt);
 
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE8ECEF), width: 1),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.primaryButton.withValues(alpha: 0.06),
-            blurRadius: 22,
-            offset: const Offset(0, 12),
+        gradient: LinearGradient(
+          colors: gradientColors,
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Back button
+              Row(
+                children: [
+                  GestureDetector(
+                    onTap: onBack,
+                    child: Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.18),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(
+                        Icons.arrow_back_rounded,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Scan Results',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.9),
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  // Confidence badge
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.3)),
+                    ),
+                    child: Text(
+                      '$confidence% confidence',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 28),
+
+              // Icon
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: Icon(icon, color: textColor, size: 30),
+              ),
+              const SizedBox(height: 16),
+
+              // Headline
+              Text(
+                headline,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 28,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: -0.8,
+                  height: 1.15,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                subline,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.8),
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Field / date info
+              Row(
+                children: [
+                  _HeroPill(
+                    icon: Icons.agriculture_outlined,
+                    label: fieldDisplayName,
+                  ),
+                  const SizedBox(width: 8),
+                  _HeroPill(
+                    icon: Icons.calendar_today_outlined,
+                    label: date,
+                  ),
+                  if (scanResult.processedImages > 1) ...[
+                    const SizedBox(width: 8),
+                    _HeroPill(
+                      icon: Icons.photo_library_outlined,
+                      label: '${scanResult.processedImages} images',
+                    ),
+                  ],
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _formatDate(DateTime dt) {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    return '${dt.day} ${months[dt.month - 1]} ${dt.year}';
+  }
+
+  String _capitalize(String s) =>
+      s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
+}
+
+class _HeroPill extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  const _HeroPill({required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.18),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: Colors.white, size: 12),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// Scanned Images Carousel
+// ════════════════════════════════════════════════════════════════════════════
+
+class _ScannedImagesCarousel extends StatelessWidget {
+  final List<String> localPaths;
+  final List<String> remoteUrls;
+  final int processedImages;
+
+  const _ScannedImagesCarousel({
+    required this.localPaths,
+    required this.remoteUrls,
+    required this.processedImages,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // Prefer local paths; fall back to remote URLs resolved via service
+    final displayPaths = localPaths.isNotEmpty
+        ? localPaths
+        : remoteUrls
+            .map((u) => DiseaseScanService.resolveImageUrl(u) ?? u)
+            .toList();
+
+    if (displayPaths.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE8ECEF)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
-            children: [
-              Icon(
-                Icons.info_outline_rounded,
-                color: AppTheme.brandGreen,
-                size: 20,
-              ),
-              SizedBox(width: 8),
-              Text(
-                'Scan Summary',
-                style: TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: -0.3,
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+            child: Row(
+              children: [
+                const Icon(Icons.photo_library_outlined,
+                    color: AppTheme.brandGreen, size: 18),
+                const SizedBox(width: 8),
+                Text(
+                  displayPaths.length == 1
+                      ? 'Scanned Image'
+                      : '${displayPaths.length} Scanned Images',
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.textPrimary,
+                  ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          if (displayFieldName != null)
-            _SummaryRow(
-              label: 'Field',
-              value: displayFieldName,
-              icon: Icons.agriculture_outlined,
+              ],
             ),
-          if (displayFieldName != null) const SizedBox(height: 10),
-          _SummaryRow(
-            label: 'Date',
-            value: _formatDate(scanResult.detectedAt),
-            icon: Icons.calendar_today_outlined,
           ),
-          const SizedBox(height: 10),
-          _SummaryRow(
-            label: 'Time',
-            value: _formatTime(scanResult.detectedAt),
-            icon: Icons.access_time_outlined,
+          const SizedBox(height: 12),
+          SizedBox(
+            height: displayPaths.length == 1 ? 220 : 160,
+            child: displayPaths.length == 1
+                ? Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: _buildImage(displayPaths.first, double.infinity,
+                          220),
+                    ),
+                  )
+                : ListView.separated(
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    scrollDirection: Axis.horizontal,
+                    itemCount: displayPaths.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 10),
+                    itemBuilder: (context, i) {
+                      return ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: _buildImage(displayPaths[i], 160, 160),
+                      );
+                    },
+                  ),
           ),
-          const SizedBox(height: 10),
-          if (scanResult.weather != null)
-            _SummaryRow(
-              label: 'Weather',
-              value: _buildWeatherSummary(scanResult.weather!),
-              icon: Icons.cloud_outlined,
-            ),
-          if (scanResult.weather != null) const SizedBox(height: 10),
-          if (scanResult.scanId != null) ...[
-            _SummaryRow(
-              label: 'Scan ID',
-              value: scanResult.scanId!,
-              icon: Icons.qr_code_outlined,
-            ),
-            const SizedBox(height: 10),
-          ],
-          _SummaryRow(
-            label: 'Image',
-            value:
-                scanResult.imagePath != null ||
-                    scanResult.remoteImageUrl != null
-                ? 'Captured'
-                : 'Not available',
-            icon: Icons.image_outlined,
-          ),
+          const SizedBox(height: 14),
         ],
       ),
     );
   }
 
-  String _formatDate(DateTime date) {
-    return '${date.day}/${date.month}/${date.year}';
+  Widget _buildImage(String path, double width, double height) {
+    final isRemoteOrWeb = kIsWeb ||
+        path.startsWith('http://') ||
+        path.startsWith('https://') ||
+        path.startsWith('blob:');
+
+    if (isRemoteOrWeb) {
+      return Image.network(
+        path,
+        width: width,
+        height: height,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => _imagePlaceholder(width, height),
+      );
+    }
+    return Image.file(
+      File(path),
+      width: width,
+      height: height,
+      fit: BoxFit.cover,
+      errorBuilder: (_, __, ___) => _imagePlaceholder(width, height),
+    );
   }
 
-  String _formatTime(DateTime date) {
-    final hour = date.hour.toString().padLeft(2, '0');
-    final minute = date.minute.toString().padLeft(2, '0');
-    return '$hour:$minute';
-  }
-
-  String _buildWeatherSummary(WeatherSnapshot weather) {
-    return '${weather.temperatureC.toStringAsFixed(1)}°C • ${weather.humidity}% humidity';
+  Widget _imagePlaceholder(double width, double height) {
+    return Container(
+      width: width,
+      height: height,
+      color: const Color(0xFFF3F4F6),
+      child: const Icon(Icons.broken_image_outlined,
+          color: AppTheme.textSecondary, size: 36),
+    );
   }
 }
 
-class _SummaryRow extends StatelessWidget {
-  final String label;
-  final String value;
-  final IconData icon;
+// ════════════════════════════════════════════════════════════════════════════
+// Healthy Celebration Card
+// ════════════════════════════════════════════════════════════════════════════
 
-  const _SummaryRow({
-    required this.label,
-    required this.value,
-    required this.icon,
+class _HealthyCelebrationCard extends StatelessWidget {
+  final int confidence;
+  final String? message;
+  final bool isUncertain;
+
+  const _HealthyCelebrationCard({
+    required this.confidence,
+    this.message,
+    this.isUncertain = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(icon, size: 16, color: AppTheme.textSecondary),
-        const SizedBox(width: 10),
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 13,
-            color: AppTheme.textSecondary,
-            fontWeight: FontWeight.w600,
+    final accentColor =
+        isUncertain ? const Color(0xFFB97922) : const Color(0xFF22C55E);
+    final textColor =
+        isUncertain ? const Color(0xFF7A4D0C) : const Color(0xFF166534);
+    final bgColor =
+        isUncertain ? const Color(0xFFFFF8EC) : const Color(0xFFF0FDF4);
+    final borderColor =
+        isUncertain ? const Color(0xFFFCE3A8) : const Color(0xFFBBF7D0);
+    final headline = isUncertain ? 'Likely Healthy' : '🎉 No Disease Detected';
+    final defaultMessage = isUncertain
+        ? 'Symptoms are ambiguous, but the leaf most closely matches a healthy profile. '
+            'Consider rescanning with better lighting for a more reliable result.'
+        : 'Your tea leaves appear healthy with no visible signs of disease or pest infection. '
+            'Continue regular monitoring and maintain good agricultural practices.';
+
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: borderColor, width: 1.5),
+      ),
+      child: Column(
+        children: [
+          // Colored top bar
+          Container(
+            height: 6,
+            decoration: BoxDecoration(
+              color: accentColor,
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(14)),
+            ),
           ),
-        ),
-        const SizedBox(width: 8),
-        const Text(':', style: TextStyle(color: AppTheme.textSecondary)),
-        const SizedBox(width: 8),
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      isUncertain
+                          ? Icons.help_outline_rounded
+                          : Icons.eco_rounded,
+                      color: accentColor,
+                      size: 24,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        headline,
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w900,
+                          color: textColor,
+                          letterSpacing: -0.4,
+                        ),
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: accentColor,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        '$confidence%',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  message?.isNotEmpty == true ? message! : defaultMessage,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: textColor.withValues(alpha: 0.85),
+                    height: 1.6,
+                  ),
+                ),
+                if (!isUncertain) ...[
+                  const SizedBox(height: 16),
+                  _GreenTip(
+                    icon: Icons.visibility_outlined,
+                    text:
+                        'Keep monitoring your field regularly to catch any early signs of disease.',
+                  ),
+                  const SizedBox(height: 8),
+                  _GreenTip(
+                    icon: Icons.water_drop_outlined,
+                    text:
+                        'Maintain proper drainage and airflow to prevent future infections.',
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GreenTip extends StatelessWidget {
+  final IconData icon;
+  final String text;
+  const _GreenTip({required this.icon, required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, color: const Color(0xFF22C55E), size: 16),
+        const SizedBox(width: 10),
         Expanded(
           child: Text(
-            value,
+            text,
             style: const TextStyle(
               fontSize: 13,
-              color: AppTheme.textPrimary,
-              fontWeight: FontWeight.w700,
+              color: Color(0xFF166534),
+              height: 1.5,
+              fontWeight: FontWeight.w500,
             ),
-            overflow: TextOverflow.ellipsis,
           ),
         ),
       ],
@@ -539,262 +1040,222 @@ class _SummaryRow extends StatelessWidget {
   }
 }
 
-/// Colors/icon for a severity or classification level string. Shared by
-/// the classification banner and the most-probable-disease card.
-(Color, IconData) _levelStyle(String level) {
-  switch (level.toLowerCase()) {
-    case 'healthy':
-      return (const Color(0xFF22C55E), Icons.check_circle_rounded);
-    case 'high':
-    case 'disease':
-      return (const Color(0xFFB54848), Icons.dangerous_rounded);
-    case 'medium':
-    case 'pest':
-      return (const Color(0xFFE2574C), Icons.warning_rounded);
-    case 'low':
-      return (const Color(0xFFB97922), Icons.info_rounded);
-    default:
-      return (AppTheme.textSecondary, Icons.help_outline_rounded);
-  }
-}
+// ════════════════════════════════════════════════════════════════════════════
+// "What Is It?" Card
+// ════════════════════════════════════════════════════════════════════════════
 
-/// Banner surfacing the top-level `classification` verdict returned by the
-/// scan endpoint (level / label / confidence / message).
-class _ClassificationBanner extends StatelessWidget {
-  final DiseaseClassification classification;
-
-  const _ClassificationBanner({required this.classification});
-
-  @override
-  Widget build(BuildContext context) {
-    final (color, icon) = _levelStyle(classification.level);
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: color.withValues(alpha: 0.28)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: color, size: 22),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        classification.label.isNotEmpty
-                            ? classification.label
-                            : classification.level,
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w900,
-                          color: color,
-                        ),
-                      ),
-                    ),
-                    if (classification.category.isNotEmpty)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 9,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: color.withValues(alpha: 0.14),
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: Text(
-                          classification.category,
-                          style: TextStyle(
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.w800,
-                            color: color,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-                if (classification.message.isNotEmpty) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    classification.message,
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      color: color.withValues(alpha: 0.9),
-                      height: 1.4,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MostProbableDiseaseCard extends StatelessWidget {
+class _WhatIsItCard extends StatelessWidget {
   final MostProbableDisease disease;
+  final bool isUncertain;
 
-  const _MostProbableDiseaseCard({required this.disease});
+  const _WhatIsItCard({required this.disease, this.isUncertain = false});
 
   @override
   Widget build(BuildContext context) {
-    final (severityColor, _) = _levelStyle(disease.severity);
+    final severity = disease.severity.toLowerCase();
+    Color severityColor;
+    String severityLabel;
+    IconData severityIcon;
+
+    switch (severity) {
+      case 'high':
+        severityColor = const Color(0xFFB54848);
+        severityLabel = 'High Severity';
+        severityIcon = Icons.warning_rounded;
+        break;
+      case 'medium':
+        severityColor = const Color(0xFFCC6633);
+        severityLabel = 'Medium Severity';
+        severityIcon = Icons.info_rounded;
+        break;
+      case 'low':
+        severityColor = const Color(0xFFB99020);
+        severityLabel = 'Low Severity';
+        severityIcon = Icons.info_outline_rounded;
+        break;
+      default:
+        severityColor = AppTheme.textSecondary;
+        severityLabel = 'Unknown Severity';
+        severityIcon = Icons.help_outline_rounded;
+    }
 
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE8ECEF), width: 1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE8ECEF)),
         boxShadow: [
           BoxShadow(
-            color: AppTheme.primaryButton.withValues(alpha: 0.08),
-            blurRadius: 24,
-            offset: const Offset(0, 12),
+            color: severityColor.withValues(alpha: 0.08),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
-            children: [
-              Icon(
-                Icons.health_and_safety_outlined,
-                color: Color(0xFFB54848),
-                size: 20,
-              ),
-              SizedBox(width: 8),
-              Text(
-                'Most Probable Disease',
-                style: TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: -0.3,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 18),
+          // Colored top stripe
           Container(
-            padding: const EdgeInsets.all(16),
+            height: 5,
             decoration: BoxDecoration(
-              color: const Color(0xFFFEF2F2),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFFCD5D5)),
+              color: severityColor,
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(15)),
             ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(18),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Header
                 Row(
+                  children: [
+                    const Icon(
+                      Icons.health_and_safety_outlined,
+                      color: Color(0xFFB54848),
+                      size: 18,
+                    ),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'What was detected?',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
+                    if (isUncertain) ...[
+                      const Spacer(),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 9, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFB97922).withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: const Text(
+                          'Low confidence',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFFB97922),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 12),
+
+                // Disease name + severity chip
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(
                       child: Text(
                         disease.diseaseName,
                         style: const TextStyle(
-                          fontSize: 20,
+                          fontSize: 22,
                           fontWeight: FontWeight.w900,
-                          color: Color(0xFF7A2713),
+                          color: Color(0xFF1B242C),
                           letterSpacing: -0.5,
                         ),
                       ),
                     ),
+                    const SizedBox(width: 12),
                     Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
+                          horizontal: 10, vertical: 5),
                       decoration: BoxDecoration(
-                        color: severityColor,
-                        borderRadius: BorderRadius.circular(20),
+                        color: severityColor.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(
+                            color: severityColor.withValues(alpha: 0.3)),
                       ),
-                      child: Text(
-                        '${disease.confidencePercent}%',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                if (disease.severity.isNotEmpty) ...[
-                  const SizedBox(height: 6),
-                  Text(
-                    'Severity: ${disease.severity}',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF7A2713),
-                    ),
-                  ),
-                ],
-                if (disease.description.isNotEmpty) ...[
-                  const SizedBox(height: 12),
-                  Text(
-                    disease.description,
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: const Color(0xFF7A2713).withValues(alpha: 0.8),
-                      height: 1.5,
-                    ),
-                  ),
-                ],
-                if (disease.causes.isNotEmpty) ...[
-                  const SizedBox(height: 14),
-                  const Text(
-                    'Likely Causes',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFF7A2713),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  ...disease.causes.map(
-                    (cause) => Padding(
-                      padding: const EdgeInsets.only(bottom: 6),
                       child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          Container(
-                            margin: const EdgeInsets.only(top: 5),
-                            width: 5,
-                            height: 5,
-                            decoration: const BoxDecoration(
-                              color: Color(0xFFB54848),
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              cause,
-                              style: TextStyle(
-                                fontSize: 12.5,
-                                color: const Color(
-                                  0xFF7A2713,
-                                ).withValues(alpha: 0.85),
-                                height: 1.45,
-                              ),
+                          Icon(severityIcon, size: 12, color: severityColor),
+                          const SizedBox(width: 4),
+                          Text(
+                            severityLabel,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                              color: severityColor,
                             ),
                           ),
                         ],
                       ),
                     ),
+                  ],
+                ),
+
+                if (disease.description.isNotEmpty) ...[
+                  const SizedBox(height: 14),
+                  const Text(
+                    'About this disease',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    disease.description,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: AppTheme.textPrimary,
+                      height: 1.6,
+                    ),
+                  ),
+                ],
+
+                if (disease.causes.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Why did this happen?',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  ...disease.causes.map((cause) => _CauseRow(cause: cause)),
+                ],
+
+                if (isUncertain) ...[
+                  const SizedBox(height: 14),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF8EC),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(Icons.info_outline_rounded,
+                            size: 14, color: Color(0xFFB97922)),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'The model wasn\'t fully confident. Consider rescanning '
+                            'in better lighting or from a closer angle.',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: const Color(0xFFB97922).withValues(alpha: 0.9),
+                              height: 1.4,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ],
@@ -806,102 +1267,132 @@ class _MostProbableDiseaseCard extends StatelessWidget {
   }
 }
 
-class _HealthyLeafCard extends StatelessWidget {
-  final int confidence;
-  final String? message;
+class _CauseRow extends StatelessWidget {
+  final String cause;
+  const _CauseRow({required this.cause});
 
-  const _HealthyLeafCard({required this.confidence, this.message});
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            margin: const EdgeInsets.only(top: 6),
+            width: 6,
+            height: 6,
+            decoration: const BoxDecoration(
+              color: Color(0xFFB54848),
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              cause,
+              style: const TextStyle(
+                fontSize: 13.5,
+                color: AppTheme.textPrimary,
+                height: 1.5,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// "What To Do?" Card
+// ════════════════════════════════════════════════════════════════════════════
+
+class _WhatToDoCard extends StatelessWidget {
+  final List<String> recommendations;
+  const _WhatToDoCard({required this.recommendations});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE8ECEF), width: 1),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.brandGreen.withValues(alpha: 0.08),
-            blurRadius: 24,
-            offset: const Offset(0, 12),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE8ECEF)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
-            children: [
-              Icon(Icons.favorite_rounded, color: Color(0xFF22C55E), size: 20),
-              SizedBox(width: 8),
-              Text(
-                'Healthy Leaf',
-                style: TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: -0.3,
-                  color: Color(0xFF166534),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 18),
           Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF0FDF4),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFBBF7D0)),
+            height: 5,
+            decoration: const BoxDecoration(
+              color: AppTheme.brandGreen,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(15)),
             ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(18),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
+                const Row(
                   children: [
-                    const Expanded(
-                      child: Text(
-                        'No Disease Detected',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w900,
-                          color: Color(0xFF166534),
-                          letterSpacing: -0.5,
-                        ),
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF22C55E),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        '$confidence%',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 14,
-                        ),
+                    Icon(Icons.tips_and_updates_outlined,
+                        color: AppTheme.brandGreen, size: 18),
+                    SizedBox(width: 8),
+                    Text(
+                      'What should you do?',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                        color: AppTheme.textPrimary,
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
-                Text(
-                  message?.isNotEmpty == true
-                      ? message!
-                      : 'The leaf appears healthy with no visible signs of disease or pest infection. Continue regular monitoring and maintain good agricultural practices.',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: const Color(0xFF166534).withValues(alpha: 0.8),
-                    height: 1.5,
-                  ),
-                ),
+                const SizedBox(height: 14),
+                ...List.generate(recommendations.length, (i) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          width: 26,
+                          height: 26,
+                          decoration: BoxDecoration(
+                            color: AppTheme.brandGreen.withValues(alpha: 0.12),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Center(
+                            child: Text(
+                              '${i + 1}',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w900,
+                                color: AppTheme.brandGreen,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text(
+                              recommendations[i],
+                              style: const TextStyle(
+                                fontSize: 14,
+                                color: AppTheme.textPrimary,
+                                height: 1.5,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
               ],
             ),
           ),
@@ -911,62 +1402,64 @@ class _HealthyLeafCard extends StatelessWidget {
   }
 }
 
-class _ConfidenceAnalysisCard extends StatelessWidget {
-  final List<DiseaseResult> diseaseResults;
+// ════════════════════════════════════════════════════════════════════════════
+// Confidence Breakdown Card
+// ════════════════════════════════════════════════════════════════════════════
 
-  const _ConfidenceAnalysisCard({required this.diseaseResults});
+class _ConfidenceBreakdownCard extends StatelessWidget {
+  final List<DiseaseResult> diseaseResults;
+  final bool topResultIsHealthy;
+
+  const _ConfidenceBreakdownCard({
+    required this.diseaseResults,
+    this.topResultIsHealthy = false,
+  });
 
   @override
   Widget build(BuildContext context) {
     final topConfidence = diseaseResults.isNotEmpty
-        ? diseaseResults
-              .map((d) => d.confidence)
-              .reduce((a, b) => a > b ? a : b)
+        ? diseaseResults.map((d) => d.confidence).reduce((a, b) => a > b ? a : b)
         : 0;
 
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE8ECEF), width: 1),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.primaryButton.withValues(alpha: 0.06),
-            blurRadius: 22,
-            offset: const Offset(0, 12),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE8ECEF)),
       ),
+      padding: const EdgeInsets.all(18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Row(
             children: [
-              Icon(
-                Icons.analytics_outlined,
-                color: AppTheme.brandGreen,
-                size: 20,
-              ),
+              Icon(Icons.analytics_outlined,
+                  color: AppTheme.brandGreen, size: 18),
               SizedBox(width: 8),
               Text(
-                'Confidence Analysis',
+                'Detection Confidence',
                 style: TextStyle(
-                  fontSize: 17,
+                  fontSize: 16,
                   fontWeight: FontWeight.w900,
-                  letterSpacing: -0.3,
+                  color: AppTheme.textPrimary,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          ...diseaseResults.map(
-            (disease) => _ConfidenceBar(
-              disease: disease,
-              isTopResult: disease.confidence == topConfidence,
+          const SizedBox(height: 4),
+          Text(
+            'How confident the AI is about each possibility',
+            style: TextStyle(
+              fontSize: 12,
+              color: AppTheme.textSecondary.withValues(alpha: 0.8),
             ),
           ),
+          const SizedBox(height: 16),
+          ...diseaseResults.map((d) => _ConfidenceBar(
+                disease: d,
+                isTopResult: d.confidence == topConfidence,
+                topResultIsHealthy: topResultIsHealthy,
+              )),
         ],
       ),
     );
@@ -976,18 +1469,26 @@ class _ConfidenceAnalysisCard extends StatelessWidget {
 class _ConfidenceBar extends StatelessWidget {
   final DiseaseResult disease;
   final bool isTopResult;
+  final bool topResultIsHealthy;
 
-  const _ConfidenceBar({required this.disease, required this.isTopResult});
+  const _ConfidenceBar({
+    required this.disease,
+    required this.isTopResult,
+    this.topResultIsHealthy = false,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final accentColor = topResultIsHealthy
+        ? const Color(0xFF16A34A)
+        : const Color(0xFFB54848);
+
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
                 child: Column(
@@ -996,45 +1497,59 @@ class _ConfidenceBar extends StatelessWidget {
                     Text(
                       disease.name,
                       style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: isTopResult
-                            ? FontWeight.w800
-                            : FontWeight.w600,
+                        fontSize: 13.5,
+                        fontWeight:
+                            isTopResult ? FontWeight.w800 : FontWeight.w600,
                         color: isTopResult
-                            ? const Color(0xFFB54848)
+                            ? accentColor
                             : AppTheme.textPrimary,
                       ),
-                      overflow: TextOverflow.ellipsis,
                     ),
-                    if (disease.category.isNotEmpty) ...[
-                      const SizedBox(height: 3),
+                    if (disease.category.isNotEmpty)
                       Text(
                         disease.category,
                         style: const TextStyle(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w600,
+                          fontSize: 11,
                           color: AppTheme.textSecondary,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
-                    ],
                   ],
                 ),
               ),
               Text(
                 '${disease.confidence}%',
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: 14,
                   fontWeight: isTopResult ? FontWeight.w900 : FontWeight.w700,
-                  color: isTopResult
-                      ? const Color(0xFFB54848)
-                      : AppTheme.textSecondary,
+                  color: isTopResult ? accentColor : AppTheme.textSecondary,
                 ),
               ),
+              const SizedBox(width: 4),
+              if (disease.confidenceLabel.isNotEmpty)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 7, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: isTopResult
+                        ? accentColor.withValues(alpha: 0.1)
+                        : const Color(0xFFF3F4F6),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    disease.confidenceLabel,
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: isTopResult ? accentColor : AppTheme.textSecondary,
+                    ),
+                  ),
+                ),
             ],
           ),
           const SizedBox(height: 6),
           Container(
-            height: 8,
+            height: 7,
             decoration: BoxDecoration(
               color: const Color(0xFFF3F4F6),
               borderRadius: BorderRadius.circular(4),
@@ -1046,7 +1561,10 @@ class _ConfidenceBar extends StatelessWidget {
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: isTopResult
-                        ? [const Color(0xFFB54848), const Color(0xFFE2574C)]
+                        ? [
+                            accentColor,
+                            accentColor.withValues(alpha: 0.7),
+                          ]
                         : [
                             const Color(0xFF6E7E8B).withValues(alpha: 0.5),
                             const Color(0xFF6E7E8B).withValues(alpha: 0.3),
@@ -1065,82 +1583,554 @@ class _ConfidenceBar extends StatelessWidget {
   }
 }
 
-/// Displays the flat, top-level `recommendations` list returned by the
-/// scan endpoint. This replaces the old per-disease "AI Explanation"
-/// symptoms/treatment section, since the new API no longer returns
-/// per-disease treatment text.
-class _RecommendationsCard extends StatelessWidget {
-  final List<String> recommendations;
+// ════════════════════════════════════════════════════════════════════════════
+// Environmental Conditions Card (aggregated — shown once per scan)
+// ════════════════════════════════════════════════════════════════════════════
 
-  const _RecommendationsCard({required this.recommendations});
+class _EnvironmentalConditionsCard extends StatelessWidget {
+  final List<EnvironmentalInsight> insights;
+  final String? summary;
+
+  const _EnvironmentalConditionsCard({
+    required this.insights,
+    this.summary,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE8ECEF), width: 1),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.primaryButton.withValues(alpha: 0.06),
-            blurRadius: 22,
-            offset: const Offset(0, 12),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE8ECEF)),
       ),
+      padding: const EdgeInsets.all(18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Row(
             children: [
-              Icon(
-                Icons.tips_and_updates_outlined,
-                color: AppTheme.brandGreen,
-                size: 20,
-              ),
+              Icon(Icons.cloud_outlined, color: AppTheme.brandGreen, size: 18),
               SizedBox(width: 8),
               Text(
-                'Recommendations',
+                'Weather Impact',
                 style: TextStyle(
-                  fontSize: 17,
+                  fontSize: 16,
                   fontWeight: FontWeight.w900,
-                  letterSpacing: -0.3,
+                  color: AppTheme.textPrimary,
                 ),
               ),
             ],
           ),
+          if (summary != null && summary!.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              summary!,
+              style: const TextStyle(
+                fontSize: 13,
+                color: AppTheme.textSecondary,
+                height: 1.5,
+              ),
+            ),
+          ],
           const SizedBox(height: 14),
-          ...recommendations.map(
-            (s) => Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: Row(
+          ...insights.map((insight) => _InsightTile(insight: insight)),
+        ],
+      ),
+    );
+  }
+}
+
+class _InsightTile extends StatelessWidget {
+  final EnvironmentalInsight insight;
+  const _InsightTile({required this.insight});
+
+  @override
+  Widget build(BuildContext context) {
+    Color color;
+    IconData icon;
+    switch (insight.severity.toLowerCase()) {
+      case 'high':
+        color = const Color(0xFFB54848);
+        icon = Icons.warning_rounded;
+        break;
+      case 'medium':
+        color = const Color(0xFFCC6633);
+        icon = Icons.info_rounded;
+        break;
+      default:
+        color = const Color(0xFFB99020);
+        icon = Icons.wb_sunny_outlined;
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withValues(alpha: 0.2)),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, color: color, size: 16),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    margin: const EdgeInsets.only(top: 5),
-                    width: 6,
-                    height: 6,
-                    decoration: const BoxDecoration(
-                      color: AppTheme.brandGreen,
-                      shape: BoxShape.circle,
+                  Text(
+                    insight.title,
+                    style: TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w800,
+                      color: color,
                     ),
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      s,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: AppTheme.textSecondary,
-                        height: 1.5,
-                      ),
+                  const SizedBox(height: 4),
+                  Text(
+                    insight.message,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: color.withValues(alpha: 0.85),
+                      height: 1.5,
                     ),
                   ),
                 ],
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// Technical Details (expandable)
+// ════════════════════════════════════════════════════════════════════════════
+
+class _TechnicalDetailsSection extends StatelessWidget {
+  final DiseaseScanResult scanResult;
+  final bool isExpanded;
+  final VoidCallback onToggle;
+
+  const _TechnicalDetailsSection({
+    required this.scanResult,
+    required this.isExpanded,
+    required this.onToggle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE8ECEF)),
+      ),
+      child: Column(
+        children: [
+          // Toggle header
+          InkWell(
+            onTap: onToggle,
+            borderRadius: BorderRadius.circular(16),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      color: AppTheme.textSecondary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(
+                      Icons.science_outlined,
+                      color: AppTheme.textSecondary,
+                      size: 18,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Technical Details',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                            color: AppTheme.textPrimary,
+                          ),
+                        ),
+                        Text(
+                          'For advanced users — model data & risk factors',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            color: AppTheme.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    isExpanded
+                        ? Icons.keyboard_arrow_up_rounded
+                        : Icons.keyboard_arrow_down_rounded,
+                    color: AppTheme.textSecondary,
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // Expanded content
+          if (isExpanded) ...[
+            const Divider(height: 1, color: Color(0xFFE8ECEF)),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Scan metadata
+                  _TechSection(title: 'Scan Information', children: [
+                    if (scanResult.scanId != null)
+                      _TechRow(label: 'Scan ID', value: scanResult.scanId!),
+                    _TechRow(
+                      label: 'Processed Images',
+                      value: '${scanResult.processedImages}',
+                    ),
+                    _TechRow(
+                      label: 'Date & Time',
+                      value: _formatDateTime(scanResult.detectedAt),
+                    ),
+                  ]),
+
+                  // Weather data
+                  if (scanResult.weather != null) ...[
+                    const SizedBox(height: 16),
+                    _TechSection(
+                      title: '7-Day Weather Data',
+                      children: [
+                        _TechRow(
+                          label: 'Temperature (avg)',
+                          value:
+                              '${scanResult.weather!.temperatureC.toStringAsFixed(1)}°C',
+                        ),
+                        _TechRow(
+                          label: 'Humidity (avg)',
+                          value: '${scanResult.weather!.humidity}%',
+                        ),
+                        _TechRow(
+                          label: 'Rainfall (total)',
+                          value:
+                              '${scanResult.weather!.rainfallMm.toStringAsFixed(1)} mm',
+                        ),
+                        _TechRow(
+                          label: 'Wind Speed (avg)',
+                          value:
+                              '${scanResult.weather!.windSpeedKmh.toStringAsFixed(1)} km/h',
+                        ),
+                        _TechRow(
+                          label: 'Sunshine Hours (avg)',
+                          value:
+                              '${scanResult.weather!.sunshineHours.toStringAsFixed(1)} h',
+                        ),
+                      ],
+                    ),
+                  ],
+
+                  // Environmental risk factors
+                  if (scanResult.environmentalTechnicalSummary != null) ...[
+                    const SizedBox(height: 16),
+                    _TechSection(
+                      title: 'Environmental Risk Factors',
+                      children: [
+                        _TechRow(
+                          label: 'Risk-increasing factors',
+                          value:
+                              '${scanResult.environmentalTechnicalSummary!.riskIncreasingFactors}',
+                        ),
+                        _TechRow(
+                          label: 'Risk-reducing factors',
+                          value:
+                              '${scanResult.environmentalTechnicalSummary!.riskReducingFactors}',
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    // Factor table
+                    Container(
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8F9FA),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0xFFE8ECEF)),
+                      ),
+                      child: Column(
+                        children: [
+                          // Header
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 8),
+                            child: Row(
+                              children: [
+                                const Expanded(
+                                  flex: 3,
+                                  child: Text(
+                                    'Factor',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w800,
+                                      color: AppTheme.textSecondary,
+                                    ),
+                                  ),
+                                ),
+                                const Expanded(
+                                  flex: 2,
+                                  child: Text(
+                                    'Impact',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w800,
+                                      color: AppTheme.textSecondary,
+                                    ),
+                                  ),
+                                ),
+                                Expanded(
+                                  flex: 2,
+                                  child: Text(
+                                    'Effect',
+                                    textAlign: TextAlign.right,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w800,
+                                      color: AppTheme.textSecondary,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Divider(height: 1, color: Color(0xFFE8ECEF)),
+                          ...scanResult
+                              .environmentalTechnicalSummary!.topRiskFactors
+                              .asMap()
+                              .entries
+                              .map((entry) {
+                            final i = entry.key;
+                            final factor = entry.value;
+                            final isLast = i ==
+                                scanResult.environmentalTechnicalSummary!
+                                        .topRiskFactors.length -
+                                    1;
+                            return Column(
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 12, vertical: 8),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        flex: 3,
+                                        child: Text(
+                                          _featureLabel(factor.feature),
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            color: AppTheme.textPrimary,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ),
+                                      Expanded(
+                                        flex: 2,
+                                        child: Text(
+                                          factor.impact.toStringAsFixed(4),
+                                          textAlign: TextAlign.center,
+                                          style: const TextStyle(
+                                            fontSize: 11.5,
+                                            color: AppTheme.textSecondary,
+                                            fontFamily: 'monospace',
+                                          ),
+                                        ),
+                                      ),
+                                      Expanded(
+                                        flex: 2,
+                                        child: Align(
+                                          alignment: Alignment.centerRight,
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 6, vertical: 3),
+                                            decoration: BoxDecoration(
+                                              color: factor.isRiskIncreasing
+                                                  ? const Color(0xFFB54848)
+                                                      .withValues(alpha: 0.1)
+                                                  : const Color(0xFF22C55E)
+                                                      .withValues(alpha: 0.1),
+                                              borderRadius:
+                                                  BorderRadius.circular(6),
+                                            ),
+                                            child: Text(
+                                              factor.isRiskIncreasing
+                                                  ? '↑ Risk'
+                                                  : '↓ Risk',
+                                              style: TextStyle(
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.w800,
+                                                color: factor.isRiskIncreasing
+                                                    ? const Color(0xFFB54848)
+                                                    : const Color(0xFF16A34A),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                if (!isLast)
+                                  const Divider(
+                                      height: 1, color: Color(0xFFE8ECEF)),
+                              ],
+                            );
+                          }),
+                        ],
+                      ),
+                    ),
+                  ],
+
+                  // GradCAM image
+                  if (scanResult.aggregatedGradcamUrl != null) ...[
+                    const SizedBox(height: 16),
+                    _TechSection(title: 'AI Attention Map (GradCAM)', children: const []),
+                    const SizedBox(height: 8),
+                    Text(
+                      'The highlighted areas show where the AI focused most when making its decision.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.textSecondary.withValues(alpha: 0.8),
+                        height: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.network(
+                        DiseaseScanService.resolveImageUrl(
+                                scanResult.aggregatedGradcamUrl) ??
+                            scanResult.aggregatedGradcamUrl!,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                          height: 120,
+                          color: const Color(0xFFF3F4F6),
+                          child: const Center(
+                            child: Text(
+                              'Attention map unavailable',
+                              style: TextStyle(color: AppTheme.textSecondary),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  String _formatDateTime(DateTime dt) {
+    String pad(int n) => n.toString().padLeft(2, '0');
+    return '${dt.day}/${dt.month}/${dt.year} ${pad(dt.hour)}:${pad(dt.minute)}';
+  }
+
+  String _featureLabel(String feature) {
+    switch (feature) {
+      case 'avg_wind_speed_last_7':
+        return 'Wind Speed';
+      case 'avg_temperature_last_7':
+        return 'Temperature';
+      case 'total_rainfall_last_7':
+        return 'Rainfall';
+      case 'avg_humidity_last_7':
+        return 'Humidity';
+      case 'avg_sunshine_hours_last_7':
+        return 'Sunshine Hours';
+      default:
+        return feature.replaceAll('_', ' ');
+    }
+  }
+}
+
+class _TechSection extends StatelessWidget {
+  final String title;
+  final List<Widget> children;
+  const _TechSection({required this.title, required this.children});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 12.5,
+            fontWeight: FontWeight.w800,
+            color: AppTheme.textSecondary,
+            letterSpacing: 0.4,
+          ),
+        ),
+        const SizedBox(height: 8),
+        ...children,
+      ],
+    );
+  }
+}
+
+class _TechRow extends StatelessWidget {
+  final String label;
+  final String value;
+  const _TechRow({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontSize: 12.5,
+                color: AppTheme.textSecondary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 12.5,
+              color: AppTheme.textPrimary,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ],
@@ -1149,8 +2139,53 @@ class _RecommendationsCard extends StatelessWidget {
   }
 }
 
-// Recommendation screen — now shows the real recommendations from the
-// scan response when provided, falling back to static guidance if not.
+// ════════════════════════════════════════════════════════════════════════════
+// No Results Card
+// ════════════════════════════════════════════════════════════════════════════
+
+class _NoResultsCard extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE8ECEF)),
+      ),
+      child: Column(
+        children: [
+          Icon(Icons.check_circle_outline, color: AppTheme.brandGreen, size: 48),
+          const SizedBox(height: 12),
+          const Text(
+            'No Diseases Detected',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              color: AppTheme.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'The scan completed but no disease patterns were identified in the images.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 13,
+              color: AppTheme.textSecondary,
+              height: 1.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// Recommendation Detail Screen
+// ════════════════════════════════════════════════════════════════════════════
+
 class DiseaseRecommendationScreen extends StatelessWidget {
   final String diseaseName;
   final int confidence;
@@ -1164,14 +2199,17 @@ class DiseaseRecommendationScreen extends StatelessWidget {
   });
 
   List<_RecommendationItem> get _items {
+    const icons = [
+      Icons.eco_outlined,
+      Icons.cut_outlined,
+      Icons.visibility_outlined,
+      Icons.water_drop_outlined,
+      Icons.shield_outlined,
+      Icons.warning_amber_outlined,
+      Icons.grass_outlined,
+    ];
+
     if (recommendations.isNotEmpty) {
-      const icons = [
-        Icons.eco_outlined,
-        Icons.cut_outlined,
-        Icons.visibility_outlined,
-        Icons.water_drop_outlined,
-        Icons.shield_outlined,
-      ];
       return List.generate(
         recommendations.length,
         (i) => _RecommendationItem(
@@ -1218,10 +2256,8 @@ class DiseaseRecommendationScreen extends StatelessWidget {
           ),
         ),
         leading: IconButton(
-          icon: const Icon(
-            Icons.arrow_back_rounded,
-            color: AppTheme.textPrimary,
-          ),
+          icon: const Icon(Icons.arrow_back_rounded,
+              color: AppTheme.textPrimary),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
@@ -1235,8 +2271,8 @@ class DiseaseRecommendationScreen extends StatelessWidget {
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0xFFE8ECEF), width: 1),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFE8ECEF)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1249,7 +2285,7 @@ class DiseaseRecommendationScreen extends StatelessWidget {
                       color: Color(0xFFB54848),
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 6),
                   Text(
                     'Detected with $confidence% confidence',
                     style: const TextStyle(
@@ -1257,7 +2293,7 @@ class DiseaseRecommendationScreen extends StatelessWidget {
                       color: AppTheme.textSecondary,
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 22),
                   const Text(
                     'Recommended Actions',
                     style: TextStyle(
@@ -1268,7 +2304,7 @@ class DiseaseRecommendationScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 16),
                   for (int i = 0; i < _items.length; i++) ...[
-                    if (i > 0) const SizedBox(height: 12),
+                    if (i > 0) const SizedBox(height: 14),
                     _items[i],
                   ],
                 ],
@@ -1298,14 +2334,14 @@ class _RecommendationItem extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
-          padding: const EdgeInsets.all(8),
+          padding: const EdgeInsets.all(9),
           decoration: BoxDecoration(
             color: AppTheme.brandGreen.withValues(alpha: 0.1),
             shape: BoxShape.circle,
           ),
           child: Icon(icon, size: 18, color: AppTheme.brandGreen),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: 14),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1316,6 +2352,7 @@ class _RecommendationItem extends StatelessWidget {
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
                   color: AppTheme.textPrimary,
+                  height: 1.4,
                 ),
               ),
               if (description.isNotEmpty) ...[
@@ -1323,7 +2360,7 @@ class _RecommendationItem extends StatelessWidget {
                 Text(
                   description,
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: 12.5,
                     color: AppTheme.textSecondary,
                     height: 1.5,
                   ),
