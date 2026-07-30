@@ -4,7 +4,10 @@ import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 
+import '../config/network_config.dart';
+import '../models/disease_scan_record.dart';
 import '../models/environmental_data.dart';
+import 'auth_service.dart';
 
 /// Exception thrown when disease scan API fails
 class DiseaseScanException implements Exception {
@@ -15,68 +18,184 @@ class DiseaseScanException implements Exception {
   String toString() => message;
 }
 
+/// A single image to be submitted for disease scanning.
+class ScanImage {
+  final Uint8List bytes;
+  final String name;
+  const ScanImage({required this.bytes, required this.name});
+}
+
 /// Service for disease scanning API calls
 class DiseaseScanService {
-  static const String _baseUrl = 'http://localhost:8001/api/v1/disease/scan';
+  static String get _host => 'http://${NetworkConfig.host}:8001';
+  static String get _baseUrl => '$_host/api/v1/disease/scan';
+  static String get _diseaseBaseUrl => '$_host/api/v1/disease';
+
+  // Fallback token, used only if the user isn't currently logged in
+  // (AuthService().token is preferred and used whenever available).
   static const String _authToken =
       'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhMGFiMDAwYS1kOGJkLTRhODktODA3YS03YmZlMjVkZDRhMTMiLCJlbWFpbCI6ImFAYS5hIiwiZXhwIjoxNzg3MzM5OTIxfQ.p-X_efCJmVZxBpDR4ThQnJwWKWhK1FsQ7h6t690dvWQ';
 
-  /// Performs disease scan with image and environmental data
-  /// Throws DiseaseScanException on failure
+  static Map<String, String> _authHeaders() {
+    final token = AuthService().token;
+    final resolved = (token != null && token.isNotEmpty) ? token : _authToken;
+    return {'Authorization': 'Bearer $resolved'};
+  }
+
+  /// Builds an absolute URL for an `image_url` returned by the API
+  /// (e.g. "/media/disease-scans/xyz.jpg" -> "http://localhost:8001/media/...").
+  static String? resolveImageUrl(String? path) {
+    if (path == null || path.isEmpty) return null;
+    if (path.startsWith('http://') || path.startsWith('https://')) {
+      return path;
+    }
+    if (path.startsWith('/')) {
+      return '$_host$path';
+    }
+    return '$_host/$path';
+  }
+
+  /// Fetches all disease scan records for a given field, most recent first.
+  /// Throws DiseaseScanException on failure.
+  static Future<List<DiseaseScanRecord>> fetchScansByField(
+    String fieldId,
+  ) async {
+    try {
+      final uri = Uri.parse('$_diseaseBaseUrl/by-field/$fieldId');
+      final response = await http
+          .get(uri, headers: _authHeaders())
+          .timeout(const Duration(seconds: 15));
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        final data = json.decode(response.body) as List;
+        final records = data
+            .map(
+              (e) => DiseaseScanRecord.fromJson(e as Map<String, dynamic>),
+            )
+            .toList();
+        records.sort((a, b) => b.scanDatetime.compareTo(a.scanDatetime));
+        return records;
+      }
+
+      throw DiseaseScanException(
+        _parseErrorMessage(response.body, response.statusCode),
+      );
+    } on DiseaseScanException {
+      rethrow;
+    } catch (e) {
+      throw DiseaseScanException(_parseExceptionMessage(e));
+    }
+  }
+
+  /// Fetches a single disease scan record's full detail by its scan_id.
+  /// Throws DiseaseScanException on failure.
+  static Future<DiseaseScanRecord> fetchScanById(String scanId) async {
+    try {
+      final uri = Uri.parse('$_diseaseBaseUrl/$scanId');
+      final response = await http
+          .get(uri, headers: _authHeaders())
+          .timeout(const Duration(seconds: 15));
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return DiseaseScanRecord.fromJson(
+          json.decode(response.body) as Map<String, dynamic>,
+        );
+      }
+
+      throw DiseaseScanException(
+        _parseErrorMessage(response.body, response.statusCode),
+      );
+    } on DiseaseScanException {
+      rethrow;
+    } catch (e) {
+      throw DiseaseScanException(_parseExceptionMessage(e));
+    }
+  }
+
+  /// Performs disease scan with one or more images and environmental data.
+  ///
+  /// The new API accepts multiple images under the `images` key (repeated
+  /// multipart fields), along with individual weather form fields and a
+  /// `weather_summary` JSON blob.
+  ///
+  /// Throws [DiseaseScanException] on failure.
   static Future<Map<String, dynamic>> scanDisease({
-    required Uint8List imageBytes,
-    required String fileName,
+    required List<ScanImage> images,
     required EnvironmentalData environmentalData,
     String? fieldId,
   }) async {
+    if (images.isEmpty) {
+      throw DiseaseScanException('At least one image is required for scanning.');
+    }
+
     try {
       final uri = Uri.parse(_baseUrl);
 
-      // Build weather summary JSON from environmental data
+      // Build weather summary JSON — only the 5 fields the new API expects.
       final weatherSummary = {
-        'rainy_days_last_7': environmentalData.totalRainfallLast7 > 10 ? 5 : 2,
-        'rainy_hours_last_7': 42,
         'total_rainfall_last_7': environmentalData.totalRainfallLast7,
         'avg_temperature_last_7': environmentalData.avgTemperatureLast7,
         'avg_humidity_last_7': environmentalData.avgHumidityLast7,
-        'max_humidity_last_7': environmentalData.avgHumidityLast7 + 10,
         'avg_wind_speed_last_7': environmentalData.avgWindSpeedLast7,
-        'max_wind_speed_last_7': environmentalData.avgWindSpeedLast7 + 5,
         'avg_sunshine_hours_last_7': environmentalData.avgSunshineHoursLast7,
-        'estimated_leaf_wetness_hours_last_7':
-            (environmentalData.avgHumidityLast7 > 80) ? 65 : 20,
       };
 
       final request = http.MultipartRequest('POST', uri);
-      request.headers['Authorization'] = 'Bearer $_authToken';
+      request.headers.addAll(_authHeaders());
 
-      // Determine content type from file extension
-      final mimeType = _getImageMimeType(fileName);
-      final contentType = MediaType('image', mimeType);
+      // Add each image under the `images` key (repeated multipart field).
+      for (final image in images) {
+        final mimeType = _getImageMimeType(image.name);
+        final contentType = MediaType('image', mimeType);
+        request.files.add(
+          http.MultipartFile.fromBytes(
+            'images',
+            image.bytes,
+            filename: image.name,
+            contentType: contentType,
+          ),
+        );
+      }
 
-      // Add image file
-      request.files.add(
-        http.MultipartFile.fromBytes(
-          'image',
-          imageBytes,
-          filename: fileName,
-          contentType: contentType,
-        ),
-      );
+      // Individual weather form fields (new API format).
+      request.fields['total_rainfall_last_7'] =
+          environmentalData.totalRainfallLast7.toString();
+      request.fields['avg_temperature_last_7'] =
+          environmentalData.avgTemperatureLast7.toString();
+      request.fields['avg_humidity_last_7'] =
+          environmentalData.avgHumidityLast7.toString();
+      request.fields['avg_wind_speed_last_7'] =
+          environmentalData.avgWindSpeedLast7.toString();
+      request.fields['avg_sunshine_hours_last_7'] =
+          environmentalData.avgSunshineHoursLast7.toString();
 
-      // Add weather summary as form field
+      // weather_summary as JSON blob (redundant but some backend versions need it).
       request.fields['weather_summary'] = json.encode(weatherSummary);
 
+      // GPS coordinates.
+      if (environmentalData.latitude != 0.0) {
+        request.fields['latitude'] = environmentalData.latitude.toString();
+      }
+      if (environmentalData.longitude != 0.0) {
+        request.fields['longitude'] = environmentalData.longitude.toString();
+      }
+
+      // Associate this scan with a specific field.
+      if (fieldId != null && fieldId.isNotEmpty) {
+        request.fields['field_id'] = fieldId;
+      }
+
       final response = await request.send().timeout(
-        const Duration(seconds: 30),
+        const Duration(seconds: 60),
       );
 
       final responseBody = await response.stream.bytesToString();
 
-      if (response.statusCode == 200) {
+      if (response.statusCode >= 200 && response.statusCode < 300) {
         return json.decode(responseBody) as Map<String, dynamic>;
       } else {
-        final errorMessage = _parseErrorMessage(responseBody, response.statusCode);
+        final errorMessage =
+            _parseErrorMessage(responseBody, response.statusCode);
         throw DiseaseScanException(errorMessage);
       }
     } on DiseaseScanException {
@@ -148,7 +267,7 @@ class DiseaseScanService {
       return 'Network error: Please check your internet connection';
     }
 
-    return 'Disease analysis failed: Could not reach ML backend at http://localhost:8000/predict: All connection attempts failed';
+    return 'Disease analysis failed: Could not reach ML backend at http://localhost:8001/api/v1/disease/scan';
   }
 
   /// Extracts MIME type from file extension

@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
 import '../theme.dart';
@@ -227,24 +230,49 @@ class DiseaseImageDisplay extends StatelessWidget {
       );
     }
 
-    return Image.network(
-      imagePath!,
+    // On web, image_picker returns a blob: object URL (not a real file path),
+    // and Image.file is unsupported on web entirely — so route web + any
+    // http(s)/blob URL through Image.network.
+    final isRemoteOrWeb = kIsWeb ||
+        imagePath!.startsWith('http://') ||
+        imagePath!.startsWith('https://') ||
+        imagePath!.startsWith('blob:');
+
+    if (isRemoteOrWeb) {
+      return Image.network(
+        imagePath!,
+        fit: BoxFit.cover,
+        height: height,
+        width: double.infinity,
+        errorBuilder: (context, error, stackTrace) {
+          return _buildErrorPlaceholder(height);
+        },
+      );
+    }
+
+    // For local file paths (from image picker/cropper) on native platforms
+    return Image.file(
+      File(imagePath!),
       fit: BoxFit.cover,
       height: height,
       width: double.infinity,
       errorBuilder: (context, error, stackTrace) {
-        return Container(
-          height: height,
-          color: const Color(0xFFF3F4F6),
-          child: const Center(
-            child: Icon(
-              Icons.broken_image_outlined,
-              size: 48,
-              color: AppTheme.textSecondary,
-            ),
-          ),
-        );
+        return _buildErrorPlaceholder(height);
       },
+    );
+  }
+
+  Widget _buildErrorPlaceholder(double height) {
+    return Container(
+      height: height,
+      color: const Color(0xFFF3F4F6),
+      child: const Center(
+        child: Icon(
+          Icons.broken_image_outlined,
+          size: 48,
+          color: AppTheme.textSecondary,
+        ),
+      ),
     );
   }
 }
