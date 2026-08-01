@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../models/tea_grade_model.dart';
+import 'particle_detail_screen.dart';
 
 /// Displays one tea quality scan: sample image, summary and the per-grade
 /// composition breakdown. Pure display — reached from both the home screen
@@ -43,7 +44,7 @@ class GradeResultScreen extends StatelessWidget {
                 const _MockBanner(),
                 const SizedBox(height: 14),
               ],
-              _SampleImage(scan: scan, localImageBytes: localImageBytes),
+              _SampleImageSection(scan: scan, localImageBytes: localImageBytes),
               const SizedBox(height: 18),
               _SummaryCard(scan: scan, dateLabel: dateLabel),
               const SizedBox(height: 18),
@@ -74,6 +75,24 @@ class GradeResultScreen extends StatelessWidget {
                   ],
                 ),
               ),
+              const SizedBox(height: 14),
+              _AnalysisDetailsCard(scan: scan),
+              if (scan.particles.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                TextButton.icon(
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ParticleDetailScreen(
+                        scan: scan,
+                        localImageBytes: localImageBytes,
+                      ),
+                    ),
+                  ),
+                  icon: const Icon(Icons.scatter_plot_rounded),
+                  label: Text('View ${scan.particles.length} detected particles'),
+                ),
+              ],
               if (scan.modelVersion != null) ...[
                 const SizedBox(height: 14),
                 Text(
@@ -126,29 +145,124 @@ class _MockBanner extends StatelessWidget {
   }
 }
 
-class _SampleImage extends StatelessWidget {
-  const _SampleImage({required this.scan, this.localImageBytes});
+class _SampleImageSection extends StatefulWidget {
+  const _SampleImageSection({required this.scan, this.localImageBytes});
 
   final TeaQualityScan scan;
   final Uint8List? localImageBytes;
 
   @override
-  Widget build(BuildContext context) {
-    final remoteUrl = scan.resolvedImageUrl;
+  State<_SampleImageSection> createState() => _SampleImageSectionState();
+}
 
+class _SampleImageSectionState extends State<_SampleImageSection> {
+  bool _showSegmented = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final segmentedBytes = widget.scan.segmentedImageBytes;
+
+    if (segmentedBytes == null) {
+      return _SampleImage(scan: widget.scan, localImageBytes: widget.localImageBytes);
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _SampleImage(
+          scan: widget.scan,
+          localImageBytes: widget.localImageBytes,
+          segmentedBytes: _showSegmented ? segmentedBytes : null,
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            _ToggleChip(
+              label: 'Original',
+              selected: !_showSegmented,
+              onTap: () => setState(() => _showSegmented = false),
+            ),
+            const SizedBox(width: 8),
+            _ToggleChip(
+              label: 'Segmented',
+              selected: _showSegmented,
+              onTap: () => setState(() => _showSegmented = true),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _ToggleChip extends StatelessWidget {
+  const _ToggleChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected ? const Color(0xFF335C47) : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: selected ? const Color(0xFF335C47) : const Color(0xFFE3E8E5),
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: selected ? Colors.white : const Color(0xFF425466),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SampleImage extends StatelessWidget {
+  const _SampleImage({
+    required this.scan,
+    this.localImageBytes,
+    this.segmentedBytes,
+  });
+
+  final TeaQualityScan scan;
+  final Uint8List? localImageBytes;
+  final Uint8List? segmentedBytes;
+
+  @override
+  Widget build(BuildContext context) {
     Widget child;
-    if (remoteUrl != null) {
-      child = Image.network(
-        remoteUrl,
-        fit: BoxFit.cover,
-        errorBuilder: (context, _, __) => localImageBytes != null
-            ? Image.memory(localImageBytes!, fit: BoxFit.cover)
-            : const _ImagePlaceholder(),
-      );
-    } else if (localImageBytes != null) {
-      child = Image.memory(localImageBytes!, fit: BoxFit.cover);
+    if (segmentedBytes != null) {
+      child = Image.memory(segmentedBytes!, fit: BoxFit.cover);
     } else {
-      child = const _ImagePlaceholder();
+      final remoteUrl = scan.resolvedImageUrl;
+      if (remoteUrl != null) {
+        child = Image.network(
+          remoteUrl,
+          fit: BoxFit.cover,
+          errorBuilder: (context, _, __) => localImageBytes != null
+              ? Image.memory(localImageBytes!, fit: BoxFit.cover)
+              : const _ImagePlaceholder(),
+        );
+      } else if (localImageBytes != null) {
+        child = Image.memory(localImageBytes!, fit: BoxFit.cover);
+      } else {
+        child = const _ImagePlaceholder();
+      }
     }
 
     return Container(
@@ -295,6 +409,69 @@ class _SummaryStat extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _AnalysisDetailsCard extends StatelessWidget {
+  const _AnalysisDetailsCard({required this.scan});
+
+  final TeaQualityScan scan;
+
+  @override
+  Widget build(BuildContext context) {
+    final rows = <MapEntry<String, String>>[
+      if (scan.method != null) MapEntry('Method', scan.method!),
+      if (scan.weighting != null) MapEntry('Weighting', scan.weighting!),
+      if (scan.pxPerMmUsed != null)
+        MapEntry('Px/mm', scan.pxPerMmUsed!.toStringAsFixed(2)),
+      if (scan.numParticlesClassified != null)
+        MapEntry('Classified', '${scan.numParticlesClassified}'),
+    ];
+    if (rows.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE3E8E5)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Analysis Details',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF18212B),
+            ),
+          ),
+          const SizedBox(height: 8),
+          for (final row in rows)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    row.key,
+                    style: const TextStyle(fontSize: 13, color: Color(0xFF7A8794)),
+                  ),
+                  Text(
+                    row.value,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF425466),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
     );
   }
 }

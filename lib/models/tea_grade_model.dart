@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -12,8 +15,45 @@ class GradeComposition {
 
   factory GradeComposition.fromJson(Map<String, dynamic> json) {
     return GradeComposition(
-      grade: json['grade']?.toString() ?? 'Unknown',
+      // Backend grade strings may be lowercase; normalize once here so the
+      // rest of the app (and TeaGradePalette lookups) can assume uppercase.
+      grade: (json['grade']?.toString() ?? 'Unknown').toUpperCase(),
       percentage: (json['percentage'] as num?)?.toDouble() ?? 0,
+    );
+  }
+}
+
+/// One detected particle within a scan, with its bounding box in the
+/// original image's pixel space.
+class Particle {
+  final String label;
+  final Rect bbox; // left/top/width/height, in original-image pixel space
+  final double? areaMm2;
+  final double? areaPx;
+
+  Particle({
+    required this.label,
+    required this.bbox,
+    this.areaMm2,
+    this.areaPx,
+  });
+
+  factory Particle.fromJson(Map<String, dynamic> json) {
+    var rect = Rect.zero;
+    final rawBbox = json['bbox'];
+    if (rawBbox is List && rawBbox.length == 4) {
+      // API format is [x, y, width, height], not [x1, y1, x2, y2].
+      final x = (rawBbox[0] as num).toDouble();
+      final y = (rawBbox[1] as num).toDouble();
+      final w = (rawBbox[2] as num).toDouble();
+      final h = (rawBbox[3] as num).toDouble();
+      rect = Rect.fromLTWH(x, y, w, h);
+    }
+    return Particle(
+      label: json['label']?.toString() ?? 'Unknown',
+      bbox: rect,
+      areaMm2: (json['area_mm2'] as num?)?.toDouble(),
+      areaPx: (json['area_px'] as num?)?.toDouble(),
     );
   }
 }
@@ -31,6 +71,12 @@ class TeaQualityScan {
   final String dominantGrade;
   final double dominantGradePercentage;
   final int? totalParticlesDetected; // null until the real model is wired in
+  final int? numParticlesClassified;
+  final String? method;
+  final String? weighting;
+  final double? pxPerMmUsed;
+  final List<Particle> particles;
+  final String? segmentedImageBase64; // raw base64, no data: prefix
   final String? modelVersion;
   final double? inferenceTimeMs;
   final bool isMock;
@@ -46,6 +92,12 @@ class TeaQualityScan {
     required this.dominantGrade,
     required this.dominantGradePercentage,
     this.totalParticlesDetected,
+    this.numParticlesClassified,
+    this.method,
+    this.weighting,
+    this.pxPerMmUsed,
+    this.particles = const [],
+    this.segmentedImageBase64,
     this.modelVersion,
     this.inferenceTimeMs,
     this.isMock = false,
@@ -56,6 +108,18 @@ class TeaQualityScan {
     if (imageUrl.isEmpty) return null;
     if (imageUrl.startsWith('http')) return imageUrl;
     return '${TeaGradeService.origin}$imageUrl';
+  }
+
+  /// Decoded annotated/segmented image, or null if none was returned or the
+  /// base64 payload is malformed.
+  Uint8List? get segmentedImageBytes {
+    final raw = segmentedImageBase64;
+    if (raw == null || raw.isEmpty) return null;
+    try {
+      return base64Decode(raw);
+    } catch (_) {
+      return null;
+    }
   }
 
   factory TeaQualityScan.fromJson(
@@ -83,12 +147,23 @@ class TeaQualityScan {
           DateTime.tryParse(json['scan_datetime']?.toString() ?? '') ??
               DateTime.now(),
       gradeComposition: composition,
-      dominantGrade: json['dominant_grade']?.toString() ??
-          (composition.isNotEmpty ? composition.first.grade : 'Unknown'),
+      dominantGrade: (json['dominant_grade']?.toString() ??
+              (composition.isNotEmpty ? composition.first.grade : 'Unknown'))
+          .toUpperCase(),
       dominantGradePercentage:
           (json['dominant_grade_percentage'] as num?)?.toDouble() ??
               (composition.isNotEmpty ? composition.first.percentage : 0),
       totalParticlesDetected: (json['total_particles_detected'] as num?)?.toInt(),
+      numParticlesClassified: (json['num_particles_classified'] as num?)?.toInt(),
+      method: json['method']?.toString(),
+      weighting: json['weighting']?.toString(),
+      pxPerMmUsed: (json['px_per_mm_used'] as num?)?.toDouble(),
+      particles: (json['particles'] as List?)
+              ?.whereType<Map<String, dynamic>>()
+              .map(Particle.fromJson)
+              .toList() ??
+          const [],
+      segmentedImageBase64: json['segmented_image_base64']?.toString(),
       modelVersion: json['model_version']?.toString(),
       inferenceTimeMs: (json['inference_time_ms'] as num?)?.toDouble(),
       isMock: isMock,
