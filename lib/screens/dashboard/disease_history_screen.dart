@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../models/disease_scan_record.dart';
@@ -50,7 +52,7 @@ class _DiseaseHistoryScreenState extends State<DiseaseHistoryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppTheme.backgroundLight,
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
@@ -77,7 +79,9 @@ class _DiseaseHistoryScreenState extends State<DiseaseHistoryScreen> {
           future: _future,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
+              return const Center(
+                child: CircularProgressIndicator(color: AppTheme.brandGreen),
+              );
             }
 
             if (snapshot.hasError) {
@@ -119,7 +123,7 @@ class _DiseaseHistoryScreenState extends State<DiseaseHistoryScreen> {
 
             return ListView.separated(
               physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
               itemCount: records.length,
               separatorBuilder: (_, __) => const SizedBox(height: 12),
               itemBuilder: (context, index) {
@@ -202,7 +206,9 @@ class _DetectionRecordCard extends StatelessWidget {
       record.isHealthy,
     );
 
-    final primaryUrl = DiseaseScanService.resolveImageUrl(record.primaryImageUrl);
+    final primaryUrl = DiseaseScanService.resolveImageUrl(
+      record.primaryImageUrl,
+    );
     final imageCount = record.imageUrls.length;
 
     return InkWell(
@@ -254,7 +260,9 @@ class _DetectionRecordCard extends StatelessWidget {
                       bottom: 4,
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 2),
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.black.withValues(alpha: 0.7),
                           borderRadius: BorderRadius.circular(8),
@@ -297,7 +305,9 @@ class _DetectionRecordCard extends StatelessWidget {
                       const SizedBox(width: 6),
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 3),
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
                         decoration: BoxDecoration(
                           color: severityColor.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(12),
@@ -416,7 +426,9 @@ class _DiseaseScanDetailScreenState extends State<DiseaseScanDetailScreen> {
         future: _future,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return const Center(
+              child: CircularProgressIndicator(color: AppTheme.brandGreen),
+            );
           }
 
           if (snapshot.hasError) {
@@ -441,6 +453,11 @@ class _DiseaseScanDetailScreenState extends State<DiseaseScanDetailScreen> {
                 _DetailHeaderCard(record: record),
                 const SizedBox(height: 20),
 
+                if (record.allPredictions.isNotEmpty) ...[
+                  _PredictionsCard(predictions: record.allPredictions),
+                  const SizedBox(height: 20),
+                ],
+
                 // Risk assessment
                 if (record.riskLevel != null || record.riskReason != null) ...[
                   _RiskCard(record: record),
@@ -450,12 +467,6 @@ class _DiseaseScanDetailScreenState extends State<DiseaseScanDetailScreen> {
                 // Treatment Suggestions
                 if (record.treatmentSuggestions.isNotEmpty) ...[
                   _TreatmentCard(suggestions: record.treatmentSuggestions),
-                  const SizedBox(height: 20),
-                ],
-
-                // All Predictions / Confidence Breakdown
-                if (record.allPredictions.isNotEmpty) ...[
-                  _PredictionsCard(predictions: record.allPredictions),
                   const SizedBox(height: 20),
                 ],
 
@@ -529,8 +540,11 @@ class _ScanImageGallery extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.photo_library_outlined,
-                  color: AppTheme.brandGreen, size: 18),
+              const Icon(
+                Icons.photo_library_outlined,
+                color: AppTheme.brandGreen,
+                size: 18,
+              ),
               const SizedBox(width: 8),
               Text(
                 '${resolvedUrls.length} Scanned Images',
@@ -590,7 +604,7 @@ class _CardShell extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE8ECEF), width: 1),
+        border: Border.all(color: const Color(0xFFE4E9DE), width: 1),
         boxShadow: [
           BoxShadow(
             color: AppTheme.primaryButton.withValues(alpha: 0.06),
@@ -614,8 +628,16 @@ class _SectionTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(icon, color: AppTheme.brandGreen, size: 20),
-        const SizedBox(width: 8),
+        Container(
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(
+            color: AppTheme.brandGreen.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(icon, color: AppTheme.accentGreenText, size: 19),
+        ),
+        const SizedBox(width: 10),
         Text(
           title,
           style: const TextStyle(
@@ -645,6 +667,16 @@ class _DetailHeaderCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          const Text(
+            'AI DIAGNOSIS',
+            style: TextStyle(
+              color: AppTheme.accentGreenText,
+              fontSize: 10,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 1.2,
+            ),
+          ),
+          const SizedBox(height: 8),
           Row(
             children: [
               Expanded(
@@ -670,24 +702,16 @@ class _DetailHeaderCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  '${record.confidencePercent}%',
+                  record.isHealthy ? 'HEALTHY' : record.severity.toUpperCase(),
                   style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.w800,
-                    fontSize: 14,
+                    fontSize: 11,
+                    letterSpacing: 0.5,
                   ),
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Severity: ${record.severity.toUpperCase()}',
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color: AppTheme.textSecondary,
-            ),
           ),
           const SizedBox(height: 12),
           if (record.description.isNotEmpty)
@@ -768,10 +792,7 @@ class _RiskCard extends StatelessWidget {
           const SizedBox(height: 12),
           if (record.riskLevel != null)
             Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 6,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
                 color: const Color(0xFFFFF7E6),
                 borderRadius: BorderRadius.circular(20),
@@ -871,11 +892,23 @@ class _PredictionsCard extends StatelessWidget {
 
   const _PredictionsCard({required this.predictions});
 
+  static const _chartColors = <Color>[
+    AppTheme.primaryGreen,
+    AppTheme.brandGreen,
+    Color(0xFFE69A2E),
+    Color(0xFF5F6C7B),
+    Color(0xFF8FA79E),
+    Color(0xFFB7C5BE),
+  ];
+
   @override
   Widget build(BuildContext context) {
     final sorted = [...predictions]
       ..sort((a, b) => b.probability.compareTo(a.probability));
-    final top = sorted.isNotEmpty ? sorted.first.probability : 0.0;
+    final chartPredictions = sorted
+        .where((prediction) => prediction.probability > 0)
+        .toList();
+    final topPrediction = sorted.first;
 
     return _CardShell(
       child: Column(
@@ -883,89 +916,210 @@ class _PredictionsCard extends StatelessWidget {
         children: [
           const _SectionTitle(
             title: 'Detection Confidence',
-            icon: Icons.analytics_outlined,
+            icon: Icons.donut_large_rounded,
           ),
-          const SizedBox(height: 16),
-          ...sorted.map((p) {
-            final isTop = p.probability == top;
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+          const SizedBox(height: 6),
+          const Text(
+            'Probability distribution across the detected conditions.',
+            style: TextStyle(
+              color: AppTheme.textSecondary,
+              fontSize: 12.5,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 20),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final chart = _ConfidenceDonut(
+                predictions: chartPredictions,
+                colors: _chartColors,
+                topPrediction: topPrediction,
+              );
+              final legend = _ConfidenceLegend(
+                predictions: sorted,
+                colors: _chartColors,
+              );
+
+              if (constraints.maxWidth < 350) {
+                return Column(
+                  children: [
+                    Center(child: chart),
+                    const SizedBox(height: 22),
+                    legend,
+                  ],
+                );
+              }
+              return Row(
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          p.disease,
-                          style: TextStyle(
-                            fontSize: 13.5,
-                            fontWeight: isTop
-                                ? FontWeight.w800
-                                : FontWeight.w600,
-                            color: isTop
-                                ? const Color(0xFFB54848)
-                                : AppTheme.textPrimary,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      Text(
-                        '${p.percent}%',
-                        style: TextStyle(
-                          fontSize: 13.5,
-                          fontWeight: isTop
-                              ? FontWeight.w900
-                              : FontWeight.w700,
-                          color: isTop
-                              ? const Color(0xFFB54848)
-                              : AppTheme.textSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Container(
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF3F4F6),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: FractionallySizedBox(
-                      alignment: Alignment.centerLeft,
-                      widthFactor: p.probability.clamp(0.0, 1.0),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: isTop
-                                ? [
-                                    const Color(0xFFB54848),
-                                    const Color(0xFFE2574C),
-                                  ]
-                                : [
-                                    const Color(
-                                      0xFF6E7E8B,
-                                    ).withValues(alpha: 0.5),
-                                    const Color(
-                                      0xFF6E7E8B,
-                                    ).withValues(alpha: 0.3),
-                                  ],
-                            begin: Alignment.centerLeft,
-                            end: Alignment.centerRight,
-                          ),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                      ),
-                    ),
-                  ),
+                  chart,
+                  const SizedBox(width: 22),
+                  Expanded(child: legend),
                 ],
-              ),
-            );
-          }),
+              );
+            },
+          ),
         ],
       ),
     );
+  }
+}
+
+class _ConfidenceDonut extends StatelessWidget {
+  final List<DiseasePrediction> predictions;
+  final List<Color> colors;
+  final DiseasePrediction topPrediction;
+
+  const _ConfidenceDonut({
+    required this.predictions,
+    required this.colors,
+    required this.topPrediction,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label:
+          '${topPrediction.disease}, ${topPrediction.percent} percent confidence',
+      child: SizedBox(
+        width: 138,
+        height: 138,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            CustomPaint(
+              size: const Size.square(138),
+              painter: _ConfidenceDonutPainter(
+                values: predictions
+                    .map((prediction) => prediction.probability)
+                    .toList(),
+                colors: colors,
+              ),
+            ),
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '${topPrediction.percent}%',
+                  style: const TextStyle(
+                    color: AppTheme.textPrimary,
+                    fontSize: 25,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.8,
+                  ),
+                ),
+                const Text(
+                  'TOP MATCH',
+                  style: TextStyle(
+                    color: AppTheme.textSecondary,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ConfidenceLegend extends StatelessWidget {
+  final List<DiseasePrediction> predictions;
+  final List<Color> colors;
+
+  const _ConfidenceLegend({required this.predictions, required this.colors});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: predictions.asMap().entries.map((entry) {
+        final index = entry.key;
+        final prediction = entry.value;
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: index == predictions.length - 1 ? 0 : 11,
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 10,
+                height: 10,
+                decoration: BoxDecoration(
+                  color: colors[index % colors.length],
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  prediction.disease,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: index == 0
+                        ? AppTheme.textPrimary
+                        : AppTheme.textSecondary,
+                    fontSize: 12.5,
+                    fontWeight: index == 0 ? FontWeight.w800 : FontWeight.w600,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                '${prediction.percent}%',
+                style: TextStyle(
+                  color: colors[index % colors.length],
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+}
+
+class _ConfidenceDonutPainter extends CustomPainter {
+  final List<double> values;
+  final List<Color> colors;
+
+  const _ConfidenceDonutPainter({required this.values, required this.colors});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = (size.shortestSide - 16) / 2;
+    final rect = Rect.fromCircle(center: center, radius: radius);
+    final total = values.fold<double>(0, (sum, value) => sum + value);
+    final trackPaint = Paint()
+      ..color = const Color(0xFFE9EEE9)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 16;
+    canvas.drawCircle(center, radius, trackPaint);
+
+    if (total <= 0) return;
+
+    var startAngle = -math.pi / 2;
+    const gap = 0.025;
+    for (var index = 0; index < values.length; index++) {
+      final sweep = (values[index] / total) * math.pi * 2;
+      final visibleSweep = math.max(0.0, sweep - gap);
+      final paint = Paint()
+        ..color = colors[index % colors.length]
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 16;
+      canvas.drawArc(rect, startAngle + gap / 2, visibleSweep, false, paint);
+      startAngle += sweep;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _ConfidenceDonutPainter oldDelegate) {
+    return oldDelegate.values != values || oldDelegate.colors != colors;
   }
 }
 
@@ -1066,7 +1220,8 @@ class _ExplanationCard extends StatelessWidget {
             title: 'AI Explanation & Insights',
             icon: Icons.science_outlined,
           ),
-          if (environmentalSummary != null && environmentalSummary!.isNotEmpty) ...[
+          if (environmentalSummary != null &&
+              environmentalSummary!.isNotEmpty) ...[
             const SizedBox(height: 10),
             Text(
               environmentalSummary!,
@@ -1125,42 +1280,52 @@ class _ExplanationCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 8),
-            ...allFactors.take(5).map((factor) => Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        _formatFeatureName(factor.feature),
-                        style: const TextStyle(
-                          fontSize: 12.5,
-                          color: AppTheme.textSecondary,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: factor.isRiskIncreasing
-                              ? const Color(0xFFB54848).withValues(alpha: 0.1)
-                              : const Color(0xFF22C55E).withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          factor.isRiskIncreasing ? '↑ Increase Risk' : '↓ Decrease Risk',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w800,
-                            color: factor.isRiskIncreasing
-                                ? const Color(0xFFB54848)
-                                : const Color(0xFF16A34A),
+            ...allFactors
+                .take(5)
+                .map(
+                  (factor) => Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          _formatFeatureName(factor.feature),
+                          style: const TextStyle(
+                            fontSize: 12.5,
+                            color: AppTheme.textSecondary,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
-                      ),
-                    ],
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: factor.isRiskIncreasing
+                                ? const Color(0xFFB54848).withValues(alpha: 0.1)
+                                : const Color(
+                                    0xFF22C55E,
+                                  ).withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            factor.isRiskIncreasing
+                                ? '↑ Increase Risk'
+                                : '↓ Decrease Risk',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                              color: factor.isRiskIncreasing
+                                  ? const Color(0xFFB54848)
+                                  : const Color(0xFF16A34A),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                )),
+                ),
           ],
         ],
       ),

@@ -119,7 +119,9 @@ class _ScanDiseaseScreenState extends State<ScanDiseaseScreen> {
       debugPrint('Error picking from gallery: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to pick images. Please try again.')),
+          const SnackBar(
+            content: Text('Failed to pick images. Please try again.'),
+          ),
         );
       }
     } finally {
@@ -151,7 +153,10 @@ class _ScanDiseaseScreenState extends State<ScanDiseaseScreen> {
                     : 'Camera permission is required to capture images.',
               ),
               action: cameraStatus.isPermanentlyDenied
-                  ? SnackBarAction(label: 'Settings', onPressed: openAppSettings)
+                  ? SnackBarAction(
+                      label: 'Settings',
+                      onPressed: openAppSettings,
+                    )
                   : null,
             ),
           );
@@ -178,7 +183,9 @@ class _ScanDiseaseScreenState extends State<ScanDiseaseScreen> {
       debugPrint('Error capturing with camera: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to capture image. Please try again.')),
+          const SnackBar(
+            content: Text('Failed to capture image. Please try again.'),
+          ),
         );
       }
     } finally {
@@ -269,13 +276,170 @@ class _ScanDiseaseScreenState extends State<ScanDiseaseScreen> {
       setState(() {
         _isScanning = false;
       });
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Scan failed: ${e.toString()}')));
+
+      final errorMessage = e.toString();
+      final isNotLeafError =
+          errorMessage.toLowerCase().contains('not a leaf');
+
+      if (isNotLeafError) {
+        _showNotLeafErrorDialog(errorMessage);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Scan failed: $errorMessage')),
+        );
+      }
     }
   }
 
   // ──────────────────────────────────────────────────────────────────────────
+  /// Shows a prominent error dialog when the scanned image is not a leaf.
+  void _showNotLeafErrorDialog(String message) {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.12),
+                blurRadius: 24,
+                offset: const Offset(0, 12),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Icon
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF0F0),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.image_not_supported_outlined,
+                  color: Color(0xFFB54848),
+                  size: 32,
+                ),
+              ),
+              const SizedBox(height: 18),
+              // Title
+              const Text(
+                'Not a leaf image',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900,
+                  color: Color(0xFF1B242C),
+                  letterSpacing: -0.4,
+                ),
+              ),
+              const SizedBox(height: 8),
+              // Message
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: AppTheme.textSecondary,
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 16),
+              // Guidance
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF7F8F7),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Color(0xFFE4E9DE)),
+                ),
+                child: const Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      Icons.tips_and_updates_outlined,
+                      color: AppTheme.brandGreen,
+                      size: 18,
+                    ),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Please upload a clear photo of a tea leaf taken '
+                        'from above. Avoid images of equipment, packaging, '
+                        'or other non-leaf objects.',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          color: AppTheme.textSecondary,
+                          height: 1.5,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 22),
+              // Action buttons
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      child: const Text(
+                        'Cancel',
+                        style: TextStyle(
+                          color: AppTheme.textSecondary,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () => Navigator.of(context).pop(),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryButton,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      icon: const Icon(
+                        Icons.photo_camera_outlined,
+                        size: 18,
+                      ),
+                      label: const Text(
+                        'Scan again',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   // Response parsing
   // ──────────────────────────────────────────────────────────────────────────
 
@@ -300,6 +464,24 @@ class _ScanDiseaseScreenState extends State<ScanDiseaseScreen> {
   ///   "meta": { "timestamp", ... }
   /// }
   DiseaseScanResult _parseApiResponse(Map<String, dynamic> response) {
+    // Guard: some validation errors (e.g. "Uploaded image is not a leaf image")
+    // arrive with a `detail` object in the response body. Throw so the
+    // caller can show a proper error instead of rendering a broken result.
+    if (response['detail'] != null) {
+      final detail = response['detail'];
+      if (detail is String) {
+        throw DiseaseScanException(detail);
+      }
+      if (detail is Map) {
+        final detailMap = detail as Map<String, dynamic>;
+        final message = detailMap['message']?.toString() ??
+            detailMap['error']?.toString() ??
+            detailMap['detail']?.toString() ??
+            'An error occurred during analysis';
+        throw DiseaseScanException(message);
+      }
+    }
+
     final scanId = response['scan_id'] as String?;
     final scanSummary = response['scan_summary'] as Map<String, dynamic>?;
     final weatherDetails =
@@ -317,34 +499,43 @@ class _ScanDiseaseScreenState extends State<ScanDiseaseScreen> {
     final meta = response['meta'] as Map<String, dynamic>?;
 
     // Image URLs from the scan summary (multiple images)
-    final imageUrls =
-        (scanSummary?['image_urls'] as List<dynamic>? ?? [])
-            .map((e) => e.toString())
-            .toList();
+    final imageUrls = (scanSummary?['image_urls'] as List<dynamic>? ?? [])
+        .map((e) => e.toString())
+        .toList();
 
     // Aggregated GradCAM image (single, across all images)
     final explanationJson = response['explanation'] as Map<String, dynamic>?;
-    final aggregatedGradcam =
-        explanationJson?['aggregated_gradcam'] as String?;
+    final aggregatedGradcam = explanationJson?['aggregated_gradcam'] as String?;
+    final perImageExplanations =
+        (explanationJson?['per_image'] as List<dynamic>? ?? [])
+            .map(
+              (item) =>
+                  ScanImageExplanation.fromJson(item as Map<String, dynamic>),
+            )
+            .toList();
+    final failedImages = (response['failed_images'] as List<dynamic>? ?? [])
+        .map((item) => item.toString())
+        .toList();
 
     // Environmental insights (plain-language, one per condition)
     final environmentalInsights =
         (response['environmental_insights'] as List<dynamic>? ?? [])
-            .map((e) => EnvironmentalInsight.fromJson(e as Map<String, dynamic>))
+            .map(
+              (e) => EnvironmentalInsight.fromJson(e as Map<String, dynamic>),
+            )
             .toList();
 
     // Environmental technical summary
-    final envTechJson = response['environmental_technical_summary']
-        as Map<String, dynamic>?;
-    final environmentalTechnicalSummary =
-        envTechJson != null
-            ? EnvironmentalTechnicalSummary.fromJson(envTechJson)
-            : null;
+    final envTechJson =
+        response['environmental_technical_summary'] as Map<String, dynamic>?;
+    final environmentalTechnicalSummary = envTechJson != null
+        ? EnvironmentalTechnicalSummary.fromJson(envTechJson)
+        : null;
 
-    final environmentalSummary =
-        response['environmental_summary'] as String?;
+    final environmentalSummary = response['environmental_summary'] as String?;
     final processedImages =
-        (response['processed_images'] as num?)?.toInt() ?? _selectedImages.length;
+        (response['processed_images'] as num?)?.toInt() ??
+        _selectedImages.length;
 
     // Prefer scan_summary.scan_datetime, then meta.timestamp, then now.
     final timestampStr =
@@ -371,6 +562,7 @@ class _ScanDiseaseScreenState extends State<ScanDiseaseScreen> {
     }).toList();
 
     return DiseaseScanResult(
+      status: response['status']?.toString() ?? '',
       fieldId: widget.fieldId,
       imagePaths: _selectedImages.map((f) => f.path).toList(),
       detectedAt: detectedAt,
@@ -417,6 +609,15 @@ class _ScanDiseaseScreenState extends State<ScanDiseaseScreen> {
       environmentalTechnicalSummary: environmentalTechnicalSummary,
       environmentalSummary: environmentalSummary,
       processedImages: processedImages,
+      latitude: (scanSummary?['latitude'] as num?)?.toDouble(),
+      longitude: (scanSummary?['longitude'] as num?)?.toDouble(),
+      failedImages: failedImages,
+      perImageExplanations: perImageExplanations,
+      modelVersion: meta?['model_version']?.toString(),
+      inferenceTimeMs: (meta?['inference_time_ms'] as num?)?.toDouble(),
+      responseTimestamp: meta?['timestamp'] == null
+          ? null
+          : DateTime.tryParse(meta!['timestamp'].toString()),
     );
   }
 
@@ -456,8 +657,10 @@ class _ScanDiseaseScreenState extends State<ScanDiseaseScreen> {
   @override
   Widget build(BuildContext context) {
     final FieldManager manager = FieldManager();
-    final Field? field =
-        manager.fields.where((f) => f.id == widget.fieldId).toList().firstOrNull;
+    final Field? field = manager.fields
+        .where((f) => f.id == widget.fieldId)
+        .toList()
+        .firstOrNull;
     final hasImages = _selectedImages.isNotEmpty;
     final canAddMore = _selectedImages.length < _maxImages;
 
@@ -466,15 +669,33 @@ class _ScanDiseaseScreenState extends State<ScanDiseaseScreen> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        title: const Text(
-          'Scan Disease',
-          style: TextStyle(
-            color: AppTheme.textPrimary,
-            fontWeight: FontWeight.w800,
-          ),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              field?.name ?? 'Scan Disease',
+              style: const TextStyle(
+                color: AppTheme.textPrimary,
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            if (field != null)
+              Text(
+                field.subtitle,
+                style: const TextStyle(
+                  color: AppTheme.textSecondary,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+          ],
         ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded, color: AppTheme.textPrimary),
+          icon: const Icon(
+            Icons.arrow_back_rounded,
+            color: AppTheme.textPrimary,
+          ),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
@@ -483,49 +704,105 @@ class _ScanDiseaseScreenState extends State<ScanDiseaseScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Field info header
-            if (field != null) ...[
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: const Color(0xFFE8ECEF), width: 1),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      field.name,
-                      style: const TextStyle(
-                        fontSize: 19,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.4,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      field.subtitle,
-                      style: const TextStyle(
-                        color: Color(0xFF6E7E8B),
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFFE8ECEF)),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppTheme.primaryButton.withValues(alpha: 0.05),
+                    blurRadius: 20,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
               ),
-              const SizedBox(height: 20),
-            ],
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Image capture',
+                    style: TextStyle(
+                      color: AppTheme.textPrimary,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.4,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'Capture or upload clear top-view images of one affected tea leaf.',
+                    style: TextStyle(
+                      color: AppTheme.textSecondary,
+                      fontSize: 12.5,
+                      height: 1.45,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: canAddMore && !_isScanning
+                              ? _captureWithCamera
+                              : null,
+                          style: OutlinedButton.styleFrom(
+                            backgroundColor: AppTheme.primaryButton,
+                            foregroundColor: Colors.white,
+                            disabledBackgroundColor: AppTheme.primaryButton
+                                .withValues(alpha: 0.62),
+                            disabledForegroundColor: Colors.white.withValues(
+                              alpha: 0.72,
+                            ),
+                            side: BorderSide.none,
+                            padding: const EdgeInsets.symmetric(vertical: 13),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                          ),
+                          icon: const Icon(
+                            Icons.photo_camera_outlined,
+                            size: 18,
+                          ),
+                          label: Text(hasImages ? 'Add Photo' : 'Camera'),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: canAddMore && !_isScanning
+                              ? _pickFromGallery
+                              : null,
+                          style: OutlinedButton.styleFrom(
+                            backgroundColor: AppTheme.primaryButton,
+                            foregroundColor: Colors.white,
+                            disabledBackgroundColor: AppTheme.primaryButton
+                                .withValues(alpha: 0.62),
+                            disabledForegroundColor: Colors.white.withValues(
+                              alpha: 0.72,
+                            ),
+                            side: BorderSide.none,
+                            padding: const EdgeInsets.symmetric(vertical: 13),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                          ),
+                          icon: const Icon(
+                            Icons.upload_file_outlined,
+                            size: 18,
+                          ),
+                          label: const Text('Upload Image'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
 
-            // Guidelines (shown when no images yet)
-            if (!hasImages) ...[
-              ScanGuidelinesCard(),
-              const SizedBox(height: 24),
-            ],
-
-            // Image grid (shown when images are selected)
             if (hasImages) ...[
               _MultiImageGrid(
                 images: _selectedImages,
@@ -535,59 +812,56 @@ class _ScanDiseaseScreenState extends State<ScanDiseaseScreen> {
               const SizedBox(height: 16),
             ],
 
-            // Action buttons row
-            if (!_isScanning) ...[
-              Row(
-                children: [
-                  // Camera button
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: canAddMore ? _captureWithCamera : null,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.primaryButton,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        disabledBackgroundColor:
-                            AppTheme.primaryButton.withValues(alpha: 0.4),
+            if (!hasImages)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 28,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Column(
+                  children: [
+                    Container(
+                      width: 70,
+                      height: 70,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFE8EEEA),
+                        shape: BoxShape.circle,
                       ),
-                      icon: const Icon(Icons.camera_alt_outlined, size: 20),
-                      label: Text(
-                        hasImages ? 'Add Photo' : 'Capture',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  // Gallery button
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: canAddMore ? _pickFromGallery : null,
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                      ),
-                      icon: const Icon(Icons.photo_library_outlined, size: 18),
-                      label: const Text(
-                        'Gallery',
-                        style: TextStyle(fontWeight: FontWeight.w600),
+                      child: const Icon(
+                        Icons.add_photo_alternate_outlined,
+                        color: AppTheme.textPrimary,
+                        size: 32,
                       ),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 16),
+                    const Text(
+                      'No images added yet',
+                      style: TextStyle(
+                        color: AppTheme.textPrimary,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Add at least one clear leaf image to unlock disease analysis.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: AppTheme.textSecondary,
+                        fontSize: 13,
+                        height: 1.5,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ],
 
-            // Image counter hint
-            if (hasImages && !_isScanning) ...[
-              const SizedBox(height: 10),
+            if (hasImages && !_isScanning)
               Center(
                 child: Text(
                   '${_selectedImages.length} of $_maxImages images selected',
@@ -598,44 +872,48 @@ class _ScanDiseaseScreenState extends State<ScanDiseaseScreen> {
                   ),
                 ),
               ),
-            ],
 
-            // Scan button
-            if (hasImages) ...[
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: _isScanning ? null : _scanDisease,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFB54848),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: !hasImages || _isScanning ? null : _scanDisease,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryButton,
+                  foregroundColor: Colors.white,
+                  disabledBackgroundColor: AppTheme.primaryButton.withValues(
+                    alpha: 0.62,
                   ),
-                  icon: _isScanning
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Icon(Icons.biotech_outlined, size: 20),
-                  label: Text(
-                    _isScanning
-                        ? 'Analysing...'
-                        : 'Scan ${_selectedImages.length} Image${_selectedImages.length > 1 ? 's' : ''}',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 15,
-                    ),
+                  disabledForegroundColor: Colors.white.withValues(alpha: 0.72),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
                   ),
                 ),
+                child: _isScanning
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : Text(
+                        hasImages
+                            ? 'Analyze ${_selectedImages.length} Leaf Image${_selectedImages.length > 1 ? 's' : ''}'
+                            : 'Analyze Leaf Images',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 15,
+                        ),
+                      ),
               ),
+            ),
+
+            if (!hasImages) ...[
+              const SizedBox(height: 20),
+              ScanGuidelinesCard(),
             ],
 
             const SizedBox(height: 20),
@@ -685,7 +963,7 @@ class _ScanDiseaseScreenState extends State<ScanDiseaseScreen> {
         children: [
           const Row(
             children: [
-              Icon(Icons.cloud_outlined, color: AppTheme.brandGreen, size: 20),
+              Icon(Icons.cloud_outlined, color: AppTheme.textPrimary, size: 20),
               SizedBox(width: 8),
               Text(
                 '7-Day Environmental Data',
@@ -835,7 +1113,8 @@ class _ImageThumbnail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isRemoteOrWeb = kIsWeb ||
+    final isRemoteOrWeb =
+        kIsWeb ||
         imagePath.startsWith('http://') ||
         imagePath.startsWith('https://') ||
         imagePath.startsWith('blob:');
@@ -939,24 +1218,20 @@ class _WeatherMetric extends StatelessWidget {
       height: 84,
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF4A4A4A), Color(0xFF2F2F2F)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: const Color(0xFFF7F8F7),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white24),
+        border: Border.all(color: const Color(0xFFE1E6E2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: const Color(0xFF7ED321), size: 18),
+          Icon(icon, color: AppTheme.textSecondary, size: 18),
           const SizedBox(height: 6),
           Text(
             label,
             style: TextStyle(
               fontSize: 10.5,
-              color: Colors.white.withValues(alpha: 0.78),
+              color: AppTheme.textSecondary,
               fontWeight: FontWeight.w800,
               height: 1.18,
             ),
@@ -965,7 +1240,7 @@ class _WeatherMetric extends StatelessWidget {
           Text(
             value,
             style: const TextStyle(
-              color: Colors.white,
+              color: AppTheme.textPrimary,
               fontSize: 16,
               fontWeight: FontWeight.w900,
               letterSpacing: -0.4,

@@ -91,7 +91,7 @@ class DiseaseScanService {
   /// Throws DiseaseScanException on failure.
   static Future<DiseaseScanRecord> fetchScanById(String scanId) async {
     try {
-      final uri = Uri.parse('$_diseaseBaseUrl/$scanId');
+      final uri = Uri.parse('$_diseaseBaseUrl/by-scan-id/$scanId');
       final response = await http
           .get(uri, headers: _authHeaders())
           .timeout(const Duration(seconds: 15));
@@ -192,7 +192,16 @@ class DiseaseScanService {
       final responseBody = await response.stream.bytesToString();
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
-        return json.decode(responseBody) as Map<String, dynamic>;
+        final decoded = json.decode(responseBody) as Map<String, dynamic>;
+        // Some validation errors (e.g. "Uploaded image is not a leaf image")
+        // arrive with a 200 status and a `detail` object instead of an error
+        // status code. Treat them as failures.
+        if (decoded['detail'] != null) {
+          throw DiseaseScanException(
+            _parseErrorMessage(responseBody, response.statusCode),
+          );
+        }
+        return decoded;
       } else {
         final errorMessage =
             _parseErrorMessage(responseBody, response.statusCode);
@@ -211,7 +220,17 @@ class DiseaseScanService {
     try {
       final data = json.decode(responseBody) as Map<String, dynamic>;
       if (data['detail'] != null) {
-        return data['detail'] as String;
+        final detail = data['detail'];
+        if (detail is String) {
+          return detail;
+        }
+        if (detail is Map) {
+          final detailMap = detail as Map<String, dynamic>;
+          return detailMap['message']?.toString() ??
+              detailMap['error']?.toString() ??
+              detailMap['detail']?.toString() ??
+              'An error occurred during analysis';
+        }
       }
       if (data['message'] != null) {
         return data['message'] as String;
@@ -237,6 +256,8 @@ class DiseaseScanService {
         return 'Image too large: Please choose a smaller image file';
       case 415:
         return 'Unsupported image type: Please use JPG, PNG, or WebP format';
+      case 422:
+        return 'Image validation failed: The image could not be processed';
       case 429:
         return 'Too many requests: Please wait before scanning again';
       case 500:

@@ -13,13 +13,11 @@ import 'scan_disease_screen.dart';
 class EnvironmentalDataScreen extends StatefulWidget {
   final String fieldId;
 
-  const EnvironmentalDataScreen({
-    super.key,
-    required this.fieldId,
-  });
+  const EnvironmentalDataScreen({super.key, required this.fieldId});
 
   @override
-  State<EnvironmentalDataScreen> createState() => _EnvironmentalDataScreenState();
+  State<EnvironmentalDataScreen> createState() =>
+      _EnvironmentalDataScreenState();
 }
 
 class _EnvironmentalDataScreenState extends State<EnvironmentalDataScreen> {
@@ -167,8 +165,7 @@ class _EnvironmentalDataScreenState extends State<EnvironmentalDataScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final Field? field = FieldManager()
-        .fields
+    final Field? field = FieldManager().fields
         .where((f) => f.id == widget.fieldId)
         .toList()
         .firstOrNull;
@@ -186,7 +183,10 @@ class _EnvironmentalDataScreenState extends State<EnvironmentalDataScreen> {
           ),
         ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded, color: AppTheme.textPrimary),
+          icon: const Icon(
+            Icons.arrow_back_rounded,
+            color: AppTheme.textPrimary,
+          ),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
@@ -195,94 +195,106 @@ class _EnvironmentalDataScreenState extends State<EnvironmentalDataScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Field info header
             if (field != null) ...[
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: const Color(0xFFE8ECEF), width: 1),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      field.name,
-                      style: const TextStyle(
-                        fontSize: 19,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.4,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      field.subtitle,
-                      style: const TextStyle(
-                        color: Color(0xFF6E7E8B),
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
+              FieldContextHero(name: field.name, subtitle: field.subtitle),
+              const SizedBox(height: 24),
             ],
 
-            // Auto Fetch Button
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: _isFetching ? null : _autoFetchData,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.brandGreen,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
+            const Text(
+              'Prepare scan conditions',
+              style: TextStyle(
+                color: AppTheme.textPrimary,
+                fontSize: 20,
+                fontWeight: FontWeight.w900,
+                letterSpacing: -0.4,
+              ),
+            ),
+            const SizedBox(height: 5),
+            const Text(
+              'Fetch the latest field conditions, then review them before scanning.',
+              style: TextStyle(
+                color: AppTheme.textSecondary,
+                fontSize: 13,
+                height: 1.45,
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            _buildSectionCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const EnvironmentalDataCardHeader(
+                    icon: Icons.auto_awesome_rounded,
+                    title: 'Automatic collection',
                   ),
-                ),
-                icon: _isFetching
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Use GPS and the weekly forecast to populate the values below.',
+                    style: TextStyle(
+                      color: AppTheme.textSecondary,
+                      fontSize: 12.5,
+                      height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: _isFetching ? null : _autoFetchData,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryButton,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 15),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
                         ),
-                      )
-                    : const Icon(Icons.refresh_rounded, size: 22),
-                label: Text(
-                  _isFetching ? 'Fetching...' : 'Auto Fetch',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 16,
+                      ),
+                      icon: _isFetching
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(Icons.my_location_rounded, size: 20),
+                      label: Text(
+                        _isFetching
+                            ? 'Collecting field data...'
+                            : 'Fetch Field Conditions',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
                   ),
-                ),
+                ],
               ),
             ),
 
-            // Progress Indicator (shown during fetch)
             if (_isFetching) ...[
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF7F8F9),
+                  color: AppTheme.accentGreen.withValues(alpha: 0.35),
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: const Color(0xFFE8ECEF)),
+                  border: Border.all(
+                    color: AppTheme.brandGreen.withValues(alpha: 0.22),
+                  ),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'Auto Fetch Progress',
+                      'Collection progress',
                       style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
                         color: AppTheme.textPrimary,
                       ),
                     ),
@@ -303,55 +315,55 @@ class _EnvironmentalDataScreenState extends State<EnvironmentalDataScreen> {
               ),
             ],
 
-            const SizedBox(height: 24),
-
-            // Data Collection Section
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0xFFE8ECEF), width: 1),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppTheme.primaryButton.withValues(alpha: 0.06),
-                    blurRadius: 22,
-                    offset: const Offset(0, 12),
-                  ),
-                ],
-              ),
+            const SizedBox(height: 16),
+            _buildSectionCard(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const EnvironmentalDataCardHeader(
-                    icon: Icons.calendar_today_outlined,
-                    title: 'Date & Time',
+                    icon: Icons.fact_check_outlined,
+                    title: 'Scan context',
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'Confirm when and where this disease scan is being taken.',
+                    style: TextStyle(
+                      color: AppTheme.textSecondary,
+                      fontSize: 12.5,
+                      height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
                   _buildDateTimeFields(),
-                  const SizedBox(height: 20),
-
-                  const EnvironmentalDataCardHeader(
-                    icon: Icons.gps_fixed_outlined,
-                    title: 'Location Data',
-                  ),
+                  const SizedBox(height: 16),
+                  const Divider(color: Color(0xFFE8ECE8), height: 1),
                   const SizedBox(height: 16),
                   _buildLocationFields(),
-                  const SizedBox(height: 20),
-
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            _buildSectionCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   const EnvironmentalDataCardHeader(
-                    icon: Icons.thermostat_outlined,
-                    title: '7-Day Weather Summary',
+                    icon: Icons.cloud_outlined,
+                    title: 'Growing conditions',
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'Seven-day conditions used to support the disease assessment.',
+                    style: TextStyle(
+                      color: AppTheme.textSecondary,
+                      fontSize: 12.5,
+                      height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
                   _buildWeatherFields(),
-                  const SizedBox(height: 20),
-
-                  const EnvironmentalDataCardHeader(
-                    icon: Icons.wb_sunny_outlined,
-                    title: 'Solar Data (7-Day)',
-                  ),
+                  const SizedBox(height: 16),
+                  const Divider(color: Color(0xFFE8ECE8), height: 1),
                   const SizedBox(height: 16),
                   _buildSolarFields(),
                 ],
@@ -359,14 +371,12 @@ class _EnvironmentalDataScreenState extends State<EnvironmentalDataScreen> {
             ),
 
             const SizedBox(height: 24),
-
-            // Proceed Button
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
                 onPressed: _proceedToScan,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFB54848),
+                  backgroundColor: AppTheme.primaryGreen,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
@@ -376,21 +386,36 @@ class _EnvironmentalDataScreenState extends State<EnvironmentalDataScreen> {
                 icon: const Icon(Icons.camera_alt_outlined, size: 22),
                 label: const Text(
                   'Proceed to Disease Scan',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 16,
-                  ),
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
                 ),
               ),
             ),
 
-            const SizedBox(height: 20),
-
-            // Info card
+            const SizedBox(height: 16),
             ScanGuidelinesCard(),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildSectionCard({required Widget child}) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE4E9DE), width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.primaryButton.withValues(alpha: 0.05),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: child,
     );
   }
 
@@ -402,14 +427,16 @@ class _EnvironmentalDataScreenState extends State<EnvironmentalDataScreen> {
             Expanded(
               child: EnvironmentalDataDisplay(
                 label: 'Date',
-                value: '${_environmentalData.date.day}/${_environmentalData.date.month}/${_environmentalData.date.year}',
+                value:
+                    '${_environmentalData.date.day}/${_environmentalData.date.month}/${_environmentalData.date.year}',
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: EnvironmentalDataDisplay(
                 label: 'Time',
-                value: '${_environmentalData.time.hour.toString().padLeft(2, '0')}:${_environmentalData.time.minute.toString().padLeft(2, '0')}',
+                value:
+                    '${_environmentalData.time.hour.toString().padLeft(2, '0')}:${_environmentalData.time.minute.toString().padLeft(2, '0')}',
               ),
             ),
           ],
@@ -431,7 +458,9 @@ class _EnvironmentalDataScreenState extends State<EnvironmentalDataScreen> {
                   final lat = double.tryParse(v);
                   if (lat != null) {
                     setState(() {
-                      _environmentalData = _environmentalData.copyWith(latitude: lat);
+                      _environmentalData = _environmentalData.copyWith(
+                        latitude: lat,
+                      );
                     });
                   }
                 },
@@ -447,7 +476,9 @@ class _EnvironmentalDataScreenState extends State<EnvironmentalDataScreen> {
                   final lon = double.tryParse(v);
                   if (lon != null) {
                     setState(() {
-                      _environmentalData = _environmentalData.copyWith(longitude: lon);
+                      _environmentalData = _environmentalData.copyWith(
+                        longitude: lon,
+                      );
                     });
                   }
                 },
@@ -468,12 +499,16 @@ class _EnvironmentalDataScreenState extends State<EnvironmentalDataScreen> {
             Expanded(
               child: EnvironmentalDataField(
                 label: 'Avg Temperature (7d)',
-                value: _environmentalData.avgTemperatureLast7.toStringAsFixed(1),
+                value: _environmentalData.avgTemperatureLast7.toStringAsFixed(
+                  1,
+                ),
                 onChanged: (v) {
                   final temp = double.tryParse(v);
                   if (temp != null) {
                     setState(() {
-                      _environmentalData = _environmentalData.copyWith(avgTemperatureLast7: temp);
+                      _environmentalData = _environmentalData.copyWith(
+                        avgTemperatureLast7: temp,
+                      );
                     });
                   }
                 },
@@ -489,7 +524,9 @@ class _EnvironmentalDataScreenState extends State<EnvironmentalDataScreen> {
                   final hum = int.tryParse(v);
                   if (hum != null) {
                     setState(() {
-                      _environmentalData = _environmentalData.copyWith(avgHumidityLast7: hum);
+                      _environmentalData = _environmentalData.copyWith(
+                        avgHumidityLast7: hum,
+                      );
                     });
                   }
                 },
@@ -509,7 +546,9 @@ class _EnvironmentalDataScreenState extends State<EnvironmentalDataScreen> {
                   final rain = double.tryParse(v);
                   if (rain != null) {
                     setState(() {
-                      _environmentalData = _environmentalData.copyWith(totalRainfallLast7: rain);
+                      _environmentalData = _environmentalData.copyWith(
+                        totalRainfallLast7: rain,
+                      );
                     });
                   }
                 },
@@ -525,7 +564,9 @@ class _EnvironmentalDataScreenState extends State<EnvironmentalDataScreen> {
                   final wind = double.tryParse(v);
                   if (wind != null) {
                     setState(() {
-                      _environmentalData = _environmentalData.copyWith(avgWindSpeedLast7: wind);
+                      _environmentalData = _environmentalData.copyWith(
+                        avgWindSpeedLast7: wind,
+                      );
                     });
                   }
                 },
@@ -548,7 +589,9 @@ class _EnvironmentalDataScreenState extends State<EnvironmentalDataScreen> {
             final sun = double.tryParse(v);
             if (sun != null) {
               setState(() {
-                _environmentalData = _environmentalData.copyWith(avgSunshineHoursLast7: sun);
+                _environmentalData = _environmentalData.copyWith(
+                  avgSunshineHoursLast7: sun,
+                );
               });
             }
           },

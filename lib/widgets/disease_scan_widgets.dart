@@ -34,7 +34,7 @@ class ScanGuidelinesCard extends StatelessWidget {
             children: [
               Icon(
                 Icons.info_outline_rounded,
-                color: AppTheme.brandGreen,
+                color: AppTheme.textPrimary,
                 size: 20,
               ),
               SizedBox(width: 8),
@@ -85,11 +85,7 @@ class GuidelineItem extends StatelessWidget {
   final IconData icon;
   final String text;
 
-  const GuidelineItem({
-    super.key,
-    required this.icon,
-    required this.text,
-  });
+  const GuidelineItem({super.key, required this.icon, required this.text});
 
   @override
   Widget build(BuildContext context) {
@@ -97,8 +93,16 @@ class GuidelineItem extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
         children: [
-          Icon(icon, size: 18, color: AppTheme.brandGreen),
-          const SizedBox(width: 12),
+          Container(
+            width: 30,
+            height: 30,
+            decoration: BoxDecoration(
+              color: const Color(0xFFF2F4F3),
+              borderRadius: BorderRadius.circular(9),
+            ),
+            child: Icon(icon, size: 16, color: AppTheme.textSecondary),
+          ),
+          const SizedBox(width: 10),
           Expanded(
             child: Text(
               text,
@@ -155,10 +159,7 @@ class DiseaseImagePreview extends StatelessWidget {
               ),
             ),
           ),
-          DiseaseImageDisplay(
-            imagePath: imagePath,
-            height: 200,
-          ),
+          DiseaseImageDisplay(imagePath: imagePath, height: 200),
           Padding(
             padding: const EdgeInsets.all(12),
             child: Row(
@@ -183,7 +184,7 @@ class DiseaseImagePreview extends StatelessWidget {
                   child: ElevatedButton.icon(
                     onPressed: isScanning ? null : onScan,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFB54848),
+                      backgroundColor: AppTheme.primaryGreen,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       shape: RoundedRectangleBorder(
@@ -233,7 +234,8 @@ class DiseaseImageDisplay extends StatelessWidget {
     // On web, image_picker returns a blob: object URL (not a real file path),
     // and Image.file is unsupported on web entirely — so route web + any
     // http(s)/blob URL through Image.network.
-    final isRemoteOrWeb = kIsWeb ||
+    final isRemoteOrWeb =
+        kIsWeb ||
         imagePath!.startsWith('http://') ||
         imagePath!.startsWith('https://') ||
         imagePath!.startsWith('blob:');
