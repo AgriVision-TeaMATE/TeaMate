@@ -276,13 +276,170 @@ class _ScanDiseaseScreenState extends State<ScanDiseaseScreen> {
       setState(() {
         _isScanning = false;
       });
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Scan failed: ${e.toString()}')));
+
+      final errorMessage = e.toString();
+      final isNotLeafError =
+          errorMessage.toLowerCase().contains('not a leaf');
+
+      if (isNotLeafError) {
+        _showNotLeafErrorDialog(errorMessage);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Scan failed: $errorMessage')),
+        );
+      }
     }
   }
 
   // ──────────────────────────────────────────────────────────────────────────
+  /// Shows a prominent error dialog when the scanned image is not a leaf.
+  void _showNotLeafErrorDialog(String message) {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.12),
+                blurRadius: 24,
+                offset: const Offset(0, 12),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Icon
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF0F0),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.image_not_supported_outlined,
+                  color: Color(0xFFB54848),
+                  size: 32,
+                ),
+              ),
+              const SizedBox(height: 18),
+              // Title
+              const Text(
+                'Not a leaf image',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900,
+                  color: Color(0xFF1B242C),
+                  letterSpacing: -0.4,
+                ),
+              ),
+              const SizedBox(height: 8),
+              // Message
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: AppTheme.textSecondary,
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 16),
+              // Guidance
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF7F8F7),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Color(0xFFE4E9DE)),
+                ),
+                child: const Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      Icons.tips_and_updates_outlined,
+                      color: AppTheme.brandGreen,
+                      size: 18,
+                    ),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Please upload a clear photo of a tea leaf taken '
+                        'from above. Avoid images of equipment, packaging, '
+                        'or other non-leaf objects.',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          color: AppTheme.textSecondary,
+                          height: 1.5,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 22),
+              // Action buttons
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      child: const Text(
+                        'Cancel',
+                        style: TextStyle(
+                          color: AppTheme.textSecondary,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () => Navigator.of(context).pop(),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryButton,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      icon: const Icon(
+                        Icons.photo_camera_outlined,
+                        size: 18,
+                      ),
+                      label: const Text(
+                        'Scan again',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   // Response parsing
   // ──────────────────────────────────────────────────────────────────────────
 
@@ -307,6 +464,24 @@ class _ScanDiseaseScreenState extends State<ScanDiseaseScreen> {
   ///   "meta": { "timestamp", ... }
   /// }
   DiseaseScanResult _parseApiResponse(Map<String, dynamic> response) {
+    // Guard: some validation errors (e.g. "Uploaded image is not a leaf image")
+    // arrive with a `detail` object in the response body. Throw so the
+    // caller can show a proper error instead of rendering a broken result.
+    if (response['detail'] != null) {
+      final detail = response['detail'];
+      if (detail is String) {
+        throw DiseaseScanException(detail);
+      }
+      if (detail is Map) {
+        final detailMap = detail as Map<String, dynamic>;
+        final message = detailMap['message']?.toString() ??
+            detailMap['error']?.toString() ??
+            detailMap['detail']?.toString() ??
+            'An error occurred during analysis';
+        throw DiseaseScanException(message);
+      }
+    }
+
     final scanId = response['scan_id'] as String?;
     final scanSummary = response['scan_summary'] as Map<String, dynamic>?;
     final weatherDetails =
