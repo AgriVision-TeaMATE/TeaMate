@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../models/field_model.dart';
 import '../../theme.dart';
 import 'disease_history_screen.dart';
+import 'disease_insights_screen.dart';
 import 'environmental_data_screen.dart';
 
 class DiseaseDetectionScreen extends StatefulWidget {
@@ -183,9 +184,19 @@ class _DiseaseDetectionScreenState extends State<DiseaseDetectionScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => DiseaseHistoryScreen(
-          fieldId: field.id,
-          fieldName: field.name,
+        builder: (_) =>
+            DiseaseHistoryScreen(fieldId: field.id, fieldName: field.name),
+      ),
+    );
+  }
+
+  void _openDiseaseInsights([Field? field]) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => DiseaseInsightsScreen(
+          fieldId: field?.id,
+          fieldName: field?.name,
         ),
       ),
     );
@@ -223,6 +234,11 @@ class _DiseaseDetectionScreenState extends State<DiseaseDetectionScreen> {
               ),
             ),
             actions: [
+              IconButton(
+                tooltip: 'Estate disease insights',
+                onPressed: _openDiseaseInsights,
+                icon: const Icon(Icons.analytics_outlined),
+              ),
               Padding(
                 padding: const EdgeInsets.only(right: 16),
                 child: GestureDetector(
@@ -309,6 +325,7 @@ class _DiseaseDetectionScreenState extends State<DiseaseDetectionScreen> {
                         initiallyExpanded: index == 1,
                         onScan: () => _openScanDisease(field),
                         onHistory: () => _openDetectionHistory(field),
+                        onInsights: () => _openDiseaseInsights(field),
                       );
                     },
                   ),
@@ -427,6 +444,7 @@ class _FieldCard extends StatefulWidget {
   final bool initiallyExpanded;
   final VoidCallback onScan;
   final VoidCallback onHistory;
+  final VoidCallback onInsights;
 
   const _FieldCard({
     super.key,
@@ -434,6 +452,7 @@ class _FieldCard extends StatefulWidget {
     this.initiallyExpanded = false,
     required this.onScan,
     required this.onHistory,
+    required this.onInsights,
   });
 
   @override
@@ -473,106 +492,247 @@ class _FieldCardState extends State<_FieldCard> {
           ),
         ],
       ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(14),
-        onTap: () {
-          setState(() {
-            _isExpanded = !_isExpanded;
-          });
-        },
-        child: Ink(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: const Color(0xFFE4E9DE)),
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Colors.white, Color(0xFFFBFDF8)],
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                field.name,
-                style: const TextStyle(
-                  fontSize: 17,
-                  color: AppTheme.textPrimary,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.2,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFE4E9DE)),
+        ),
+        child: Stack(
+          children: [
+            Positioned(
+              top: 0,
+              right: 0,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 8,
+                ),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFF2F3F0),
+                  borderRadius: BorderRadius.only(
+                    topRight: Radius.circular(14),
+                    bottomLeft: Radius.circular(14),
+                  ),
+                ),
+                child: const Text(
+                  'Ready to scan',
+                  style: TextStyle(
+                    color: AppTheme.textSecondary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
               ),
-              const SizedBox(height: 8),
-              Text(
-                field.subtitle,
-                style: const TextStyle(
-                  fontSize: 13,
-                  color: AppTheme.textSecondary,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              AnimatedSize(
-                duration: const Duration(milliseconds: 180),
-                curve: Curves.easeInOut,
-                child: _isExpanded
-                    ? Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const SizedBox(height: 16),
-                          Row(
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              child: Column(
+                children: [
+                  InkWell(
+                    borderRadius: BorderRadius.circular(14),
+                    onTap: () {
+                      setState(() {
+                        _isExpanded = !_isExpanded;
+                      });
+                    },
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Expanded(
-                                child: ElevatedButton.icon(
-                                  onPressed: widget.onScan,
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFFB54848),
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 12,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                  ),
-                                  icon: const Icon(
-                                    Icons.camera_alt_outlined,
-                                    size: 17,
-                                  ),
-                                  label: const Text(
-                                    'Scan Disease',
-                                    overflow: TextOverflow.ellipsis,
+                              Padding(
+                                padding: const EdgeInsets.only(right: 108),
+                                child: Text(
+                                  field.name,
+                                  style: const TextStyle(
+                                    fontSize: 17,
+                                    color: AppTheme.textPrimary,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: -0.2,
                                   ),
                                 ),
                               ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: ElevatedButton.icon(
-                                  onPressed: widget.onHistory,
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: AppTheme.brandGreen,
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 12,
-                                    ),
-                                    shape: RoundedRectangleBorder(
+                              const SizedBox(height: 10),
+                              Text(
+                                field.subtitle,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  color: AppTheme.textSecondary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              Row(
+                                children: [
+                                  Container(
+                                    width: 42,
+                                    height: 42,
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.primaryButton.withValues(
+                                        alpha: 0.10,
+                                      ),
                                       borderRadius: BorderRadius.circular(12),
                                     ),
+                                    child: const Icon(
+                                      Icons.health_and_safety_outlined,
+                                      color: Colors.black,
+                                      size: 20,
+                                    ),
                                   ),
-                                  icon: const Icon(
-                                    Icons.history_outlined,
-                                    size: 17,
+                                  const SizedBox(width: 12),
+                                  const Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Disease detection',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color: AppTheme.textSecondary,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                        SizedBox(height: 3),
+                                        Text(
+                                          'Scan leaves or review history',
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            color: AppTheme.textPrimary,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                                  label: const Text(
-                                    'Detection History',
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
+                                ],
                               ),
                             ],
                           ),
-                        ],
-                      )
-                    : const SizedBox.shrink(),
+                        ),
+                        const SizedBox(width: 8),
+                        Padding(
+                          padding: const EdgeInsets.only(top: 42),
+                          child: Icon(
+                            _isExpanded
+                                ? Icons.keyboard_arrow_down_rounded
+                                : Icons.chevron_right_rounded,
+                            color: AppTheme.textSecondary.withValues(
+                              alpha: 0.55,
+                            ),
+                            size: 24,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  ClipRect(
+                    child: AnimatedSize(
+                      duration: const Duration(milliseconds: 180),
+                      curve: Curves.easeInOut,
+                      child: _isExpanded
+                          ? Padding(
+                              padding: const EdgeInsets.only(top: 16),
+                              child: Column(
+                                children: [
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: ElevatedButton.icon(
+                                          onPressed: widget.onScan,
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor:
+                                                AppTheme.primaryButton,
+                                            foregroundColor: Colors.white,
+                                            padding: const EdgeInsets.symmetric(
+                                              vertical: 12,
+                                            ),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                            ),
+                                          ),
+                                          icon: const Icon(
+                                            Icons.camera_alt_outlined,
+                                            size: 17,
+                                          ),
+                                          label: const Text(
+                                            'Scan Disease',
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: ElevatedButton.icon(
+                                          onPressed: widget.onHistory,
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor:
+                                                AppTheme.brandGreen,
+                                            foregroundColor: Colors.white,
+                                            padding: const EdgeInsets.symmetric(
+                                              vertical: 12,
+                                            ),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                            ),
+                                          ),
+                                          icon: const Icon(
+                                            Icons.history_outlined,
+                                            size: 17,
+                                          ),
+                                          label: const Text(
+                                            'History',
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 10),
+                                  SizedBox(
+                                    width: double.infinity,
+                                    child: OutlinedButton.icon(
+                                      onPressed: widget.onInsights,
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: AppTheme.textPrimary,
+                                        side: const BorderSide(
+                                          color: Color(0xFFDDE4D8),
+                                        ),
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 12,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                        ),
+                                      ),
+                                      icon: const Icon(
+                                        Icons.insights_outlined,
+                                        size: 17,
+                                      ),
+                                      label: const Text('View Field Insights'),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          : const SizedBox.shrink(),
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
