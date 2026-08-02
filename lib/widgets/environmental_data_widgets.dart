@@ -2,6 +2,101 @@ import 'package:flutter/material.dart';
 
 import '../theme.dart';
 
+class FieldContextHero extends StatelessWidget {
+  final String name;
+  final String subtitle;
+
+  const FieldContextHero({
+    super.key,
+    required this.name,
+    required this.subtitle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE1E6E2)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+              color: const Color(0xFFF0F3F1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              Icons.landscape_outlined,
+              color: AppTheme.textPrimary,
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppTheme.textPrimary,
+                    fontSize: 19,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.4,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: AppTheme.textSecondary,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF0F3F1),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: const Text(
+              'FIELD',
+              style: TextStyle(
+                color: AppTheme.textSecondary,
+                fontSize: 9,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0.8,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// Card header with icon and title - reusable for all environmental data sections
 class EnvironmentalDataCardHeader extends StatelessWidget {
   final IconData icon;
@@ -17,18 +112,24 @@ class EnvironmentalDataCardHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(
-          icon,
-          color: AppTheme.brandGreen,
-          size: 20,
+        Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: AppTheme.brandGreen.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(icon, color: AppTheme.accentGreenText, size: 20),
         ),
-        const SizedBox(width: 8),
-        Text(
-          title,
-          style: const TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.w900,
-            letterSpacing: -0.3,
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            title,
+            style: const TextStyle(
+              fontSize: 16.5,
+              fontWeight: FontWeight.w900,
+              letterSpacing: -0.3,
+            ),
           ),
         ),
       ],
@@ -99,7 +200,9 @@ class _EnvironmentalDataFieldState extends State<EnvironmentalDataField> {
         TextField(
           controller: _controller,
           onChanged: widget.onChanged,
-          keyboardType: widget.keyboardType ?? TextInputType.numberWithOptions(decimal: true),
+          keyboardType:
+              widget.keyboardType ??
+              TextInputType.numberWithOptions(decimal: true),
           readOnly: widget.readOnly,
           textAlignVertical: TextAlignVertical.center,
           decoration: InputDecoration(
@@ -110,11 +213,23 @@ class _EnvironmentalDataFieldState extends State<EnvironmentalDataField> {
               horizontal: 12,
               vertical: 10,
             ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: BorderSide.none,
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: const BorderSide(
+                color: Color(0xFFDDE4D8),
+                width: 1.1,
+              ),
             ),
-            hintStyle: TextStyle(color: AppTheme.textSecondary.withValues(alpha: 0.5)),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: const BorderSide(
+                color: AppTheme.primaryButton,
+                width: 1.2,
+              ),
+            ),
+            hintStyle: TextStyle(
+              color: AppTheme.textSecondary.withValues(alpha: 0.5),
+            ),
           ),
           style: const TextStyle(
             fontSize: 14,
@@ -156,14 +271,11 @@ class EnvironmentalDataDisplay extends StatelessWidget {
         const SizedBox(height: 6),
         Container(
           width: double.infinity,
-          padding: const EdgeInsets.symmetric(
-            horizontal: 12,
-            vertical: 10,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
             color: const Color(0xFFF7F8F9),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: const Color(0xFFE8ECEF)),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFFDDE4D8), width: 1.1),
           ),
           child: Text(
             '$value${suffix ?? ''}',
@@ -203,26 +315,22 @@ class AutoFetchProgressStep extends StatelessWidget {
             color: isComplete
                 ? AppTheme.brandGreen
                 : isActive
-                    ? AppTheme.brandGreen.withValues(alpha: 0.3)
-                    : const Color(0xFFE8ECEF),
+                ? AppTheme.brandGreen.withValues(alpha: 0.3)
+                : const Color(0xFFDDE4D8),
             shape: BoxShape.circle,
           ),
           child: isComplete
-              ? const Icon(
-                  Icons.check_rounded,
-                  color: Colors.white,
-                  size: 16,
-                )
+              ? const Icon(Icons.check_rounded, color: Colors.white, size: 16)
               : isActive
-                  ? const SizedBox(
-                      width: 12,
-                      height: 12,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                      ),
-                    )
-                  : null,
+              ? const SizedBox(
+                  width: 12,
+                  height: 12,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                )
+              : null,
         ),
         const SizedBox(width: 8),
         Text(
@@ -233,8 +341,8 @@ class AutoFetchProgressStep extends StatelessWidget {
             color: isComplete
                 ? AppTheme.brandGreen
                 : isActive
-                    ? AppTheme.textPrimary
-                    : AppTheme.textSecondary,
+                ? AppTheme.textPrimary
+                : AppTheme.textSecondary,
           ),
         ),
       ],

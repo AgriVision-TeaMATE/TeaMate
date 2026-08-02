@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../models/field_model.dart';
 import '../../theme.dart';
+import 'disease_history_screen.dart';
+import 'disease_insights_screen.dart';
 import 'environmental_data_screen.dart';
 
 class DiseaseDetectionScreen extends StatefulWidget {
@@ -182,7 +184,20 @@ class _DiseaseDetectionScreenState extends State<DiseaseDetectionScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => const DetectionHistoryPlaceholder(fieldId: ''),
+        builder: (_) =>
+            DiseaseHistoryScreen(fieldId: field.id, fieldName: field.name),
+      ),
+    );
+  }
+
+  void _openDiseaseInsights([Field? field]) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => DiseaseInsightsScreen(
+          fieldId: field?.id,
+          fieldName: field?.name,
+        ),
       ),
     );
   }
@@ -219,6 +234,11 @@ class _DiseaseDetectionScreenState extends State<DiseaseDetectionScreen> {
               ),
             ),
             actions: [
+              IconButton(
+                tooltip: 'Estate disease insights',
+                onPressed: _openDiseaseInsights,
+                icon: const Icon(Icons.analytics_outlined),
+              ),
               Padding(
                 padding: const EdgeInsets.only(right: 16),
                 child: GestureDetector(
@@ -305,6 +325,7 @@ class _DiseaseDetectionScreenState extends State<DiseaseDetectionScreen> {
                         initiallyExpanded: index == 1,
                         onScan: () => _openScanDisease(field),
                         onHistory: () => _openDetectionHistory(field),
+                        onInsights: () => _openDiseaseInsights(field),
                       );
                     },
                   ),
@@ -423,6 +444,7 @@ class _FieldCard extends StatefulWidget {
   final bool initiallyExpanded;
   final VoidCallback onScan;
   final VoidCallback onHistory;
+  final VoidCallback onInsights;
 
   const _FieldCard({
     super.key,
@@ -430,6 +452,7 @@ class _FieldCard extends StatefulWidget {
     this.initiallyExpanded = false,
     required this.onScan,
     required this.onHistory,
+    required this.onInsights,
   });
 
   @override
@@ -469,291 +492,248 @@ class _FieldCardState extends State<_FieldCard> {
           ),
         ],
       ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(14),
-        onTap: () {
-          setState(() {
-            _isExpanded = !_isExpanded;
-          });
-        },
-        child: Ink(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: const Color(0xFFE4E9DE)),
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Colors.white, Color(0xFFFBFDF8)],
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                field.name,
-                style: const TextStyle(
-                  fontSize: 17,
-                  color: AppTheme.textPrimary,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.2,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFE4E9DE)),
+        ),
+        child: Stack(
+          children: [
+            Positioned(
+              top: 0,
+              right: 0,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 8,
+                ),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFF2F3F0),
+                  borderRadius: BorderRadius.only(
+                    topRight: Radius.circular(14),
+                    bottomLeft: Radius.circular(14),
+                  ),
+                ),
+                child: const Text(
+                  'Ready to scan',
+                  style: TextStyle(
+                    color: AppTheme.textSecondary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
               ),
-              const SizedBox(height: 8),
-              Text(
-                field.subtitle,
-                style: const TextStyle(
-                  fontSize: 13,
-                  color: AppTheme.textSecondary,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              AnimatedSize(
-                duration: const Duration(milliseconds: 180),
-                curve: Curves.easeInOut,
-                child: _isExpanded
-                    ? Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const SizedBox(height: 16),
-                          Row(
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              child: Column(
+                children: [
+                  InkWell(
+                    borderRadius: BorderRadius.circular(14),
+                    onTap: () {
+                      setState(() {
+                        _isExpanded = !_isExpanded;
+                      });
+                    },
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Expanded(
-                                child: ElevatedButton.icon(
-                                  onPressed: widget.onScan,
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFFB54848),
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 12,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                  ),
-                                  icon: const Icon(
-                                    Icons.camera_alt_outlined,
-                                    size: 17,
-                                  ),
-                                  label: const Text(
-                                    'Scan Disease',
-                                    overflow: TextOverflow.ellipsis,
+                              Padding(
+                                padding: const EdgeInsets.only(right: 108),
+                                child: Text(
+                                  field.name,
+                                  style: const TextStyle(
+                                    fontSize: 17,
+                                    color: AppTheme.textPrimary,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: -0.2,
                                   ),
                                 ),
                               ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: ElevatedButton.icon(
-                                  onPressed: widget.onHistory,
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: AppTheme.brandGreen,
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 12,
-                                    ),
-                                    shape: RoundedRectangleBorder(
+                              const SizedBox(height: 10),
+                              Text(
+                                field.subtitle,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  color: AppTheme.textSecondary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              Row(
+                                children: [
+                                  Container(
+                                    width: 42,
+                                    height: 42,
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.primaryButton.withValues(
+                                        alpha: 0.10,
+                                      ),
                                       borderRadius: BorderRadius.circular(12),
                                     ),
+                                    child: const Icon(
+                                      Icons.health_and_safety_outlined,
+                                      color: Colors.black,
+                                      size: 20,
+                                    ),
                                   ),
-                                  icon: const Icon(
-                                    Icons.history_outlined,
-                                    size: 17,
+                                  const SizedBox(width: 12),
+                                  const Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Disease detection',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color: AppTheme.textSecondary,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                        SizedBox(height: 3),
+                                        Text(
+                                          'Scan leaves or review history',
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            color: AppTheme.textPrimary,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                                  label: const Text(
-                                    'Detection History',
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
+                                ],
                               ),
                             ],
                           ),
-                        ],
-                      )
-                    : const SizedBox.shrink(),
+                        ),
+                        const SizedBox(width: 8),
+                        Padding(
+                          padding: const EdgeInsets.only(top: 42),
+                          child: Icon(
+                            _isExpanded
+                                ? Icons.keyboard_arrow_down_rounded
+                                : Icons.chevron_right_rounded,
+                            color: AppTheme.textSecondary.withValues(
+                              alpha: 0.55,
+                            ),
+                            size: 24,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  ClipRect(
+                    child: AnimatedSize(
+                      duration: const Duration(milliseconds: 180),
+                      curve: Curves.easeInOut,
+                      child: _isExpanded
+                          ? Padding(
+                              padding: const EdgeInsets.only(top: 16),
+                              child: Column(
+                                children: [
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: ElevatedButton.icon(
+                                          onPressed: widget.onScan,
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor:
+                                                AppTheme.primaryButton,
+                                            foregroundColor: Colors.white,
+                                            padding: const EdgeInsets.symmetric(
+                                              vertical: 12,
+                                            ),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                            ),
+                                          ),
+                                          icon: const Icon(
+                                            Icons.camera_alt_outlined,
+                                            size: 17,
+                                          ),
+                                          label: const Text(
+                                            'Scan Disease',
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: ElevatedButton.icon(
+                                          onPressed: widget.onHistory,
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor:
+                                                AppTheme.brandGreen,
+                                            foregroundColor: Colors.white,
+                                            padding: const EdgeInsets.symmetric(
+                                              vertical: 12,
+                                            ),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                            ),
+                                          ),
+                                          icon: const Icon(
+                                            Icons.history_outlined,
+                                            size: 17,
+                                          ),
+                                          label: const Text(
+                                            'History',
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 10),
+                                  SizedBox(
+                                    width: double.infinity,
+                                    child: OutlinedButton.icon(
+                                      onPressed: widget.onInsights,
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: AppTheme.textPrimary,
+                                        side: const BorderSide(
+                                          color: Color(0xFFDDE4D8),
+                                        ),
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 12,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                        ),
+                                      ),
+                                      icon: const Icon(
+                                        Icons.insights_outlined,
+                                        size: 17,
+                                      ),
+                                      label: const Text('View Field Insights'),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          : const SizedBox.shrink(),
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// Placeholder pages for disease detection features
-
-class DetectionHistoryPlaceholder extends StatelessWidget {
-  final String fieldId;
-
-  const DetectionHistoryPlaceholder({super.key, required this.fieldId});
-
-  static final List<DiseaseDetectionRecord> _dummyRecords = [
-    DiseaseDetectionRecord(
-      date: DateTime.now().subtract(const Duration(days: 3)),
-      disease: 'Tea Mosquito Bug',
-      severity: DetectionSeverity.high,
-      confidence: 92,
-      imageHint: 'Leaf with curled edges and yellow spots',
-    ),
-    DiseaseDetectionRecord(
-      date: DateTime.now().subtract(const Duration(days: 10)),
-      disease: 'Red Leaf Spot',
-      severity: DetectionSeverity.medium,
-      confidence: 78,
-      imageHint: 'Small reddish spots on young leaves',
-    ),
-    DiseaseDetectionRecord(
-      date: DateTime.now().subtract(const Duration(days: 18)),
-      disease: 'Healthy',
-      severity: DetectionSeverity.none,
-      confidence: 95,
-      imageHint: 'No disease detected - normal growth',
-    ),
-    DiseaseDetectionRecord(
-      date: DateTime.now().subtract(const Duration(days: 25)),
-      disease: 'Blister Blight',
-      severity: DetectionSeverity.low,
-      confidence: 65,
-      imageHint: 'Minor brown blisters on leaf surface',
-    ),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        title: const Text(
-          'Detection History',
-          style: TextStyle(
-            color: AppTheme.textPrimary,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded, color: AppTheme.textPrimary),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-      ),
-      body: _dummyRecords.isEmpty
-          ? const Center(
-              child: Text(
-                'No detection records yet',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: AppTheme.textSecondary,
-                ),
-              ),
-            )
-          : ListView.separated(
-              padding: const EdgeInsets.all(16),
-              itemCount: _dummyRecords.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 12),
-              itemBuilder: (context, index) {
-                final record = _dummyRecords[index];
-                return _DetectionRecordCard(record: record);
-              },
             ),
-    );
-  }
-}
-
-enum DetectionSeverity { none, low, medium, high }
-
-class DiseaseDetectionRecord {
-  final DateTime date;
-  final String disease;
-  final DetectionSeverity severity;
-  final int confidence;
-  final String imageHint;
-
-  const DiseaseDetectionRecord({
-    required this.date,
-    required this.disease,
-    required this.severity,
-    required this.confidence,
-    required this.imageHint,
-  });
-}
-
-class _DetectionRecordCard extends StatelessWidget {
-  final DiseaseDetectionRecord record;
-
-  const _DetectionRecordCard({required this.record});
-
-  @override
-  Widget build(BuildContext context) {
-    final Color severityColor;
-    final IconData severityIcon;
-    switch (record.severity) {
-      case DetectionSeverity.none:
-        severityColor = AppTheme.brandGreen;
-        severityIcon = Icons.check_circle_rounded;
-      case DetectionSeverity.low:
-        severityColor = const Color(0xFFB97922);
-        severityIcon = Icons.info_rounded;
-      case DetectionSeverity.medium:
-        severityColor = const Color(0xFFE2574C);
-        severityIcon = Icons.warning_rounded;
-      case DetectionSeverity.high:
-        severityColor = const Color(0xFFD95C5C);
-        severityIcon = Icons.dangerous_rounded;
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE4E9DE)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(severityIcon, color: severityColor, size: 20),
-              const SizedBox(width: 8),
-              Text(
-                record.disease,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                  color: AppTheme.textPrimary,
-                ),
-              ),
-              const Spacer(),
-              Text(
-                '${record.confidence}%',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: severityColor,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '${record.date.day}/${record.date.month}/${record.date.year}',
-            style: const TextStyle(
-              fontSize: 12,
-              color: AppTheme.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            record.imageHint,
-            style: const TextStyle(
-              fontSize: 13,
-              color: AppTheme.textSecondary,
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
