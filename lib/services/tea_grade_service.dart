@@ -47,12 +47,21 @@ class TeaGradeService {
     return MediaType('image', 'jpeg');
   }
 
-  Future<TeaQualityScan?> submitScan(XFile image, {String? fieldId}) async {
+  Future<TeaQualityScan?> submitScan(
+    XFile image, {
+    String? fieldId,
+    String method = 'traditional',
+    int? scaleLevel,
+  }) async {
     try {
       final request = http.MultipartRequest('POST', Uri.parse('$baseUrl/scan'));
       request.headers.addAll(_headers());
       if (fieldId != null && fieldId.isNotEmpty) {
         request.fields['field_id'] = fieldId;
+      }
+      request.fields['method'] = method;
+      if (scaleLevel != null) {
+        request.fields['scale_level'] = scaleLevel.toString();
       }
       final bytes = await image.readAsBytes();
       request.files.add(

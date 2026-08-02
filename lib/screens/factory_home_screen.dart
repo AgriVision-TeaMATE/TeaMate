@@ -31,6 +31,9 @@ class _FactoryHomeScreenState extends State<FactoryHomeScreen> {
   Field? _selectedField;
   bool _fieldsLoading = false;
 
+  String _method = 'traditional';
+  int? _scaleLevel;
+
   @override
   void initState() {
     super.initState();
@@ -95,11 +98,21 @@ class _FactoryHomeScreenState extends State<FactoryHomeScreen> {
   Future<void> _submit() async {
     final image = _selectedImage;
     final field = _selectedField;
-    if (image == null || field == null || _isSubmitting) return;
+    final requiresScaleLevel = _method == 'traditional';
+    if (image == null ||
+        field == null ||
+        (requiresScaleLevel && _scaleLevel == null) ||
+        _isSubmitting) {
+      return;
+    }
     setState(() => _isSubmitting = true);
 
-    final scan =
-        await TeaGradeManager().submitImage(image, fieldId: field.id);
+    final scan = await TeaGradeManager().submitImage(
+      image,
+      fieldId: field.id,
+      method: _method,
+      scaleLevel: requiresScaleLevel ? _scaleLevel : null,
+    );
 
     if (!mounted) return;
     setState(() => _isSubmitting = false);
@@ -200,6 +213,16 @@ class _FactoryHomeScreenState extends State<FactoryHomeScreen> {
                 onAddField: _addField,
                 onRefresh: _loadFields,
               ),
+              const SizedBox(height: 14),
+              _AnalysisOptionsCard(
+                method: _method,
+                scaleLevel: _scaleLevel,
+                enabled: !_isSubmitting,
+                onMethodChanged: (value) =>
+                    setState(() => _method = value ?? 'traditional'),
+                onScaleLevelChanged: (value) =>
+                    setState(() => _scaleLevel = value),
+              ),
               const SizedBox(height: 18),
               SizedBox(
                 width: double.infinity,
@@ -207,6 +230,7 @@ class _FactoryHomeScreenState extends State<FactoryHomeScreen> {
                 child: ElevatedButton(
                   onPressed: _selectedImage == null ||
                           _selectedField == null ||
+                          (_method == 'traditional' && _scaleLevel == null) ||
                           _isSubmitting
                       ? null
                       : _submit,
@@ -493,6 +517,105 @@ class _FieldPickerCard extends StatelessWidget {
               color: Color(0xFF335C47),
             ),
             tooltip: 'Add field',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AnalysisOptionsCard extends StatelessWidget {
+  const _AnalysisOptionsCard({
+    required this.method,
+    required this.scaleLevel,
+    required this.enabled,
+    required this.onMethodChanged,
+    required this.onScaleLevelChanged,
+  });
+
+  final String method;
+  final int? scaleLevel;
+  final bool enabled;
+  final ValueChanged<String?> onMethodChanged;
+  final ValueChanged<int?> onScaleLevelChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final scaleLevelEnabled = enabled && method == 'traditional';
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE3E8E5)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Analysis Method',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF7A8794),
+            ),
+          ),
+          const SizedBox(height: 6),
+          DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value: method,
+              isExpanded: true,
+              style: const TextStyle(
+                fontSize: 14.5,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF183126),
+              ),
+              items: const [
+                DropdownMenuItem(
+                  value: 'traditional',
+                  child: Text('Traditional (Random Forest)'),
+                ),
+                DropdownMenuItem(
+                  value: 'cnn',
+                  child: Text('CNN (ResNet 18)'),
+                ),
+              ],
+              onChanged: enabled ? onMethodChanged : null,
+            ),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            'Scale Level',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: scaleLevelEnabled
+                  ? const Color(0xFF7A8794)
+                  : const Color(0xFFBFC7C3),
+            ),
+          ),
+          const SizedBox(height: 6),
+          DropdownButtonHideUnderline(
+            child: DropdownButton<int>(
+              value: scaleLevelEnabled ? scaleLevel : null,
+              isExpanded: true,
+              hint: Text(
+                scaleLevelEnabled
+                    ? 'Select scale level'
+                    : 'Not applicable for CNN',
+                style: const TextStyle(fontSize: 14, color: Color(0xFF9AA6A0)),
+              ),
+              style: const TextStyle(
+                fontSize: 14.5,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF183126),
+              ),
+              items: const [
+                DropdownMenuItem(value: 1, child: Text('20px/mm')),
+                DropdownMenuItem(value: 2, child: Text('31px/mm')),
+              ],
+              onChanged: scaleLevelEnabled ? onScaleLevelChanged : null,
+            ),
           ),
         ],
       ),
