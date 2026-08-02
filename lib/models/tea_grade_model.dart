@@ -200,8 +200,18 @@ class TeaGradeManager extends ChangeNotifier {
   bool isLoading = false;
   bool usingMockData = false;
 
-  Future<TeaQualityScan?> submitImage(XFile image, {String? fieldId}) async {
-    final scan = await TeaGradeService().submitScan(image, fieldId: fieldId);
+  Future<TeaQualityScan?> submitImage(
+    XFile image, {
+    String? fieldId,
+    String method = 'traditional',
+    int? scaleLevel,
+  }) async {
+    final scan = await TeaGradeService().submitScan(
+      image,
+      fieldId: fieldId,
+      method: method,
+      scaleLevel: scaleLevel,
+    );
     if (scan != null) {
       scans.insert(0, scan);
       usingMockData = scan.isMock;
