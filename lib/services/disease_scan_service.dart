@@ -44,10 +44,20 @@ class DiseaseScanService {
 
   /// Builds an absolute URL for an `image_url` returned by the API
   /// (e.g. "/media/disease-scans/xyz.jpg" -> "http://localhost:8001/media/...").
+  ///
+  /// The backend sometimes bakes its own `BASE_URL` (e.g. "localhost") into
+  /// absolute URLs it returns (GradCAM/explanation images). That host is
+  /// only reachable from the machine running the backend itself, not from
+  /// an Android emulator or a physical device, so any absolute URL has its
+  /// host/port rewritten to match how this app is actually reaching the
+  /// backend (see [NetworkConfig.host]) — only the scheme/path/query are
+  /// kept from the original URL.
   static String? resolveImageUrl(String? path) {
     if (path == null || path.isEmpty) return null;
     if (path.startsWith('http://') || path.startsWith('https://')) {
-      return path;
+      final uri = Uri.tryParse(path);
+      if (uri == null) return path;
+      return uri.replace(host: NetworkConfig.host, port: 8001).toString();
     }
     if (path.startsWith('/')) {
       return '$_host$path';

@@ -72,9 +72,25 @@ class _DiseaseInsightsScreenState extends State<DiseaseInsightsScreen> {
     return Scaffold(
       backgroundColor: AppTheme.backgroundLight,
       appBar: AppBar(
-        title: Text(isFieldView
-            ? '${widget.fieldName ?? "Field"} Insights'
-            : 'Disease Insights'),
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        shadowColor: Colors.transparent,
+        scrolledUnderElevation: 0,
+        titleSpacing: 0,
+        leading: IconButton(
+          onPressed: () => Navigator.of(context).pop(),
+          icon: const Icon(Icons.arrow_back_ios_new_rounded),
+        ),
+        title: Text(
+          isFieldView
+              ? '${widget.fieldName ?? "Field"} Insights'
+              : 'Disease Insights',
+          style: const TextStyle(
+            fontSize: 19,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -0.4,
+          ),
+        ),
       ),
       body: FutureBuilder(
         future: _future,

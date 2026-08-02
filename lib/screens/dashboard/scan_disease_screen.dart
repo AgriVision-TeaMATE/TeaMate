@@ -668,16 +668,23 @@ class _ScanDiseaseScreenState extends State<ScanDiseaseScreen> {
       backgroundColor: AppTheme.backgroundLight,
       appBar: AppBar(
         backgroundColor: Colors.white,
-        elevation: 0,
+        surfaceTintColor: Colors.transparent,
+        shadowColor: Colors.transparent,
+        scrolledUnderElevation: 0,
+        titleSpacing: 0,
+        leading: IconButton(
+          onPressed: () => Navigator.of(context).pop(),
+          icon: const Icon(Icons.arrow_back_ios_new_rounded),
+        ),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               field?.name ?? 'Scan Disease',
               style: const TextStyle(
-                color: AppTheme.textPrimary,
-                fontSize: 16,
+                fontSize: 19,
                 fontWeight: FontWeight.w800,
+                letterSpacing: -0.4,
               ),
             ),
             if (field != null)
@@ -685,18 +692,11 @@ class _ScanDiseaseScreenState extends State<ScanDiseaseScreen> {
                 field.subtitle,
                 style: const TextStyle(
                   color: AppTheme.textSecondary,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
           ],
-        ),
-        leading: IconButton(
-          icon: const Icon(
-            Icons.arrow_back_rounded,
-            color: AppTheme.textPrimary,
-          ),
-          onPressed: () => Navigator.of(context).pop(),
         ),
       ),
       body: SingleChildScrollView(

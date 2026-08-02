@@ -574,7 +574,7 @@ class _DiseaseScanResultScreenState extends State<DiseaseScanResultScreen> {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-// Hero Verdict Card
+// Scan Details Header
 // ════════════════════════════════════════════════════════════════════════════
 
 class _ImmediateDetailsHeader extends StatelessWidget {
@@ -642,14 +642,15 @@ class _ImmediateDetailsHeader extends StatelessWidget {
                   children: [
                     IconButton(
                       onPressed: onBack,
-                      icon: const Icon(Icons.arrow_back_rounded),
+                      icon: const Icon(Icons.arrow_back_ios_new_rounded),
                     ),
                     const Expanded(
                       child: Text(
                         'Scan Details',
                         style: TextStyle(
-                          fontSize: 18,
+                          fontSize: 19,
                           fontWeight: FontWeight.w800,
+                          letterSpacing: -0.4,
                         ),
                       ),
                     ),
@@ -666,10 +667,10 @@ class _ImmediateDetailsHeader extends StatelessWidget {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0xFFE4E9DE)),
+                border: Border.all(color: const Color(0xFFE8ECEF)),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.04),
+                    color: AppTheme.primaryButton.withValues(alpha: 0.05),
                     blurRadius: 18,
                     offset: const Offset(0, 8),
                   ),
@@ -843,263 +844,6 @@ class _ResultInfoChip extends StatelessWidget {
   }
 }
 
-// ignore: unused_element
-class _HeroVerdictCard extends StatelessWidget {
-  final DiseaseScanResult scanResult;
-  final Field? field;
-  final bool isHealthy;
-  final bool isUncertain;
-  final VoidCallback onBack;
-
-  const _HeroVerdictCard({
-    required this.scanResult,
-    required this.field,
-    required this.isHealthy,
-    required this.isUncertain,
-    required this.onBack,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    // Colors based on result
-    final List<Color> gradientColors;
-    final String headline;
-    final String subline;
-    final IconData icon;
-    final Color iconColor;
-
-    if (isHealthy && !isUncertain) {
-      gradientColors = [AppTheme.primaryDark, const Color(0xFF263338)];
-      headline = 'Healthy leaf profile';
-      subline = 'No visible disease patterns detected';
-      icon = Icons.eco_rounded;
-      iconColor = AppTheme.brandGreen;
-    } else if (isHealthy && isUncertain) {
-      gradientColors = [const Color(0xFF7A4D0C), const Color(0xFFB97922)];
-      headline = 'Likely Healthy';
-      subline = 'Low confidence — consider rescanning';
-      icon = Icons.help_outline_rounded;
-      iconColor = Colors.white;
-    } else {
-      final severity =
-          scanResult.mostProbableDisease?.severity.toLowerCase() ?? 'medium';
-      if (severity == 'high') {
-        gradientColors = [const Color(0xFF7A1515), const Color(0xFFB54848)];
-      } else if (severity == 'medium') {
-        gradientColors = [const Color(0xFF7A3D15), const Color(0xFFCC6633)];
-      } else {
-        gradientColors = [const Color(0xFF5C4A10), const Color(0xFFB99020)];
-      }
-      final diseaseName =
-          scanResult.mostProbableDisease?.diseaseName ??
-          (scanResult.diseaseResults.isNotEmpty
-              ? scanResult.diseaseResults.first.name
-              : 'Disease Detected');
-      headline = diseaseName;
-      final sev = scanResult.mostProbableDisease?.severity ?? '';
-      subline = sev.isNotEmpty
-          ? '${_capitalize(sev)} severity'
-          : 'Disease detected';
-      icon = Icons.health_and_safety_outlined;
-      iconColor = Colors.white;
-    }
-
-    final confidence =
-        scanResult.mostProbableDisease?.confidencePercent ??
-        scanResult.classification?.confidencePercent ??
-        (scanResult.diseaseResults.isNotEmpty
-            ? scanResult.diseaseResults.first.confidence
-            : 0);
-
-    final fieldDisplayName =
-        scanResult.fieldName ?? field?.name ?? 'Unknown Field';
-    final date = _formatDate(scanResult.detectedAt);
-
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: gradientColors,
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      ),
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Back button
-              Row(
-                children: [
-                  GestureDetector(
-                    onTap: onBack,
-                    child: Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.18),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(
-                        Icons.arrow_back_rounded,
-                        color: Colors.white,
-                        size: 20,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      'Scan Results',
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.9),
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                  // Confidence badge
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.3),
-                      ),
-                    ),
-                    child: Text(
-                      '$confidence% confidence',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 28),
-
-              // Icon
-              Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                child: Icon(icon, color: iconColor, size: 30),
-              ),
-              const SizedBox(height: 16),
-
-              // Headline
-              Text(
-                headline,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 28,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: -0.8,
-                  height: 1.15,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                subline,
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.8),
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              // Field / date info
-              Row(
-                children: [
-                  _HeroPill(
-                    icon: Icons.agriculture_outlined,
-                    label: fieldDisplayName,
-                  ),
-                  const SizedBox(width: 8),
-                  _HeroPill(icon: Icons.calendar_today_outlined, label: date),
-                  if (scanResult.processedImages > 1) ...[
-                    const SizedBox(width: 8),
-                    _HeroPill(
-                      icon: Icons.photo_library_outlined,
-                      label: '${scanResult.processedImages} images',
-                    ),
-                  ],
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  String _formatDate(DateTime dt) {
-    const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    return '${dt.day} ${months[dt.month - 1]} ${dt.year}';
-  }
-
-  String _capitalize(String s) =>
-      s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
-}
-
-class _HeroPill extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  const _HeroPill({required this.icon, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.18),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: Colors.white, size: 12),
-          const SizedBox(width: 5),
-          Text(
-            label,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 // ════════════════════════════════════════════════════════════════════════════
 // Scanned Images Carousel
 // ════════════════════════════════════════════════════════════════════════════
@@ -1131,6 +875,13 @@ class _ScannedImagesCarousel extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFFE8ECEF)),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.primaryButton.withValues(alpha: 0.05),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1255,7 +1006,7 @@ class _HealthyCelebrationCard extends StatelessWidget {
         ? const Color(0xFF7A4D0C)
         : AppTheme.textPrimary;
     final bgColor = isUncertain ? const Color(0xFFFFF8EC) : Colors.white;
-    const borderColor = Color(0xFFE4E9DE);
+    const borderColor = Color(0xFFE8ECEF);
     final headline = isUncertain ? 'Likely Healthy' : 'No disease detected';
     final defaultMessage = isUncertain
         ? 'Symptoms are ambiguous, but the leaf most closely matches a healthy profile. '
@@ -1271,7 +1022,7 @@ class _HealthyCelebrationCard extends StatelessWidget {
         border: Border.all(color: borderColor),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: AppTheme.primaryButton.withValues(alpha: 0.05),
             blurRadius: 18,
             offset: const Offset(0, 8),
           ),
@@ -1279,16 +1030,6 @@ class _HealthyCelebrationCard extends StatelessWidget {
       ),
       child: Column(
         children: [
-          // Colored top bar
-          Container(
-            height: 3,
-            decoration: BoxDecoration(
-              color: const Color(0xFFE4E9DE),
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(14),
-              ),
-            ),
-          ),
           Padding(
             padding: const EdgeInsets.all(20),
             child: Column(
@@ -1456,7 +1197,7 @@ class _WhatIsItCard extends StatelessWidget {
         border: Border.all(color: const Color(0xFFE8ECEF)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: AppTheme.primaryButton.withValues(alpha: 0.05),
             blurRadius: 18,
             offset: const Offset(0, 8),
           ),
@@ -1465,16 +1206,6 @@ class _WhatIsItCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Colored top stripe
-          Container(
-            height: 3,
-            decoration: BoxDecoration(
-              color: const Color(0xFFE4E9DE),
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(15),
-              ),
-            ),
-          ),
           Padding(
             padding: const EdgeInsets.all(18),
             child: Column(
@@ -1704,42 +1435,39 @@ class _WhatToDoCard extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFFE8ECEF)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            height: 5,
-            decoration: const BoxDecoration(
-              color: AppTheme.brandGreen,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(15)),
-            ),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.primaryButton.withValues(alpha: 0.05),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
           ),
-          Padding(
-            padding: const EdgeInsets.all(18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
               children: [
-                const Row(
-                  children: [
-                    Icon(
-                      Icons.tips_and_updates_outlined,
-                      color: AppTheme.brandGreen,
-                      size: 18,
-                    ),
-                    SizedBox(width: 8),
-                    Text(
-                      'What should you do?',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w900,
-                        color: AppTheme.textPrimary,
-                      ),
-                    ),
-                  ],
+                Icon(
+                  Icons.tips_and_updates_outlined,
+                  color: AppTheme.brandGreen,
+                  size: 18,
                 ),
-                const SizedBox(height: 14),
-                ...List.generate(recommendations.length, (i) {
+                SizedBox(width: 8),
+                Text(
+                  'What should you do?',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            ...List.generate(recommendations.length, (i) {
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 12),
                     child: Row(
@@ -1781,11 +1509,9 @@ class _WhatToDoCard extends StatelessWidget {
                     ),
                   );
                 }),
-              ],
-            ),
+            ],
           ),
-        ],
-      ),
+        ),
     );
   }
 }
@@ -1816,6 +1542,13 @@ class _ConfidenceBreakdownCard extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFFE8ECEF)),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.primaryButton.withValues(alpha: 0.05),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       padding: const EdgeInsets.all(18),
       child: Column(
@@ -1882,10 +1615,10 @@ class _ConfidenceBreakdownCard extends StatelessWidget {
 
 const _confidenceColors = <Color>[
   AppTheme.primaryGreen,
-  Color(0xFF718096),
-  Color(0xFFD69E2E),
-  Color(0xFF9AA3AF),
-  Color(0xFF4A6C6F),
+  AppTheme.brandGreen,
+  Color(0xFF4C7B38),
+  Color(0xFF8FBC6B),
+  Color(0xFFC7DDB0),
 ];
 
 class _DetectionConfidencePie extends StatelessWidget {
@@ -2033,116 +1766,6 @@ class _DetectionConfidenceLegend extends StatelessWidget {
   }
 }
 
-// Kept for compatibility with older result compositions.
-// ignore: unused_element
-class _ConfidenceBar extends StatelessWidget {
-  final DiseaseResult disease;
-  final bool isTopResult;
-
-  const _ConfidenceBar({required this.disease, required this.isTopResult});
-
-  @override
-  Widget build(BuildContext context) {
-    const accentColor = Color(0xFFB54848);
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      disease.name,
-                      style: TextStyle(
-                        fontSize: 13.5,
-                        fontWeight: isTopResult
-                            ? FontWeight.w800
-                            : FontWeight.w600,
-                        color: isTopResult ? accentColor : AppTheme.textPrimary,
-                      ),
-                    ),
-                    if (disease.category.isNotEmpty)
-                      Text(
-                        disease.category,
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: AppTheme.textSecondary,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              Text(
-                '${disease.confidence}%',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: isTopResult ? FontWeight.w900 : FontWeight.w700,
-                  color: isTopResult ? accentColor : AppTheme.textSecondary,
-                ),
-              ),
-              const SizedBox(width: 4),
-              if (disease.confidenceLabel.isNotEmpty)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 7,
-                    vertical: 3,
-                  ),
-                  decoration: BoxDecoration(
-                    color: isTopResult
-                        ? accentColor.withValues(alpha: 0.1)
-                        : const Color(0xFFF3F4F6),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Text(
-                    disease.confidenceLabel,
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      color: isTopResult ? accentColor : AppTheme.textSecondary,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Container(
-            height: 7,
-            decoration: BoxDecoration(
-              color: const Color(0xFFF3F4F6),
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: FractionallySizedBox(
-              alignment: Alignment.centerLeft,
-              widthFactor: (disease.confidence / 100).clamp(0.0, 1.0),
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: isTopResult
-                        ? [accentColor, accentColor.withValues(alpha: 0.7)]
-                        : [
-                            const Color(0xFF6E7E8B).withValues(alpha: 0.5),
-                            const Color(0xFF6E7E8B).withValues(alpha: 0.3),
-                          ],
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight,
-                  ),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 // ════════════════════════════════════════════════════════════════════════════
 // Environmental Conditions Card (aggregated — shown once per scan)
 // ════════════════════════════════════════════════════════════════════════════
@@ -2160,6 +1783,13 @@ class _EnvironmentalConditionsCard extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFFE8ECEF)),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.primaryButton.withValues(alpha: 0.05),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       padding: const EdgeInsets.all(18),
       child: Column(
@@ -2227,7 +1857,7 @@ class _InsightTile extends StatelessWidget {
         decoration: BoxDecoration(
           color: const Color(0xFFF8F9F8),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFE4E9DE)),
+          border: Border.all(color: const Color(0xFFE8ECEF)),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -2295,6 +1925,13 @@ class _TechnicalDetailsSection extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFFE8ECEF)),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.primaryButton.withValues(alpha: 0.05),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: Column(
         children: [
@@ -2915,6 +2552,13 @@ class _NoResultsCard extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFFE8ECEF)),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.primaryButton.withValues(alpha: 0.05),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: Column(
         children: [
@@ -3013,20 +2657,21 @@ class DiseaseRecommendationScreen extends StatelessWidget {
       backgroundColor: AppTheme.backgroundLight,
       appBar: AppBar(
         backgroundColor: Colors.white,
-        elevation: 0,
+        surfaceTintColor: Colors.transparent,
+        shadowColor: Colors.transparent,
+        scrolledUnderElevation: 0,
+        titleSpacing: 0,
+        leading: IconButton(
+          onPressed: () => Navigator.of(context).pop(),
+          icon: const Icon(Icons.arrow_back_ios_new_rounded),
+        ),
         title: const Text(
           'Recommendations',
           style: TextStyle(
-            color: AppTheme.textPrimary,
+            fontSize: 19,
             fontWeight: FontWeight.w800,
+            letterSpacing: -0.4,
           ),
-        ),
-        leading: IconButton(
-          icon: const Icon(
-            Icons.arrow_back_rounded,
-            color: AppTheme.textPrimary,
-          ),
-          onPressed: () => Navigator.of(context).pop(),
         ),
       ),
       body: SingleChildScrollView(

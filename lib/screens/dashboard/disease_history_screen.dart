@@ -55,22 +55,23 @@ class _DiseaseHistoryScreenState extends State<DiseaseHistoryScreen> {
       backgroundColor: AppTheme.backgroundLight,
       appBar: AppBar(
         backgroundColor: Colors.white,
-        elevation: 0,
+        surfaceTintColor: Colors.transparent,
+        shadowColor: Colors.transparent,
+        scrolledUnderElevation: 0,
+        titleSpacing: 0,
+        leading: IconButton(
+          onPressed: () => Navigator.of(context).pop(),
+          icon: const Icon(Icons.arrow_back_ios_new_rounded),
+        ),
         title: Text(
           widget.fieldName != null
               ? 'History · ${widget.fieldName}'
               : 'Detection History',
           style: const TextStyle(
-            color: AppTheme.textPrimary,
+            fontSize: 19,
             fontWeight: FontWeight.w800,
+            letterSpacing: -0.4,
           ),
-        ),
-        leading: IconButton(
-          icon: const Icon(
-            Icons.arrow_back_rounded,
-            color: AppTheme.textPrimary,
-          ),
-          onPressed: () => Navigator.of(context).pop(),
         ),
       ),
       body: RefreshIndicator(
@@ -406,20 +407,21 @@ class _DiseaseScanDetailScreenState extends State<DiseaseScanDetailScreen> {
       backgroundColor: AppTheme.backgroundLight,
       appBar: AppBar(
         backgroundColor: Colors.white,
-        elevation: 0,
+        surfaceTintColor: Colors.transparent,
+        shadowColor: Colors.transparent,
+        scrolledUnderElevation: 0,
+        titleSpacing: 0,
+        leading: IconButton(
+          onPressed: () => Navigator.of(context).pop(),
+          icon: const Icon(Icons.arrow_back_ios_new_rounded),
+        ),
         title: const Text(
           'Scan Details',
           style: TextStyle(
-            color: AppTheme.textPrimary,
+            fontSize: 19,
             fontWeight: FontWeight.w800,
+            letterSpacing: -0.4,
           ),
-        ),
-        leading: IconButton(
-          icon: const Icon(
-            Icons.arrow_back_rounded,
-            color: AppTheme.textPrimary,
-          ),
-          onPressed: () => Navigator.of(context).pop(),
         ),
       ),
       body: FutureBuilder<DiseaseScanRecord>(
