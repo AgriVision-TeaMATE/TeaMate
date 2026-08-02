@@ -238,10 +238,7 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen>
     }
   }
 
-  String _buildUploadFilename(
-    String sourcePrefix,
-    String originalPath,
-  ) {
+  String _buildUploadFilename(String sourcePrefix, String originalPath) {
     final extension = _safeImageExtension(originalPath);
     return '${sourcePrefix}_${DateTime.now().microsecondsSinceEpoch}$extension';
   }
@@ -966,7 +963,7 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen>
       SnackBar(
         content: Text(
           smsSent
-              ? 'Allocation saved and mock SMS sent to ${selectedWorkerIds.length} labourers.'
+              ? 'Allocation saved and SMS sent to ${selectedWorkerIds.length} labourers.'
               : 'Allocation saved. SMS not sent.',
         ),
       ),
@@ -1086,7 +1083,7 @@ class _FieldAnalysisScreenState extends State<FieldAnalysisScreen>
                         child: Text(
                           selectedIds.isEmpty
                               ? 'Save Allocation'
-                              : 'Save & Send Mock SMS (${selectedIds.length})',
+                              : 'Save & Send SMS (${selectedIds.length})',
                         ),
                       ),
                     ),
