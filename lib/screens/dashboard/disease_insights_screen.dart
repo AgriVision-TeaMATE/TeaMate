@@ -634,34 +634,45 @@ class _KpiCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        gradient: const LinearGradient(
+          colors: [AppTheme.primaryGreen, Color(0xFF1E4A3D)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE4E9DE)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(icon, size: 17, color: AppTheme.textSecondary),
-              const SizedBox(width: 7),
-              Expanded(
-                child: Text(
-                  label,
-                  style: const TextStyle(
-                    color: AppTheme.textSecondary,
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w700,
-                  ),
+              Container(
+                width: 24,
+                height: 3,
+                decoration: BoxDecoration(
+                  color: AppTheme.brandGreen,
+                  borderRadius: BorderRadius.circular(99),
                 ),
               ),
+              const Spacer(),
+              Icon(icon, size: 15, color: Colors.white70),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
+          Text(
+            label,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.72),
+              fontSize: 11.5,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 4),
           Text(
             value,
             style: const TextStyle(
-              fontSize: 23,
+              color: Colors.white,
+              fontSize: 20,
               fontWeight: FontWeight.w900,
               letterSpacing: -0.5,
             ),
@@ -669,8 +680,8 @@ class _KpiCard extends StatelessWidget {
           const SizedBox(height: 2),
           Text(
             caption,
-            style: const TextStyle(
-              color: AppTheme.textSecondary,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.6),
               fontSize: 10.5,
             ),
           ),
@@ -699,8 +710,8 @@ class _InsightCard extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE4E9DE)),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE4E7EB)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.035),
@@ -1263,8 +1274,8 @@ class _FieldMetricTrendCardState extends State<_FieldMetricTrendCard> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE4E9DE)),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE4E7EB)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: .035),
@@ -1422,7 +1433,7 @@ class _MetricSnapshot extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
-          color: const Color(0xFFF8F9F8),
+          color: const Color(0xFFF7F8F9),
           borderRadius: BorderRadius.circular(11),
         ),
         child: Row(
@@ -1496,7 +1507,7 @@ class _DualMetricPainter extends CustomPainter {
     final height = size.height - top - bottom;
     const textStyle = TextStyle(
       color: Color(0xFF8A948D),
-      fontSize: 9,
+      fontSize: 10,
       fontWeight: FontWeight.w600,
     );
     final gridPaint = Paint()
@@ -1589,7 +1600,7 @@ class _DualMetricPainter extends CustomPainter {
     );
     final selectedX = primary[selected].dx;
     final markerPaint = Paint()
-      ..color = const Color(0xFFBFC7C1)
+      ..color = const Color(0xFFC2C9C4)
       ..strokeWidth = 1;
     for (double y = top; y < top + height; y += 7) {
       canvas.drawLine(
@@ -1602,8 +1613,8 @@ class _DualMetricPainter extends CustomPainter {
       (primary[selected], primaryColor),
       (secondary[selected], secondaryColor),
     ]) {
-      canvas.drawCircle(item.$1, 5.5, Paint()..color = item.$2);
-      canvas.drawCircle(item.$1, 2.5, Paint()..color = Colors.white);
+      canvas.drawCircle(item.$1, 6.0, Paint()..color = item.$2);
+      canvas.drawCircle(item.$1, 3.0, Paint()..color = Colors.white);
     }
 
     final tooltipX = selectedX.clamp(70.0, size.width - 70.0);
@@ -1614,7 +1625,7 @@ class _DualMetricPainter extends CustomPainter {
     canvas.drawRRect(tooltip, Paint()..color = Colors.white);
     canvas.drawRRect(
       tooltip,
-      Paint()..color = const Color(0xFFE4E9DE)..style = PaintingStyle.stroke,
+      Paint()..color = const Color(0xFFEAEDEA)..style = PaintingStyle.stroke,
     );
     final details = TextPainter(
       text: TextSpan(
@@ -1758,8 +1769,8 @@ class _DiseaseSpreadCardContentState extends State<_DiseaseSpreadCardContent> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE4E9DE)),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE4E7EB)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: .035),
@@ -1804,10 +1815,19 @@ class _DiseaseSpreadCardContentState extends State<_DiseaseSpreadCardContent> {
             spacing: 12,
             runSpacing: 8,
             children: [
-              _ChartLegend(color: Color(0xFF2F6B4F), label: 'Healthy'),
-              _ChartLegend(color: Color(0xFFB54848), label: 'Anthracnose'),
-              _ChartLegend(color: Color(0xFFE69A2E), label: 'Blister blight'),
-              _ChartLegend(color: Color(0xFF718096), label: 'Grey blight'),
+              _ChartLegend(color: DiseasePalette.healthy, label: 'Healthy'),
+              _ChartLegend(
+                color: DiseasePalette.anthracnose,
+                label: 'Anthracnose',
+              ),
+              _ChartLegend(
+                color: DiseasePalette.blisterBlight,
+                label: 'Blister blight',
+              ),
+              _ChartLegend(
+                color: DiseasePalette.otherDisease,
+                label: 'Grey blight',
+              ),
             ],
           ),
           const SizedBox(height: 14),
@@ -1889,7 +1909,7 @@ class _DiseaseSpreadPainter extends CustomPainter {
     final height = size.height - top - bottom;
     const axisStyle = TextStyle(
       color: Color(0xFF8A948D),
-      fontSize: 9,
+      fontSize: 10,
       fontWeight: FontWeight.w600,
     );
     final gridPaint = Paint()
@@ -1942,8 +1962,8 @@ class _DiseaseSpreadPainter extends CustomPainter {
       Paint()
         ..shader = LinearGradient(
           colors: [
-            const Color(0xFF2F6B4F).withValues(alpha: .14),
-            const Color(0xFF2F6B4F).withValues(alpha: 0),
+            DiseasePalette.healthy.withValues(alpha: .14),
+            DiseasePalette.healthy.withValues(alpha: 0),
           ],
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
@@ -1955,16 +1975,16 @@ class _DiseaseSpreadPainter extends CustomPainter {
         curve(values),
         Paint()
           ..color = color
-          ..strokeWidth = 2.4
+          ..strokeWidth = 2.5
           ..strokeCap = StrokeCap.round
           ..style = PaintingStyle.stroke,
       );
     }
 
-    drawLine(healthy, const Color(0xFF2F6B4F));
-    drawLine(anthracnose, const Color(0xFFB54848));
-    drawLine(blister, const Color(0xFFE69A2E));
-    drawLine(grey, const Color(0xFF718096));
+    drawLine(healthy, DiseasePalette.healthy);
+    drawLine(anthracnose, DiseasePalette.anthracnose);
+    drawLine(blister, DiseasePalette.blisterBlight);
+    drawLine(grey, DiseasePalette.otherDisease);
 
     for (var i = 0; i < points.length; i++) {
       final label = TextPainter(
@@ -1983,7 +2003,7 @@ class _DiseaseSpreadPainter extends CustomPainter {
     );
     final x = healthy[selected].dx;
     final marker = Paint()
-      ..color = const Color(0xFFBFC7C1)
+      ..color = const Color(0xFFC2C9C4)
       ..strokeWidth = 1;
     for (double y = top; y < top + height; y += 7) {
       canvas.drawLine(
@@ -1993,13 +2013,13 @@ class _DiseaseSpreadPainter extends CustomPainter {
       );
     }
     for (final item in [
-      (healthy[selected], const Color(0xFF2F6B4F)),
-      (anthracnose[selected], const Color(0xFFB54848)),
-      (blister[selected], const Color(0xFFE69A2E)),
-      (grey[selected], const Color(0xFF718096)),
+      (healthy[selected], DiseasePalette.healthy),
+      (anthracnose[selected], DiseasePalette.anthracnose),
+      (blister[selected], DiseasePalette.blisterBlight),
+      (grey[selected], DiseasePalette.otherDisease),
     ]) {
-      canvas.drawCircle(item.$1, 5, Paint()..color = item.$2);
-      canvas.drawCircle(item.$1, 2.3, Paint()..color = Colors.white);
+      canvas.drawCircle(item.$1, 6.0, Paint()..color = item.$2);
+      canvas.drawCircle(item.$1, 3.0, Paint()..color = Colors.white);
     }
 
     final point = points[selected];
@@ -2011,7 +2031,7 @@ class _DiseaseSpreadPainter extends CustomPainter {
     canvas.drawRRect(tooltip, Paint()..color = Colors.white);
     canvas.drawRRect(
       tooltip,
-      Paint()..color = const Color(0xFFE4E9DE)..style = PaintingStyle.stroke,
+      Paint()..color = const Color(0xFFEAEDEA)..style = PaintingStyle.stroke,
     );
     final summary = TextPainter(
       text: TextSpan(
@@ -2022,7 +2042,7 @@ class _DiseaseSpreadPainter extends CustomPainter {
           color: AppTheme.textPrimary,
           fontSize: 8.5,
           fontWeight: FontWeight.w700,
-          height: 1.45,
+          height: 1.4,
         ),
       ),
       textDirection: TextDirection.ltr,
@@ -2066,8 +2086,8 @@ class _ChartLegend extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 9,
-            height: 9,
+            width: 10,
+            height: 10,
             decoration: BoxDecoration(color: color, shape: BoxShape.circle),
           ),
           const SizedBox(width: 6),
@@ -2485,11 +2505,12 @@ class _FieldDropdown extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      height: 44,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE4E9DE)),
+        color: const Color(0xFFF7F8F9),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFD9DEE3)),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
@@ -2762,7 +2783,7 @@ class _FieldDiseaseTrendPainter extends CustomPainter {
 
     const axisStyle = TextStyle(
       color: Color(0xFF8A948D),
-      fontSize: 9,
+      fontSize: 10,
       fontWeight: FontWeight.w600,
     );
     final gridPaint = Paint()
@@ -2817,7 +2838,7 @@ class _FieldDiseaseTrendPainter extends CustomPainter {
         curve(pts),
         Paint()
           ..color = s.color
-          ..strokeWidth = 2.4
+          ..strokeWidth = 2.5
           ..strokeCap = StrokeCap.round
           ..style = PaintingStyle.stroke,
       );
