@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io' show Platform;
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
@@ -7,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../config/network_config.dart';
 import '../models/tea_grade_model.dart';
 import 'auth_service.dart';
 
@@ -18,11 +18,7 @@ class TeaGradeService {
   factory TeaGradeService() => _instance;
   TeaGradeService._internal();
 
-  static String get origin {
-    if (kIsWeb) return 'http://localhost:8001';
-    if (Platform.isAndroid) return 'http://10.0.2.2:8001';
-    return 'http://localhost:8001';
-  }
+  static String get origin => 'http://${NetworkConfig.host}:8001';
 
   static String get baseUrl => '$origin/api/v1/tea-quality';
 
