@@ -27,16 +27,22 @@ class ScanDiseaseScreen extends StatefulWidget {
   State<ScanDiseaseScreen> createState() => _ScanDiseaseScreenState();
 }
 
-class _ScanDiseaseScreenState extends State<ScanDiseaseScreen> {
+class _ScanDiseaseScreenState extends State<ScanDiseaseScreen>
+    with SingleTickerProviderStateMixin {
   static const int _maxImages = 5;
   final ImagePicker _picker = ImagePicker();
   final List<XFile> _selectedImages = [];
   bool _isScanning = false;
   bool _isPickingOrCropping = false;
+  late final AnimationController _scanController;
 
   @override
   void initState() {
     super.initState();
+    _scanController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1800),
+    );
     _checkLostData();
   }
 
@@ -69,6 +75,7 @@ class _ScanDiseaseScreenState extends State<ScanDiseaseScreen> {
 
   @override
   void dispose() {
+    _scanController.dispose();
     super.dispose();
   }
 
@@ -228,6 +235,7 @@ class _ScanDiseaseScreenState extends State<ScanDiseaseScreen> {
     setState(() {
       _isScanning = true;
     });
+    _scanController.repeat();
 
     try {
       // Build ScanImage list from all selected files
@@ -260,6 +268,7 @@ class _ScanDiseaseScreenState extends State<ScanDiseaseScreen> {
       setState(() {
         _isScanning = false;
       });
+      _scanController.stop();
 
       Navigator.push(
         context,
@@ -276,17 +285,17 @@ class _ScanDiseaseScreenState extends State<ScanDiseaseScreen> {
       setState(() {
         _isScanning = false;
       });
+      _scanController.stop();
 
       final errorMessage = e.toString();
-      final isNotLeafError =
-          errorMessage.toLowerCase().contains('not a leaf');
+      final isNotLeafError = errorMessage.toLowerCase().contains('not a leaf');
 
       if (isNotLeafError) {
         _showNotLeafErrorDialog(errorMessage);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Scan failed: $errorMessage')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Scan failed: $errorMessage')));
       }
     }
   }
@@ -300,140 +309,147 @@ class _ScanDiseaseScreenState extends State<ScanDiseaseScreen> {
       builder: (context) => Dialog(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 24),
-        child: Container(
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.12),
-                blurRadius: 24,
-                offset: const Offset(0, 12),
-              ),
-            ],
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.9,
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Icon
-              Container(
-                width: 64,
-                height: 64,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFF0F0),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.image_not_supported_outlined,
-                  color: Color(0xFFB54848),
-                  size: 32,
-                ),
-              ),
-              const SizedBox(height: 18),
-              // Title
-              const Text(
-                'Not a leaf image',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w900,
-                  color: Color(0xFF1B242C),
-                  letterSpacing: -0.4,
-                ),
-              ),
-              const SizedBox(height: 8),
-              // Message
-              Text(
-                message,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 14,
-                  color: AppTheme.textSecondary,
-                  height: 1.5,
-                ),
-              ),
-              const SizedBox(height: 16),
-              // Guidance
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF7F8F7),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Color(0xFFE4E9DE)),
-                ),
-                child: const Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(
-                      Icons.tips_and_updates_outlined,
-                      color: AppTheme.brandGreen,
-                      size: 18,
-                    ),
-                    SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Please upload a clear photo of a tea leaf taken '
-                        'from above. Avoid images of equipment, packaging, '
-                        'or other non-leaf objects.',
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          color: AppTheme.textSecondary,
-                          height: 1.5,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 22),
-              // Action buttons
-              Row(
-                children: [
-                  Expanded(
-                    child: TextButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                      child: const Text(
-                        'Cancel',
-                        style: TextStyle(
-                          color: AppTheme.textSecondary,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () => Navigator.of(context).pop(),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.primaryButton,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                      ),
-                      icon: const Icon(
-                        Icons.photo_camera_outlined,
-                        size: 18,
-                      ),
-                      label: const Text(
-                        'Scan again',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ),
+          child: SingleChildScrollView(
+            child: Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.12),
+                    blurRadius: 24,
+                    offset: const Offset(0, 12),
                   ),
                 ],
               ),
-            ],
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Icon
+                  Container(
+                    width: 64,
+                    height: 64,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF0F0),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.image_not_supported_outlined,
+                      color: Color(0xFFB54848),
+                      size: 32,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  // Title
+                  const Text(
+                    'Not a leaf image',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF1B242C),
+                      letterSpacing: -0.4,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  // Message
+                  Text(
+                    message,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: AppTheme.textSecondary,
+                      height: 1.5,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  // Guidance
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF7F8F7),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Color(0xFFE4E9DE)),
+                    ),
+                    child: const Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(
+                          Icons.tips_and_updates_outlined,
+                          color: AppTheme.brandGreen,
+                          size: 18,
+                        ),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Please upload a clear photo of a tea leaf taken '
+                            'from above. Avoid images of equipment, packaging, '
+                            'or other non-leaf objects.',
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              color: AppTheme.textSecondary,
+                              height: 1.5,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 22),
+                  // Action buttons
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                          ),
+                          child: const Text(
+                            'Cancel',
+                            style: TextStyle(
+                              color: AppTheme.textSecondary,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () => Navigator.of(context).pop(),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primaryButton,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                          ),
+                          icon: const Icon(
+                            Icons.photo_camera_outlined,
+                            size: 18,
+                          ),
+                          label: const Text(
+                            'Scan again',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
       ),
@@ -474,7 +490,8 @@ class _ScanDiseaseScreenState extends State<ScanDiseaseScreen> {
       }
       if (detail is Map) {
         final detailMap = detail as Map<String, dynamic>;
-        final message = detailMap['message']?.toString() ??
+        final message =
+            detailMap['message']?.toString() ??
             detailMap['error']?.toString() ??
             detailMap['detail']?.toString() ??
             'An error occurred during analysis';
@@ -808,6 +825,7 @@ class _ScanDiseaseScreenState extends State<ScanDiseaseScreen> {
                 images: _selectedImages,
                 onRemove: _removeImage,
                 isScanning: _isScanning,
+                scanController: _scanController,
               ),
               const SizedBox(height: 16),
             ],
@@ -869,6 +887,18 @@ class _ScanDiseaseScreenState extends State<ScanDiseaseScreen> {
                     fontSize: 12,
                     color: AppTheme.textSecondary,
                     fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+
+            if (_isScanning)
+              const Center(
+                child: Text(
+                  'Scanning leaf images...',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppTheme.textSecondary,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ),
@@ -1041,11 +1071,13 @@ class _MultiImageGrid extends StatelessWidget {
   final List<XFile> images;
   final void Function(int index) onRemove;
   final bool isScanning;
+  final AnimationController scanController;
 
   const _MultiImageGrid({
     required this.images,
     required this.onRemove,
     required this.isScanning,
+    required this.scanController,
   });
 
   @override
@@ -1090,6 +1122,8 @@ class _MultiImageGrid extends StatelessWidget {
                   imagePath: images[index].path,
                   onRemove: isScanning ? null : () => onRemove(index),
                   index: index + 1,
+                  isScanning: isScanning,
+                  scanController: scanController,
                 );
               },
             ),
@@ -1104,11 +1138,15 @@ class _ImageThumbnail extends StatelessWidget {
   final String imagePath;
   final VoidCallback? onRemove;
   final int index;
+  final bool isScanning;
+  final AnimationController scanController;
 
   const _ImageThumbnail({
     required this.imagePath,
     required this.onRemove,
     required this.index,
+    required this.isScanning,
+    required this.scanController,
   });
 
   @override
@@ -1119,72 +1157,152 @@ class _ImageThumbnail extends StatelessWidget {
         imagePath.startsWith('https://') ||
         imagePath.startsWith('blob:');
 
-    return Stack(
-      children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(10),
-          child: isRemoteOrWeb
-              ? Image.network(
-                  imagePath,
-                  width: 100,
-                  height: 100,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => _placeholder(),
-                )
-              : Image.file(
-                  File(imagePath),
-                  width: 100,
-                  height: 100,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => _placeholder(),
-                ),
-        ),
-        // Index badge
-        Positioned(
-          left: 6,
-          bottom: 6,
-          child: Container(
-            width: 20,
-            height: 20,
-            decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.6),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Center(
-              child: Text(
-                '$index',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
-          ),
-        ),
-        // Remove button
-        if (onRemove != null)
-          Positioned(
-            right: 4,
-            top: 4,
-            child: GestureDetector(
-              onTap: onRemove,
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(10),
+      child: SizedBox(
+        width: 100,
+        height: 100,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            isRemoteOrWeb
+                ? Image.network(
+                    imagePath,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => _placeholder(),
+                  )
+                : Image.file(
+                    File(imagePath),
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => _placeholder(),
+                  ),
+            if (isScanning) _buildScanOverlay(),
+            // Index badge
+            Positioned(
+              left: 6,
+              bottom: 6,
               child: Container(
-                width: 22,
-                height: 22,
+                width: 20,
+                height: 20,
                 decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.65),
-                  shape: BoxShape.circle,
+                  color: Colors.black.withValues(alpha: 0.6),
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(
-                  Icons.close_rounded,
-                  color: Colors.white,
-                  size: 14,
+                child: Center(
+                  child: Text(
+                    '$index',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
                 ),
               ),
             ),
-          ),
-      ],
+            // Remove button
+            if (onRemove != null)
+              Positioned(
+                right: 4,
+                top: 4,
+                child: GestureDetector(
+                  onTap: onRemove,
+                  child: Container(
+                    width: 22,
+                    height: 22,
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.65),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.close_rounded,
+                      color: Colors.white,
+                      size: 14,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Scanning beam overlay — mirrors the animation used in the field yield
+  /// prediction flow's bud-scan overlay, scaled down for a 100x100 thumbnail.
+  Widget _buildScanOverlay() {
+    return Positioned.fill(
+      child: IgnorePointer(
+        child: AnimatedBuilder(
+          animation: scanController,
+          builder: (context, child) {
+            final progress = scanController.value;
+            return Stack(
+              fit: StackFit.expand,
+              children: [
+                Container(color: Colors.black.withValues(alpha: 0.18)),
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  top: -26 + (152 * progress),
+                  child: Container(
+                    height: 26,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          AppTheme.brandGreen.withValues(alpha: 0.0),
+                          AppTheme.brandGreen.withValues(alpha: 0.18),
+                          Colors.white.withValues(alpha: 0.55),
+                          AppTheme.brandGreen.withValues(alpha: 0.18),
+                          AppTheme.brandGreen.withValues(alpha: 0.0),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned.fill(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.transparent,
+                          AppTheme.brandGreen.withValues(alpha: 0.06),
+                          Colors.transparent,
+                        ],
+                        stops: const [0.0, 0.5, 1.0],
+                        transform: _SlidingGradientTransform(progress),
+                      ),
+                    ),
+                  ),
+                ),
+                Center(
+                  child: Container(
+                    width: 26,
+                    height: 26,
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.48),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Padding(
+                      padding: EdgeInsets.all(6),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          AppTheme.brandGreen,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
     );
   }
 
@@ -1197,6 +1315,21 @@ class _ImageThumbnail extends StatelessWidget {
         Icons.broken_image_outlined,
         color: AppTheme.textSecondary,
       ),
+    );
+  }
+}
+
+class _SlidingGradientTransform extends GradientTransform {
+  final double progress;
+
+  const _SlidingGradientTransform(this.progress);
+
+  @override
+  Matrix4? transform(Rect bounds, {TextDirection? textDirection}) {
+    return Matrix4.translationValues(
+      0,
+      bounds.height * (progress * 1.2 - 0.6),
+      0,
     );
   }
 }
@@ -1215,7 +1348,7 @@ class _WeatherMetric extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 84,
+      constraints: const BoxConstraints(minHeight: 84),
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: const Color(0xFFF7F8F7),
@@ -1223,12 +1356,15 @@ class _WeatherMetric extends StatelessWidget {
         border: Border.all(color: const Color(0xFFE1E6E2)),
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(icon, color: AppTheme.textSecondary, size: 18),
           const SizedBox(height: 6),
           Text(
             label,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontSize: 10.5,
               color: AppTheme.textSecondary,
@@ -1236,7 +1372,7 @@ class _WeatherMetric extends StatelessWidget {
               height: 1.18,
             ),
           ),
-          const Spacer(),
+          const SizedBox(height: 6),
           Text(
             value,
             style: const TextStyle(
