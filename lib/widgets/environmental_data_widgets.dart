@@ -333,16 +333,18 @@ class AutoFetchProgressStep extends StatelessWidget {
               : null,
         ),
         const SizedBox(width: 8),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: isComplete
-                ? AppTheme.brandGreen
-                : isActive
-                ? AppTheme.textPrimary
-                : AppTheme.textSecondary,
+        Expanded(
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: isComplete
+                  ? AppTheme.brandGreen
+                  : isActive
+                  ? AppTheme.textPrimary
+                  : AppTheme.textSecondary,
+            ),
           ),
         ),
       ],
